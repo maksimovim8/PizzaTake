@@ -1,0 +1,11 @@
+<Shell
+    x:Class="PizzaTake.AppShell"
+    xmlns:local="clr-namespace:PizzaTake"
+    Title="PizzaTake">
+
+    <ShellContent
+        Title="Home"
+        ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage" />
+
+</Shell>
