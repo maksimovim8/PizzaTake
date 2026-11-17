@@ -1,17 +1,22 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using PizzaTake.Services;
 
-namespace PizzaTake
+namespace PizzaTake;
+
+public partial class App : Application
 {
-    public partial class App : Application
-    {
-        public App()
-        {
-            InitializeComponent();
-        }
+    private readonly SqliteDatabase database;
+    private readonly AppShell shell;
 
-        protected override Window CreateWindow(IActivationState? activationState)
-        {
-            return new Window(new AppShell());
-        }
+    public App(SqliteDatabase database, AppShell shell)
+    {
+        this.database = database;
+        this.shell = shell;
+        InitializeComponent();
+    }
+
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        _ = database.InitializeAsync();
+        return new Window(shell);
     }
 }
