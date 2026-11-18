@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             xmlns:models="clr-namespace:PizzaTake.Models"
+             x:Class="PizzaTake.Views.CartPage"
+             x:DataType="vm:CartViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Ваше замовлення"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Text="Перевірте склад замовлення"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+            </VerticalStackLayout>
+
+            <Button Grid.Column="1"
+                    Text="Очистити"
+                    Command="{Binding ClearCartCommand}"
+                    IsVisible="{Binding HasItems}"
+                    BackgroundColor="Transparent"
+                    TextColor="#EB5E28"
+                    FontAttributes="Bold"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Main content -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="18">
+                <!-- Empty State -->
+                <Border IsVisible="{Binding IsEmpty}"
+                        StrokeShape="RoundRectangle 20"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="24">
+                    <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                        <Label Text="Кошик порожній"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Text="Додайте піцу з меню або оберіть закуску нижче"
+                               FontSize="14"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Cart Items -->
+                <VerticalStackLayout Spacing="12"
+                                     IsVisible="{Binding HasItems}"
+                                     BindableLayout.ItemsSource="{Binding Items}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:CartItem">
+                            <Border StrokeShape="RoundRectangle 20"
+                                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                    Padding="16">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+                                    <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <Label Text="{Binding ProductName}"
+                                               FontSize="17"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                        <Label Text="{Binding OptionsSummary}"
+                                               FontSize="13"
+                                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                    </VerticalStackLayout>
+
+                                    <Button Grid.Row="0" Grid.Column="1"
+                                            Text="✕"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=RemoveItemCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="Transparent"
+                                            TextColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                            Padding="4"
+                                            HeightRequest="32"
+                                            WidthRequest="32" />
+
+                                    <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Spacing="10" VerticalOptions="Center">
+                                        <Border StrokeShape="RoundRectangle 14"
+                                                Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                                Padding="4,2">
+                                            <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                                                <Button Text="−"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=DecreaseQtyCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        BackgroundColor="Transparent"
+                                                        TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                                        FontAttributes="Bold"
+                                                        WidthRequest="34"
+                                                        HeightRequest="34"
+                                                        Padding="0" />
+                                                <Label Text="{Binding Quantity}"
+                                                       FontSize="15"
+                                                       FontAttributes="Bold"
+                                                       VerticalTextAlignment="Center"
+                                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                                <Button Text="+"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=UpdateQtyCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        BackgroundColor="Transparent"
+                                                        TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                                        FontAttributes="Bold"
+                                                        WidthRequest="34"
+                                                        HeightRequest="34"
+                                                        Padding="0" />
+                                            </HorizontalStackLayout>
+                                        </Border>
+                                    </HorizontalStackLayout>
+
+                                    <Label Grid.Row="1" Grid.Column="1"
+                                           Text="{Binding UnitPrice, StringFormat='{0:0.##} ₴'}"
+                                           FontSize="17"
+                                           FontAttributes="Bold"
+                                           VerticalTextAlignment="Center"
+                                           TextColor="#EB5E28" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <!-- Upsell Section -->
+                <VerticalStackLayout Spacing="10" Margin="0,6,0,8">
+                    <Label Text="До цього замовлення часто беруть"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+
+                    <CollectionView ItemsSource="{Binding UpsellItems}"
+                                    HeightRequest="155"
+                                    ItemsLayout="HorizontalList">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Product">
+                                <Border Margin="0,0,10,0"
+                                        WidthRequest="140"
+                                        StrokeShape="RoundRectangle 18"
+                                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                        Padding="12">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <Button Grid.Row="0"
+                                                Text="+"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=AddUpsellCommand}"
+                                                CommandParameter="{Binding .}"
+                                                HorizontalOptions="End"
+                                                BackgroundColor="#F7A600"
+                                                TextColor="#FFFFFF"
+                                                FontAttributes="Bold"
+                                                CornerRadius="14"
+                                                WidthRequest="28"
+                                                HeightRequest="28"
+                                                Padding="0" />
+
+                                        <Label Grid.Row="1"
+                                               Text="{Binding Name}"
+                                               FontSize="14"
+                                               FontAttributes="Bold"
+                                               MaxLines="2"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+
+                                        <Label Grid.Row="2"
+                                               Text="{Binding EffectivePrice, StringFormat='{0:0.##} ₴'}"
+                                               FontSize="15"
+                                               FontAttributes="Bold"
+                                               HorizontalTextAlignment="Center"
+                                               TextColor="#EB5E28" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Bottom Total & Checkout -->
+        <VerticalStackLayout Grid.Row="2" Spacing="12" Padding="0,12,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="Разом"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Grid.Column="1"
+                       Text="{Binding Total, StringFormat='{0:0.##} ₴'}"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="#EB5E28" />
+            </Grid>
+
+            <Button Text="Перейти до оплати"
+                    Command="{Binding ProceedCheckoutCommand}"
+                    BackgroundColor="#F7A600"
+                    TextColor="#FFFFFF"
+                    FontSize="17"
+                    FontAttributes="Bold"
+                    CornerRadius="26"
+                    HeightRequest="52" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

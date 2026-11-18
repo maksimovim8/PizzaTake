@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             xmlns:models="clr-namespace:PizzaTake.Models"
+             x:Class="PizzaTake.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <ScrollView Padding="20,16">
+        <VerticalStackLayout Spacing="18">
+            <!-- Header -->
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Налаштування"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Text="Керуйте своїм обліковим записом"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+            </VerticalStackLayout>
+
+            <!-- Personal Data -->
+            <Label Text="Особисті дані"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+
+            <Border StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="16">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                    <Label Grid.Row="0" Grid.Column="0"
+                           Text="НОМЕР ТЕЛЕФОНУ"
+                           FontSize="11"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    <Label Grid.Row="1" Grid.Column="0"
+                           Text="{Binding MaskedPhone}"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                    <Label Grid.Row="2" Grid.Column="0"
+                           Text="✓ Підтверджений номер"
+                           IsVisible="{Binding IsPhoneVerified}"
+                           FontSize="13"
+                           TextColor="#16A34A" />
+
+                    <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
+                            Text="Змінити"
+                            Command="{Binding ChangePhoneCommand}"
+                            BackgroundColor="#FDF1D6"
+                            TextColor="#B45309"
+                            FontAttributes="Bold"
+                            CornerRadius="16"
+                            HeightRequest="38"
+                            VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <Border StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="Місто доставки"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Text="{Binding CurrentCityName}"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    </VerticalStackLayout>
+
+                    <Button Grid.Column="1"
+                            Text="Змінити"
+                            Command="{Binding ChangeCityCommand}"
+                            BackgroundColor="#FDF1D6"
+                            TextColor="#B45309"
+                            FontAttributes="Bold"
+                            CornerRadius="16"
+                            HeightRequest="38"
+                            VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Theme Selector -->
+            <Border StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="Тема додатку"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Text="Оберіть зручний вигляд застосунку"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <Border Grid.Column="0"
+                                StrokeShape="RoundRectangle 14"
+                                Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#FDF1D6, Dark=#181411}"
+                                Padding="10,14">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ToggleThemeCommand}" CommandParameter="Light" />
+                            </Border.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                                <Label Text="☼" FontSize="20" HorizontalTextAlignment="Center" TextColor="#EB5E28" />
+                                <Label Text="Світла" FontSize="13" FontAttributes="Bold" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                <Label Text="✓" IsVisible="{Binding IsLightTheme}" FontSize="12" HorizontalTextAlignment="Center" TextColor="#EB5E28" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                StrokeShape="RoundRectangle 14"
+                                Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#3A2D1E}"
+                                Padding="10,14">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ToggleThemeCommand}" CommandParameter="Dark" />
+                            </Border.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                                <Label Text="☾" FontSize="20" HorizontalTextAlignment="Center" TextColor="#EB5E28" />
+                                <Label Text="Темна" FontSize="13" FontAttributes="Bold" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                <Label Text="✓" IsVisible="{Binding IsDarkTheme}" FontSize="12" HorizontalTextAlignment="Center" TextColor="#EB5E28" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="2"
+                                StrokeShape="RoundRectangle 14"
+                                Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                Padding="10,14">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ToggleThemeCommand}" CommandParameter="System" />
+                            </Border.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                                <Label Text="⚙" FontSize="20" HorizontalTextAlignment="Center" TextColor="#EB5E28" />
+                                <Label Text="Системна" FontSize="13" FontAttributes="Bold" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                <Label Text="✓" IsVisible="{Binding IsSystemTheme}" FontSize="12" HorizontalTextAlignment="Center" TextColor="#EB5E28" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Saved Addresses -->
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="Збережені адреси"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       VerticalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Button Grid.Column="1"
+                        Text="+ Додати"
+                        Command="{Binding AddAddressCommand}"
+                        BackgroundColor="#FDF1D6"
+                        TextColor="#B45309"
+                        FontAttributes="Bold"
+                        CornerRadius="16"
+                        HeightRequest="36" />
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Addresses}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="models:UserAddress">
+                        <Border StrokeShape="RoundRectangle 16"
+                                Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                Padding="14">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditAddressCommand}"
+                                                      CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding Label}"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="#EB5E28" />
+                                    <Label Text="{Binding Text}"
+                                           FontSize="15"
+                                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1"
+                                       Text="›"
+                                       FontSize="22"
+                                       VerticalTextAlignment="Center"
+                                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Button Text="Вийти з облікового запису"
+                    Command="{Binding LogoutCommand}"
+                    IsVisible="{Binding IsPhoneVerified}"
+                    BackgroundColor="Transparent"
+                    BorderColor="#DC2626"
+                    BorderWidth="1"
+                    TextColor="#DC2626"
+                    CornerRadius="22"
+                    HeightRequest="46"
+                    Margin="0,6,0,20" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

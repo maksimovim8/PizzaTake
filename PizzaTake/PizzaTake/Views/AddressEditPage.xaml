@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             x:Class="PizzaTake.Views.AddressEditPage"
+             x:DataType="vm:AddressEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <Grid RowDefinitions="*,Auto" Padding="20,20">
+        <VerticalStackLayout Grid.Row="0" Spacing="16">
+            <Label Text="{Binding Title}"
+                   FontSize="26"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Назва адреси (наприклад, Дім або Робота)"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                <Border StrokeShape="RoundRectangle 14"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="12,4">
+                    <Entry Text="{Binding Label, Mode=TwoWay}"
+                           Placeholder="Дім"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                </Border>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Повна адреса"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                <Border StrokeShape="RoundRectangle 14"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="12,4">
+                    <Entry Text="{Binding AddressText, Mode=TwoWay}"
+                           Placeholder="м. Київ, вул. Хрещатик, 1"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                </Border>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="10">
+            <Button Text="Зберегти"
+                    Command="{Binding SaveCommand}"
+                    BackgroundColor="#F7A600"
+                    TextColor="#FFFFFF"
+                    FontSize="17"
+                    FontAttributes="Bold"
+                    CornerRadius="26"
+                    HeightRequest="52" />
+
+            <Button Text="Видалити адресу"
+                    Command="{Binding DeleteCommand}"
+                    IsVisible="{Binding IsExistingAddress}"
+                    BackgroundColor="Transparent"
+                    BorderColor="#DC2626"
+                    BorderWidth="1"
+                    TextColor="#DC2626"
+                    CornerRadius="24"
+                    HeightRequest="46" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

@@ -14,10 +14,3 @@ public sealed class PizzeriaSelectionPage : RoutePlaceholderPage { public Pizzer
 public sealed class MenuPage : RoutePlaceholderPage { public MenuPage() : base("Меню") { } }
 public sealed class PizzaDetailPage : RoutePlaceholderPage { public PizzaDetailPage() : base("Деталі піци") { } }
 public sealed class FavoritesPage : RoutePlaceholderPage { public FavoritesPage() : base("Улюблене") { } }
-public sealed class CartPage : RoutePlaceholderPage { public CartPage() : base("Кошик") { } }
-public sealed class AuthPage : RoutePlaceholderPage { public AuthPage() : base("Авторизація") { } }
-public sealed class CheckoutPage : RoutePlaceholderPage { public CheckoutPage() : base("Оформлення замовлення") { } }
-public sealed class OrderHistoryPage : RoutePlaceholderPage { public OrderHistoryPage() : base("Історія замовлень") { } }
-public sealed class OrderDetailPage : RoutePlaceholderPage { public OrderDetailPage() : base("Деталі замовлення") { } }
-public sealed class SettingsPage : RoutePlaceholderPage { public SettingsPage() : base("Налаштування") { } }
-public sealed class AddressEditPage : RoutePlaceholderPage { public AddressEditPage() : base("Редагування адреси") { } }
