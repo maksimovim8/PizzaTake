@@ -269,6 +269,9 @@ public sealed class CheckoutViewModel : BaseViewModel
             }).ToList();
 
             await orderRepository.SaveOrderWithItemsAsync(order, orderItems);
+            if (DeliveryType == DeliveryType.Delivery)
+                await PersistRecentAddressAsync(profile?.Id ?? 0, DeliveryAddress.Trim());
+
             await cartRepository.ClearAsync();
             Preferences.Default.Remove(DraftPreferenceKey);
 
@@ -290,6 +293,31 @@ public sealed class CheckoutViewModel : BaseViewModel
             IsBusy = false;
             ((Command)ConfirmPaymentCommand).ChangeCanExecute();
         }
+    }
+
+    private async Task PersistRecentAddressAsync(int userId, string addressText)
+    {
+        if (string.IsNullOrWhiteSpace(addressText))
+            return;
+
+        var existing = SavedAddresses.FirstOrDefault(a =>
+            string.Equals(a.Text.Trim(), addressText, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            existing.LastUsedAt = DateTime.UtcNow;
+            await addressRepository.SaveAsync(existing);
+            return;
+        }
+
+        var address = new UserAddress
+        {
+            UserId = userId,
+            Label = "Доставка",
+            Text = addressText,
+            LastUsedAt = DateTime.UtcNow
+        };
+        await addressRepository.SaveAsync(address);
     }
 
     private sealed record CheckoutDraft(string DeliveryAddress, DeliveryType DeliveryType, PaymentMethod PaymentMethod);

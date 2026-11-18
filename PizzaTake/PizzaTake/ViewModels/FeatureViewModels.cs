@@ -5,3 +5,4 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel { }
 public sealed class MenuViewModel : BaseViewModel { }
 public sealed class PizzaDetailViewModel : BaseViewModel { }
 public sealed class FavoritesViewModel : BaseViewModel { }
+public sealed class AddressEditViewModel : BaseViewModel { }

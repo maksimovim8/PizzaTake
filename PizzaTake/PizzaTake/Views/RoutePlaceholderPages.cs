@@ -14,3 +14,4 @@ public sealed class PizzeriaSelectionPage : RoutePlaceholderPage { public Pizzer
 public sealed class MenuPage : RoutePlaceholderPage { public MenuPage() : base("Меню") { } }
 public sealed class PizzaDetailPage : RoutePlaceholderPage { public PizzaDetailPage() : base("Деталі піци") { } }
 public sealed class FavoritesPage : RoutePlaceholderPage { public FavoritesPage() : base("Улюблене") { } }
+public sealed class AddressEditPage : RoutePlaceholderPage { public AddressEditPage() : base("Редагування адреси") { } }
