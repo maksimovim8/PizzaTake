@@ -131,13 +131,24 @@ public sealed class CartViewModel : BaseViewModel
             return;
         }
 
-        item.Quantity = nextQty;
-        await cartRepository.SaveAsync(item);
+        var updatedItem = new CartItem
+        {
+            Id = item.Id,
+            ProductId = item.ProductId,
+            ProductName = item.ProductName,
+            Quantity = nextQty,
+            UnitPrice = item.UnitPrice,
+            OptionsSummary = item.OptionsSummary
+        };
+        await cartRepository.SaveAsync(updatedItem);
 
-        // Refresh the collection slot so bindings recalculate row subtotals.
+        // RemoveAt/Insert with a new instance forces BindableLayout to rebind Quantity on POCO CartItem.
         var index = Items.IndexOf(item);
         if (index >= 0)
-            Items[index] = item;
+        {
+            Items.RemoveAt(index);
+            Items.Insert(index, updatedItem);
+        }
 
         RecalculateTotals();
     }
