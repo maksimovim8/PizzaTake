@@ -6,6 +6,7 @@ namespace PizzaTake.Services;
 
 public interface IAppStateService
 {
+    event EventHandler? StateChanged;
     City? SelectedCity { get; set; }
     Pizzeria? SelectedPizzeria { get; set; }
     DeliveryType SelectedDeliveryType { get; set; }
@@ -27,6 +28,8 @@ public sealed class AppStateService : IAppStateService
     private const string ThemeModeKey = "app.theme-mode";
     private const string DraftFormKey = "app.draft-form";
 
+    public event EventHandler? StateChanged;
+
     public City? SelectedCity { get; set; }
     public Pizzeria? SelectedPizzeria { get; set; }
     public DeliveryType SelectedDeliveryType { get; set; } = DeliveryType.Delivery;
@@ -42,6 +45,7 @@ public sealed class AppStateService : IAppStateService
         Preferences.Default.Set(ThemeKey, IsDarkTheme);
         Preferences.Default.Set(ThemeModeKey, IsSystemTheme ? "System" : IsDarkTheme ? "Dark" : "Light");
         SaveJson(DraftFormKey, DraftFormState);
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void RestoreState()
@@ -54,6 +58,7 @@ public sealed class AppStateService : IAppStateService
             savedTheme = Preferences.Default.Get(ThemeKey, false) ? "Dark" : "Light";
         DraftFormState = ReadJson<Dictionary<string, string>>(DraftFormKey) ?? new(StringComparer.Ordinal);
         ApplyThemeMode(savedTheme);
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ApplyTheme(bool isDark)

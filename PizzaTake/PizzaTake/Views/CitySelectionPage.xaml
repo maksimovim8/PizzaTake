@@ -6,6 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Models"
     Title="Оберіть місто"
+    Shell.TabBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
     <Grid Padding="20" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="12" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
