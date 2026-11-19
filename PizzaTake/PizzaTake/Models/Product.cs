@@ -20,5 +20,6 @@ public class Product
     public decimal Carbs { get; set; }
 
     [Ignore] public decimal EffectivePrice => GetEffectivePrice();
+    [Ignore] public bool ShowCategoryHeader { get; set; }
     public decimal GetEffectivePrice() => PromoPrice ?? BasePrice;
 }

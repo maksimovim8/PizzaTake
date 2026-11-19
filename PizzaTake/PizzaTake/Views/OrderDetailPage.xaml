@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             xmlns:models="clr-namespace:PizzaTake.Models"
+             xmlns:converters="clr-namespace:PizzaTake.Converters"
+             x:Class="PizzaTake.Views.OrderDetailPage"
+             x:DataType="vm:OrderDetailViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <ContentPage.Resources>
+        <converters:OrderProgressConverter x:Key="OrderProgressConverter" />
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+        <!-- Header -->
+        <VerticalStackLayout Grid.Row="0" Spacing="4" Margin="0,0,0,14">
+            <Button Text="‹ Назад"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#242424, Dark=#F5F5F4}"
+                    HorizontalOptions="Start"
+                    Padding="0"
+                    Margin="0,0,0,6" />
+            <Label Text="Деталі замовлення"
+                   FontSize="26"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+            <Label Text="{Binding CurrentOrder.OrderNumber, StringFormat='Замовлення № {0}'}"
+                   FontSize="15"
+                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+            <Label Text="{Binding CurrentOrder.Status, Converter={StaticResource OrderProgressConverter}}"
+                   FontSize="14"
+                   FontAttributes="Bold"
+                   TextColor="{Binding CurrentOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Color}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="14">
+                <Border StrokeShape="RoundRectangle 20"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Склад замовлення"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+
+                        <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Items}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:OrderItem">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding ProductName}"
+                                                   FontSize="16"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                            <Label Text="{Binding Quantity, StringFormat='Кількість: {0}'}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                            <Label Text="{Binding UnitPrice, StringFormat='{0:0.##} ₴'}"
+                                                   FontSize="15"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#EB5E28" />
+                                        </VerticalStackLayout>
+
+                                        <Button Grid.Column="1"
+                                                Text="+"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:OrderDetailViewModel}}, Path=RepeatSingleItemCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="#FDF1D6"
+                                                TextColor="#B45309"
+                                                FontSize="18"
+                                                FontAttributes="Bold"
+                                                CornerRadius="20"
+                                                WidthRequest="40"
+                                                HeightRequest="40"
+                                                VerticalOptions="Center"
+                                                Padding="0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Натисніть «+», щоб додати окремий товар до кошика"
+                       FontSize="13"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+
+                <Border StrokeShape="RoundRectangle 16"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Разом"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding CurrentOrder.TotalAmount, StringFormat='{0:0.##} ₴'}"
+                               FontSize="19"
+                               FontAttributes="Bold"
+                               TextColor="#EB5E28" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Button Grid.Row="2"
+                Margin="0,12,0,0"
+                Text="Повторити замовлення"
+                Command="{Binding RepeatFullOrderCommand}"
+                BackgroundColor="#F7A600"
+                TextColor="#FFFFFF"
+                FontSize="17"
+                FontAttributes="Bold"
+                CornerRadius="26"
+                HeightRequest="52" />
+    </Grid>
+</ContentPage>

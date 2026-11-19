@@ -1,11 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
 <Shell
     x:Class="PizzaTake.AppShell"
-    xmlns:local="clr-namespace:PizzaTake"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Title="PizzaTake">
-
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
-
 </Shell>

@@ -4,6 +4,8 @@
 <dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Місце розташування потрібне, щоб запропонувати найближче місто з доставкою піци.</string>
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>

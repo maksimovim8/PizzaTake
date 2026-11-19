@@ -1,23 +1,58 @@
-namespace PizzaTake
+using Microsoft.Extensions.DependencyInjection;
+using PizzaTake.Services;
+using PizzaTake.Views;
+
+namespace PizzaTake;
+
+public partial class AppShell : Shell
 {
-    public partial class AppShell : Shell
+    public AppShell(IServiceProvider services, IAuthService authService)
     {
-        public AppShell()
+        InitializeComponent();
+
+        FlyoutBehavior = FlyoutBehavior.Disabled;
+        Shell.SetNavBarIsVisible(this, false);
+        Shell.SetTabBarIsVisible(this, true);
+
+        TabBar? welcomeTab = null;
+        if (!authService.IsAuthenticated)
         {
-            InitializeComponent();
-            Routing.RegisterRoute("welcome", typeof(PizzaTake.Views.WelcomePage));
-            Routing.RegisterRoute("cities", typeof(PizzaTake.Views.CitySelectionPage));
-            Routing.RegisterRoute("pizzerias", typeof(PizzaTake.Views.PizzeriaSelectionPage));
-            Routing.RegisterRoute("menu", typeof(PizzaTake.Views.MenuPage));
-            Routing.RegisterRoute("pizzadetail", typeof(PizzaTake.Views.PizzaDetailPage));
-            Routing.RegisterRoute("favorites", typeof(PizzaTake.Views.FavoritesPage));
-            Routing.RegisterRoute("cart", typeof(PizzaTake.Views.CartPage));
-            Routing.RegisterRoute("auth", typeof(PizzaTake.Views.AuthPage));
-            Routing.RegisterRoute("checkout", typeof(PizzaTake.Views.CheckoutPage));
-            Routing.RegisterRoute("history", typeof(PizzaTake.Views.OrderHistoryPage));
-            Routing.RegisterRoute("orderdetail", typeof(PizzaTake.Views.OrderDetailPage));
-            Routing.RegisterRoute("settings", typeof(PizzaTake.Views.SettingsPage));
-            Routing.RegisterRoute("addressedit", typeof(PizzaTake.Views.AddressEditPage));
+            welcomeTab = new TabBar();
+            welcomeTab.Items.Add(new ShellContent
+            {
+                Title = "Вітаємо",
+                Route = "welcome-start",
+                Content = services.GetRequiredService<WelcomePage>()
+            });
+            Items.Add(welcomeTab);
         }
+
+        var tabs = new TabBar();
+        tabs.Items.Add(CreateTab("Меню", "menu", "nav_menu.svg", services.GetRequiredService<MenuPage>()));
+        tabs.Items.Add(CreateTab("Обране", "favorites", "nav_favorites.svg", services.GetRequiredService<FavoritesPage>()));
+        tabs.Items.Add(CreateTab("Кошик", "cart", "nav_cart.svg", services.GetRequiredService<CartPage>()));
+        tabs.Items.Add(CreateTab("Історія", "history", "nav_history.svg", services.GetRequiredService<OrderHistoryPage>()));
+        tabs.Items.Add(CreateTab("Налаштування", "settings", "nav_settings.svg", services.GetRequiredService<SettingsPage>()));
+        Items.Add(tabs);
+
+        if (welcomeTab is not null)
+            CurrentItem = welcomeTab;
+
+        Routing.RegisterRoute("welcome", typeof(WelcomePage));
+        Routing.RegisterRoute("cities", typeof(CitySelectionPage));
+        Routing.RegisterRoute("pizzerias", typeof(PizzeriaSelectionPage));
+        Routing.RegisterRoute("pizzadetail", typeof(PizzaDetailPage));
+        Routing.RegisterRoute("auth", typeof(AuthPage));
+        Routing.RegisterRoute("checkout", typeof(CheckoutPage));
+        Routing.RegisterRoute("orderdetail", typeof(OrderDetailPage));
+        Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
     }
+
+    private static ShellContent CreateTab(string title, string route, string icon, Page page) => new()
+    {
+        Title = title,
+        Route = route,
+        Icon = icon,
+        Content = page
+    };
 }

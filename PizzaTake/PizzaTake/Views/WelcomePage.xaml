@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PizzaTake.Views.WelcomePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Вітаємо"
+    Shell.TabBarIsVisible="False"
+    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+    <VerticalStackLayout Padding="28" Spacing="20" VerticalOptions="Center" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+        <Label Text="PIZZA.TAKE!" FontSize="32" FontAttributes="Bold" TextColor="#F15A24" HorizontalOptions="Center" />
+        <Label Text="Раді тебе бачити!" FontSize="24" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+        <Label Text="Розпочнімо з вибору міста" HorizontalOptions="Center" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#44403C, Dark=#D6D3D1}" />
+        <Button Text="Почати" BackgroundColor="#FFB400" TextColor="White" CornerRadius="18"
+                Command="{Binding StartCommand}" />
+    </VerticalStackLayout>
+</ContentPage>
