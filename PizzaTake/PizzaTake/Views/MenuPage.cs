@@ -1,18 +1,16 @@
+using System.Diagnostics;
 using PizzaTake.ViewModels;
-using PizzaTake.Services;
 
 namespace PizzaTake.Views;
 
 public partial class MenuPage : ContentPage
 {
     private readonly MenuViewModel viewModel;
-    private readonly IAppStateService appState;
 
-    public MenuPage(MenuViewModel viewModel, IAppStateService appState)
+    public MenuPage(MenuViewModel viewModel)
     {
         InitializeComponent();
         this.viewModel = viewModel;
-        this.appState = appState;
         BindingContext = viewModel;
     }
 
@@ -48,18 +46,15 @@ public partial class MenuPage : ContentPage
         }
     }
 
-    private async void OnPizzeriaTapped(object? sender, TappedEventArgs e)
-    {
-        appState.SelectedDeliveryType = PizzaTake.Models.DeliveryType.Pickup;
-        appState.SaveState();
-        var route = appState.SelectedCity is null ? "cities?returnTo=menu" : "pizzerias?returnTo=menu";
-        await Shell.Current.GoToAsync(route);
-    }
-
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        SelectedPizzeriaLabel.Text = appState.SelectedPizzeria?.StoreNumber ?? "Оберіть піцерію";
         viewModel.LoadCommand.Execute(null);
+    }
+
+    protected override void OnDisappearing()
+    {
+        Debug.WriteLine("Leaving page: MenuPage");
+        base.OnDisappearing();
     }
 }

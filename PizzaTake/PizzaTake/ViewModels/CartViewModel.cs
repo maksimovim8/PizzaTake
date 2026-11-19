@@ -12,8 +12,8 @@ namespace PizzaTake.ViewModels;
 public sealed class CartViewModel : BaseViewModel
 {
     private readonly ICartRepository cartRepository;
+    private readonly IProductRepository productRepository;
     private readonly IAuthService authService;
-    private readonly SqliteDatabase database;
 
     private decimal subtotal;
     private decimal deliveryFee;
@@ -21,12 +21,12 @@ public sealed class CartViewModel : BaseViewModel
 
     public CartViewModel(
         ICartRepository cartRepository,
-        IAuthService authService,
-        SqliteDatabase database)
+        IProductRepository productRepository,
+        IAuthService authService)
     {
         this.cartRepository = cartRepository;
+        this.productRepository = productRepository;
         this.authService = authService;
-        this.database = database;
         Title = "Кошик";
 
         LoadCartCommand = new Command(async () => await LoadCartAsync());
@@ -78,8 +78,6 @@ public sealed class CartViewModel : BaseViewModel
         IsBusy = true;
         try
         {
-            await database.InitializeAsync();
-
             var cartItems = await cartRepository.GetAllAsync();
             Items.Clear();
             foreach (var item in cartItems)
@@ -99,14 +97,15 @@ public sealed class CartViewModel : BaseViewModel
         if (UpsellItems.Count > 0)
             return;
 
-        var dbProducts = await database.Connection.Table<Product>()
-            .Where(p => p.Category != "Піца")
+        var allProducts = await productRepository.GetAllAsync();
+        var upsellProducts = allProducts
+            .Where(p => p.Category is "Закуски" or "Соуси" or "Напої" or "Десерти")
             .Take(5)
-            .ToListAsync();
+            .ToList();
 
-        if (dbProducts.Count == 0)
+        if (upsellProducts.Count == 0)
         {
-            dbProducts =
+            upsellProducts =
             [
                 new Product { Id = -1, Name = "Картопля фрі", Category = "Закуски", WeightGrams = 150, SizeName = "Стандарт", BasePrice = 59m },
                 new Product { Id = -2, Name = "Курячі стріпси", Category = "Закуски", WeightGrams = 180, SizeName = "Стандарт", BasePrice = 89m },
@@ -115,7 +114,7 @@ public sealed class CartViewModel : BaseViewModel
         }
 
         UpsellItems.Clear();
-        foreach (var product in dbProducts)
+        foreach (var product in upsellProducts)
             UpsellItems.Add(product);
     }
 

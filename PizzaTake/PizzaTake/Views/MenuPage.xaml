@@ -19,10 +19,10 @@
                     <Border Grid.Column="1" BackgroundColor="#FFF1D3" StrokeThickness="0" StrokeShape="RoundRectangle 24" Padding="18,7" VerticalOptions="Center">
                         <HorizontalStackLayout Spacing="5">
                             <Label Text="✦" TextColor="#F4511E" FontSize="13" />
-                            <Label x:Name="SelectedPizzeriaLabel" Text="Оберіть піцерію" TextColor="#F4511E" FontSize="13" FontAttributes="Bold" />
+                            <Label Text="{Binding SelectedPizzeriaText}" TextColor="#F4511E" FontSize="13" FontAttributes="Bold" />
                         </HorizontalStackLayout>
                         <Border.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnPizzeriaTapped" />
+                            <TapGestureRecognizer Command="{Binding OpenPizzeriaSelectorCommand}" />
                         </Border.GestureRecognizers>
                     </Border>
                 </Grid>
