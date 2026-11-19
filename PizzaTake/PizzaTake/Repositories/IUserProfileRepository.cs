@@ -2,9 +2,11 @@ using PizzaTake.Models;
 
 namespace PizzaTake.Repositories;
 
-// Shared contract consumed by onboarding and implemented by the profile/security workstream.
+/// <summary>
+/// Data access contract for the current user profile with encrypted PII fields.
+/// </summary>
 public interface IUserProfileRepository
 {
     Task<UserProfile?> GetCurrentAsync();
-    Task SaveAsync(UserProfile profile);
+    Task<int> SaveAsync(UserProfile profile);
 }

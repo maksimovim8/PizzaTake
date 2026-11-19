@@ -1,24 +1,208 @@
+using System.Collections.ObjectModel;
 using System.Windows.Input;
-using Microsoft.Maui.Controls;
+using PizzaTake.Models;
+using PizzaTake.Repositories;
 using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
 
-public sealed class SettingsViewModel : BaseViewModel
+/// <summary>
+/// ViewModel for user account settings, theme selection, decrypted profile display, and address management.
+/// </summary>
+public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
 {
-    private readonly IAppStateService appState;
-    public bool IsDarkTheme => appState.IsDarkTheme;
-    public string Phone => Preferences.Default.Get("profile.phone", "+380 XX XXX XX XX");
-    public string City => appState.SelectedCity?.Name ?? "Київ";
-    public ICommand ToggleThemeCommand { get; }
+    private const string ThemePreferenceKey = "app_theme_mode";
 
-    public SettingsViewModel(IAppStateService appState)
+    private readonly IUserProfileRepository userProfileRepository;
+    private readonly IAddressRepository addressRepository;
+    private readonly IAuthService authService;
+
+    private bool isDarkTheme;
+    private bool isLightTheme = true;
+    private bool isSystemTheme;
+    private string currentCityName = "Не обрано";
+    private string maskedPhone = "Не вказано";
+    private bool isPhoneVerified;
+
+    public SettingsViewModel(
+        IUserProfileRepository userProfileRepository,
+        IAddressRepository addressRepository,
+        IAuthService authService)
     {
-        this.appState = appState;
-        ToggleThemeCommand = new Command<string>(mode =>
+        this.userProfileRepository = userProfileRepository;
+        this.addressRepository = addressRepository;
+        this.authService = authService;
+        Title = "Налаштування";
+
+        LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
+        ChangeCityCommand = new Command(async () => await Shell.Current.GoToAsync("cities"));
+        ToggleThemeCommand = new Command<string?>(ApplyThemeMode);
+        ChangePhoneCommand = new Command(async () => await Shell.Current.GoToAsync("auth"));
+        EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
+        AddAddressCommand = new Command(async () => await EditAddressAsync(null));
+        LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
+    }
+
+    public ObservableCollection<UserAddress> Addresses { get; } = new();
+
+    public bool IsDarkTheme
+    {
+        get => isDarkTheme;
+        private set => SetProperty(ref isDarkTheme, value);
+    }
+
+    public bool IsLightTheme
+    {
+        get => isLightTheme;
+        private set => SetProperty(ref isLightTheme, value);
+    }
+
+    public bool IsSystemTheme
+    {
+        get => isSystemTheme;
+        private set => SetProperty(ref isSystemTheme, value);
+    }
+
+    public string CurrentCityName
+    {
+        get => currentCityName;
+        private set => SetProperty(ref currentCityName, value);
+    }
+
+    public string MaskedPhone
+    {
+        get => maskedPhone;
+        private set => SetProperty(ref maskedPhone, value);
+    }
+
+    public bool IsPhoneVerified
+    {
+        get => isPhoneVerified;
+        private set
         {
-            appState.ApplyTheme(mode == "dark");
-            OnPropertyChanged(nameof(IsDarkTheme));
-        });
+            if (SetProperty(ref isPhoneVerified, value))
+                ((Command)LogoutCommand).ChangeCanExecute();
+        }
+    }
+
+    public ICommand LoadSettingsCommand { get; }
+    public ICommand ChangeCityCommand { get; }
+    public ICommand ToggleThemeCommand { get; }
+    public ICommand ChangePhoneCommand { get; }
+    public ICommand EditAddressCommand { get; }
+    public ICommand AddAddressCommand { get; }
+    public ICommand LogoutCommand { get; }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("UpdatedAddress", out var updatedObj) && updatedObj is UserAddress updated)
+        {
+            var existing = Addresses.FirstOrDefault(a => a.Id == updated.Id);
+            if (existing is not null)
+            {
+                var index = Addresses.IndexOf(existing);
+                Addresses[index] = updated;
+            }
+            else
+            {
+                Addresses.Insert(0, updated);
+            }
+        }
+        else if (query.TryGetValue("DeletedAddressId", out var deletedIdObj) &&
+                 int.TryParse(deletedIdObj?.ToString(), out var deletedId))
+        {
+            var existing = Addresses.FirstOrDefault(a => a.Id == deletedId);
+            if (existing is not null)
+                Addresses.Remove(existing);
+        }
+    }
+
+    public async Task LoadSettingsAsync()
+    {
+        if (IsBusy)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            SyncThemeFlags(Preferences.Default.Get(ThemePreferenceKey, "Light"));
+
+            var profile = await userProfileRepository.GetCurrentAsync();
+            if (profile is not null)
+            {
+                CurrentCityName = string.IsNullOrWhiteSpace(profile.CityName) ? "Не обрано" : profile.CityName;
+                MaskedPhone = MaskPhone(profile.Phone);
+                IsPhoneVerified = profile.IsPhoneVerified && authService.IsAuthenticated;
+            }
+            else
+            {
+                CurrentCityName = "Не обрано";
+                MaskedPhone = "Не вказано";
+                IsPhoneVerified = false;
+            }
+
+            var savedAddresses = await addressRepository.GetAllAsync();
+            Addresses.Clear();
+            foreach (var address in savedAddresses)
+                Addresses.Add(address);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ApplyThemeMode(string? mode)
+    {
+        var targetMode = string.IsNullOrWhiteSpace(mode)
+            ? (IsDarkTheme ? "Light" : "Dark")
+            : mode;
+
+        if (Application.Current is not null)
+        {
+            Application.Current.UserAppTheme = targetMode switch
+            {
+                "Dark" => AppTheme.Dark,
+                "Light" => AppTheme.Light,
+                _ => AppTheme.Unspecified
+            };
+        }
+
+        Preferences.Default.Set(ThemePreferenceKey, targetMode);
+        SyncThemeFlags(targetMode);
+    }
+
+    private void SyncThemeFlags(string mode)
+    {
+        IsLightTheme = string.Equals(mode, "Light", StringComparison.OrdinalIgnoreCase);
+        IsDarkTheme = string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase);
+        IsSystemTheme = !IsLightTheme && !IsDarkTheme;
+    }
+
+    private static async Task EditAddressAsync(UserAddress? address)
+    {
+        var parameters = new Dictionary<string, object>();
+        if (address is not null)
+            parameters["Address"] = address;
+
+        await Shell.Current.GoToAsync("addressedit", parameters);
+    }
+
+    private async Task LogoutAsync()
+    {
+        await authService.LogoutAsync();
+        await LoadSettingsAsync();
+    }
+
+    private static string MaskPhone(string phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return "Не вказано";
+
+        var trimmed = phone.Trim();
+        if (trimmed.Length <= 6)
+            return trimmed;
+
+        return $"{trimmed[..4]} *** **{trimmed[^2..]}";
     }
 }

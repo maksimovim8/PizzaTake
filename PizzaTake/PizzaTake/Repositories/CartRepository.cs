@@ -3,41 +3,38 @@ using PizzaTake.Services;
 
 namespace PizzaTake.Repositories;
 
-public interface ICartRepository
+/// <summary>
+/// SQLite repository for persisting and managing shopping cart items.
+/// </summary>
+public sealed class CartRepository : SqliteRepositoryBase, ICartRepository
 {
-    Task<List<CartItem>> GetAllAsync();
-    Task SaveAsync(CartItem item);
-    Task DeleteAsync(CartItem item);
-    Task ClearAsync();
-}
+    public CartRepository(SqliteDatabase database) : base(database)
+    {
+    }
 
-public sealed class CartRepository(SqliteDatabase database) : ICartRepository
-{
     public async Task<List<CartItem>> GetAllAsync()
     {
-        await database.InitializeAsync();
-        return await database.Connection.Table<CartItem>().OrderBy(item => item.Id).ToListAsync();
+        var connection = await GetConnectionAsync();
+        return await connection.Table<CartItem>().ToListAsync();
     }
 
-    public async Task SaveAsync(CartItem item)
+    public async Task<int> SaveAsync(CartItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        if (item.Quantity <= 0)
-            throw new ArgumentOutOfRangeException(nameof(item), "Cart item quantity must be positive.");
-        await database.InitializeAsync();
-        await database.Connection.InsertOrReplaceAsync(item);
+        var connection = await GetConnectionAsync();
+        return await InsertOrUpdateAsync(connection, item, item.Id);
     }
 
-    public async Task DeleteAsync(CartItem item)
+    public async Task<int> DeleteAsync(CartItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        await database.InitializeAsync();
-        await database.Connection.DeleteAsync(item);
+        var connection = await GetConnectionAsync();
+        return await connection.DeleteAsync(item);
     }
 
     public async Task ClearAsync()
     {
-        await database.InitializeAsync();
-        await database.Connection.DeleteAllAsync<CartItem>();
+        var connection = await GetConnectionAsync();
+        await connection.DeleteAllAsync<CartItem>();
     }
 }

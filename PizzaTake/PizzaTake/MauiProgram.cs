@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
-using PizzaTake.Services;
 using PizzaTake.Repositories;
+using PizzaTake.Services;
 using PizzaTake.ViewModels;
 using PizzaTake.Views;
 
@@ -27,6 +27,14 @@ namespace PizzaTake
             builder.Services.AddSingleton<IProductRepository, ProductRepository>();
             builder.Services.AddSingleton<IFavoriteRepository, FavoriteRepository>();
             builder.Services.AddSingleton<ICartRepository, CartRepository>();
+            builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
+            builder.Services.AddSingleton<IUserProfileRepository, UserProfileRepository>();
+            builder.Services.AddSingleton<IAddressRepository, AddressRepository>();
+            builder.Services.AddSingleton<ISyncQueueRepository, SyncQueueRepository>();
+            builder.Services.AddSingleton<IEncryptionService, AesEncryptionService>();
+            builder.Services.AddSingleton<HttpApiClient>();
+            builder.Services.AddSingleton<ISyncService, SyncService>();
+            builder.Services.AddSingleton<IAuthService, AuthService>();
             builder.Services.AddSingleton<AppShell>();
             builder.Services.AddTransient<WelcomePage>();
             builder.Services.AddTransient<CitySelectionPage>();

@@ -77,10 +77,3 @@ public sealed class AppStateService : IAppStateService
         }
     }
 }
-
-// Connectivity synchronization is implemented in the second workstream.
-public interface ISyncService
-{
-    void StartConnectivityListener();
-    void StopConnectivityListener();
-}
