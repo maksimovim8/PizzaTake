@@ -11,9 +11,9 @@ namespace PizzaTake.ViewModels;
 
 public sealed class WelcomeViewModel(IAppStateService appState) : BaseViewModel
 {
-    public ICommand SelectDeliveryCommand { get; } = new Command<DeliveryType>(async deliveryType =>
+    public ICommand StartCommand { get; } = new Command(async () =>
     {
-        appState.SelectedDeliveryType = deliveryType;
+        appState.SelectedDeliveryType = DeliveryType.Delivery;
         appState.SaveState();
         await Shell.Current.GoToAsync("cities");
     });

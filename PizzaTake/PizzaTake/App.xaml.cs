@@ -9,13 +9,15 @@ public partial class App : Application
     private readonly SqliteDatabase database;
     private readonly AppShell shell;
     private readonly IAppStateService appState;
+    private readonly IAuthService authService;
     private readonly IServiceProvider services;
 
-    public App(SqliteDatabase database, AppShell shell, IAppStateService appState, IServiceProvider services)
+    public App(SqliteDatabase database, AppShell shell, IAppStateService appState, IAuthService authService, IServiceProvider services)
     {
         this.database = database;
         this.shell = shell;
         this.appState = appState;
+        this.authService = authService;
         this.services = services;
         InitializeComponent();
         this.appState.RestoreState();
@@ -25,6 +27,20 @@ public partial class App : Application
     {
         _ = database.InitializeAsync();
         var window = new Window(shell);
+        window.Created += async (_, _) =>
+        {
+            if (authService.IsAuthenticated)
+                return;
+
+            try
+            {
+                await shell.GoToAsync("welcome");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Could not open WelcomePage: {ex.Message}");
+            }
+        };
         window.Stopped += (_, _) =>
         {
             appState.SaveState();
