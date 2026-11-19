@@ -42,7 +42,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        returnTo = query.TryGetValue("returnTo", out var value) && value?.ToString() is "settings" or "menu"
+        returnTo = query.TryGetValue("returnTo", out var value) && value?.ToString() is "settings" or "menu" or "cart" or "checkout"
             ? value.ToString()
             : null;
     }
@@ -65,9 +65,17 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
         if (SelectedPizzeria is null) return;
         appState.SelectedPizzeria = SelectedPizzeria;
         appState.SaveState();
+        if (returnTo == "checkout")
+        {
+            var previousPage = Shell.Current.Navigation.NavigationStack.Reverse().Skip(1).FirstOrDefault();
+            await Shell.Current.GoToAsync(previousPage is Views.CitySelectionPage ? "../.." : "..");
+            return;
+        }
+
         await Shell.Current.GoToAsync(returnTo switch
         {
             "settings" => "///settings",
+            "cart" => "///cart",
             _ => "///menu"
         });
     }

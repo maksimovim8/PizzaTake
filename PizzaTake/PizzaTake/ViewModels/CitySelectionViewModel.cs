@@ -96,7 +96,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
             profile.UpdatedAt = DateTime.UtcNow;
             await userProfile.SaveAsync(profile);
         }
-        if (appState.SelectedDeliveryType == DeliveryType.Pickup)
+        if (appState.SelectedPizzeria is null || appState.SelectedDeliveryType == DeliveryType.Pickup)
         {
             var pizzeriaReturnTo = returnTo ?? "menu";
             await Shell.Current.GoToAsync($"pizzerias?returnTo={pizzeriaReturnTo}");

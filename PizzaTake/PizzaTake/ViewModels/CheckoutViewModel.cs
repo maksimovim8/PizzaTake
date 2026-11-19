@@ -19,6 +19,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private readonly IAddressRepository addressRepository;
     private readonly IUserProfileRepository userProfileRepository;
     private readonly ISyncService syncService;
+    private readonly IAppStateService appState;
 
     private string deliveryAddress = string.Empty;
     private DeliveryType deliveryType = DeliveryType.Delivery;
@@ -27,25 +28,30 @@ public sealed class CheckoutViewModel : BaseViewModel
     private int itemsCount;
     private bool isOffline;
     private string errorMessage = string.Empty;
+    private string selectedPizzeriaText = "Піцерію не обрано";
+    private bool hasSelectedPizzeria;
 
     public CheckoutViewModel(
         ICartRepository cartRepository,
         IOrderRepository orderRepository,
         IAddressRepository addressRepository,
         IUserProfileRepository userProfileRepository,
-        ISyncService syncService)
+        ISyncService syncService,
+        IAppStateService appState)
     {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
         this.addressRepository = addressRepository;
         this.userProfileRepository = userProfileRepository;
         this.syncService = syncService;
+        this.appState = appState;
         Title = "Оплата замовлення";
 
         LoadCheckoutCommand = new Command(async () => await LoadCheckoutAsync());
         SelectAddressCommand = new Command<UserAddress?>(SelectAddress);
         SelectDeliveryTypeCommand = new Command<string?>(SelectDeliveryType);
         SelectPaymentMethodCommand = new Command<string?>(SelectPaymentMethod);
+        SelectPizzeriaCommand = new Command(async () => await SelectPizzeriaAsync());
         ConfirmPaymentCommand = new Command(async () => await ConfirmPaymentAsync(), CanConfirmPayment);
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
@@ -134,10 +140,32 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
+    public string SelectedPizzeriaText
+    {
+        get => selectedPizzeriaText;
+        private set => SetProperty(ref selectedPizzeriaText, value);
+    }
+
+    public bool HasSelectedPizzeria
+    {
+        get => hasSelectedPizzeria;
+        private set
+        {
+            if (SetProperty(ref hasSelectedPizzeria, value))
+            {
+                OnPropertyChanged(nameof(NeedsPizzeriaSelection));
+                ((Command)ConfirmPaymentCommand).ChangeCanExecute();
+            }
+        }
+    }
+
+    public bool NeedsPizzeriaSelection => !HasSelectedPizzeria;
+
     public ICommand LoadCheckoutCommand { get; }
     public ICommand SelectAddressCommand { get; }
     public ICommand SelectDeliveryTypeCommand { get; }
     public ICommand SelectPaymentMethodCommand { get; }
+    public ICommand SelectPizzeriaCommand { get; }
     public ICommand ConfirmPaymentCommand { get; }
     public ICommand GoBackCommand { get; }
 
@@ -150,6 +178,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         try
         {
             IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+            SyncSelectedPizzeria();
 
             var cartItems = await cartRepository.GetAllAsync();
             ItemsCount = cartItems.Sum(i => i.Quantity);
@@ -221,15 +250,39 @@ public sealed class CheckoutViewModel : BaseViewModel
             PaymentMethod = parsed;
     }
 
+    private void SyncSelectedPizzeria()
+    {
+        var pizzeria = appState.SelectedPizzeria;
+        HasSelectedPizzeria = pizzeria is not null;
+        SelectedPizzeriaText = pizzeria is null
+            ? "Піцерію не обрано — натисніть «Обрати»"
+            : $"{pizzeria.StoreNumber} · {pizzeria.Address}";
+    }
+
+    private async Task SelectPizzeriaAsync()
+    {
+        var route = appState.SelectedCity is null
+            ? "cities?returnTo=checkout"
+            : "pizzerias?returnTo=checkout";
+        await Shell.Current.GoToAsync(route);
+    }
+
     private bool CanConfirmPayment() =>
         !IsBusy &&
         ItemsCount > 0 &&
+        HasSelectedPizzeria &&
         (DeliveryType == DeliveryType.Pickup || !string.IsNullOrWhiteSpace(DeliveryAddress));
 
     private async Task ConfirmPaymentAsync()
     {
         if (!CanConfirmPayment())
             return;
+
+        if (appState.SelectedPizzeria is null)
+        {
+            ErrorMessage = "Оберіть піцерію перед оформленням замовлення.";
+            return;
+        }
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -247,7 +300,7 @@ public sealed class CheckoutViewModel : BaseViewModel
             {
                 OrderNumber = $"PD-{Random.Shared.Next(1000, 9999)}",
                 UserId = profile?.Id ?? 0,
-                PizzeriaId = Preferences.Default.Get("selected_pizzeria_id", 1),
+                PizzeriaId = appState.SelectedPizzeria.Id,
                 Status = OrderStatus.Preparing,
                 DeliveryType = DeliveryType,
                 PaymentMethod = PaymentMethod,

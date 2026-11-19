@@ -14,6 +14,7 @@ public sealed class CartViewModel : BaseViewModel
     private readonly ICartRepository cartRepository;
     private readonly IProductRepository productRepository;
     private readonly IAuthService authService;
+    private readonly IAppStateService appState;
 
     private decimal subtotal;
     private decimal deliveryFee;
@@ -22,11 +23,13 @@ public sealed class CartViewModel : BaseViewModel
     public CartViewModel(
         ICartRepository cartRepository,
         IProductRepository productRepository,
-        IAuthService authService)
+        IAuthService authService,
+        IAppStateService appState)
     {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
         this.authService = authService;
+        this.appState = appState;
         Title = "Кошик";
 
         LoadCartCommand = new Command(async () => await LoadCartAsync());
@@ -204,6 +207,16 @@ public sealed class CartViewModel : BaseViewModel
     {
         if (!CanProceedCheckout())
             return;
+
+        if (appState.SelectedPizzeria is null)
+        {
+            await Shell.Current.DisplayAlertAsync("Оберіть піцерію", "Перед оформленням замовлення оберіть піцерію.", "Обрати");
+            var selectionRoute = appState.SelectedCity is null
+                ? "cities?returnTo=cart"
+                : "pizzerias?returnTo=cart";
+            await Shell.Current.GoToAsync(selectionRoute);
+            return;
+        }
 
         var route = authService.IsAuthenticated
             ? "checkout"
