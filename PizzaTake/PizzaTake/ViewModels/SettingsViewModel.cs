@@ -11,11 +11,10 @@ namespace PizzaTake.ViewModels;
 /// </summary>
 public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
 {
-    private const string ThemePreferenceKey = "app_theme_mode";
-
     private readonly IUserProfileRepository userProfileRepository;
     private readonly IAddressRepository addressRepository;
     private readonly IAuthService authService;
+    private readonly IAppStateService appState;
 
     private bool isDarkTheme;
     private bool isLightTheme = true;
@@ -27,15 +26,17 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public SettingsViewModel(
         IUserProfileRepository userProfileRepository,
         IAddressRepository addressRepository,
-        IAuthService authService)
+        IAuthService authService,
+        IAppStateService appState)
     {
         this.userProfileRepository = userProfileRepository;
         this.addressRepository = addressRepository;
         this.authService = authService;
+        this.appState = appState;
         Title = "Налаштування";
 
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
-        ChangeCityCommand = new Command(async () => await Shell.Current.GoToAsync("cities"));
+        ChangeCityCommand = new Command(async () => await Shell.Current.GoToAsync("cities?returnTo=settings"));
         ToggleThemeCommand = new Command<string?>(ApplyThemeMode);
         ChangePhoneCommand = new Command(async () => await Shell.Current.GoToAsync("auth"));
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
@@ -125,7 +126,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         IsBusy = true;
         try
         {
-            SyncThemeFlags(Preferences.Default.Get(ThemePreferenceKey, "Light"));
+            SyncThemeFlags();
 
             var profile = await userProfileRepository.GetCurrentAsync();
             if (profile is not null)
@@ -154,29 +155,31 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
 
     private void ApplyThemeMode(string? mode)
     {
-        var targetMode = string.IsNullOrWhiteSpace(mode)
-            ? (IsDarkTheme ? "Light" : "Dark")
+        var selectedMode = string.IsNullOrWhiteSpace(mode)
+            ? IsDarkTheme ? "Light" : "Dark"
             : mode;
 
-        if (Application.Current is not null)
+        switch (selectedMode)
         {
-            Application.Current.UserAppTheme = targetMode switch
-            {
-                "Dark" => AppTheme.Dark,
-                "Light" => AppTheme.Light,
-                _ => AppTheme.Unspecified
-            };
+            case "Dark":
+                appState.ApplyTheme(true);
+                break;
+            case "Light":
+                appState.ApplyTheme(false);
+                break;
+            default:
+                appState.ApplySystemTheme();
+                break;
         }
 
-        Preferences.Default.Set(ThemePreferenceKey, targetMode);
-        SyncThemeFlags(targetMode);
+        SyncThemeFlags();
     }
 
-    private void SyncThemeFlags(string mode)
+    private void SyncThemeFlags()
     {
-        IsLightTheme = string.Equals(mode, "Light", StringComparison.OrdinalIgnoreCase);
-        IsDarkTheme = string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase);
-        IsSystemTheme = !IsLightTheme && !IsDarkTheme;
+        IsLightTheme = !appState.IsDarkTheme && !appState.IsSystemTheme;
+        IsDarkTheme = appState.IsDarkTheme;
+        IsSystemTheme = appState.IsSystemTheme;
     }
 
     private static async Task EditAddressAsync(UserAddress? address)

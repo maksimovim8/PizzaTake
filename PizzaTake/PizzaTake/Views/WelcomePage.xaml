@@ -4,11 +4,12 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Models"
-    Title="Вітаємо">
-    <VerticalStackLayout Padding="28" Spacing="20" VerticalOptions="Center">
+    Title="Вітаємо"
+    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+    <VerticalStackLayout Padding="28" Spacing="20" VerticalOptions="Center" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
         <Label Text="PIZZA.TAKE!" FontSize="32" FontAttributes="Bold" TextColor="#F15A24" HorizontalOptions="Center" />
-        <Label Text="Раді тебе бачити!" FontSize="24" FontAttributes="Bold" HorizontalOptions="Center" />
-        <Label Text="Оберіть, як бажаєте отримати замовлення" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+        <Label Text="Раді тебе бачити!" FontSize="24" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+        <Label Text="Оберіть, як бажаєте отримати замовлення" HorizontalOptions="Center" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#44403C, Dark=#D6D3D1}" />
         <Button Text="Доставка" BackgroundColor="#FFB400" TextColor="White" CornerRadius="18"
                 Command="{Binding SelectDeliveryCommand}" CommandParameter="{x:Static models:DeliveryType.Delivery}" />
         <Button Text="Самовивіз" BackgroundColor="#FFB400" TextColor="White" CornerRadius="18"

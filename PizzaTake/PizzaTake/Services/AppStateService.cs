@@ -10,10 +10,12 @@ public interface IAppStateService
     Pizzeria? SelectedPizzeria { get; set; }
     DeliveryType SelectedDeliveryType { get; set; }
     bool IsDarkTheme { get; }
+    bool IsSystemTheme { get; }
     Dictionary<string, string> DraftFormState { get; set; }
     void SaveState();
     void RestoreState();
     void ApplyTheme(bool isDark);
+    void ApplySystemTheme();
 }
 
 public sealed class AppStateService : IAppStateService
@@ -22,12 +24,14 @@ public sealed class AppStateService : IAppStateService
     private const string PizzeriaKey = "app.selected-pizzeria";
     private const string DeliveryTypeKey = "app.delivery-type";
     private const string ThemeKey = "app.dark-theme";
+    private const string ThemeModeKey = "app.theme-mode";
     private const string DraftFormKey = "app.draft-form";
 
     public City? SelectedCity { get; set; }
     public Pizzeria? SelectedPizzeria { get; set; }
     public DeliveryType SelectedDeliveryType { get; set; } = DeliveryType.Delivery;
     public bool IsDarkTheme { get; private set; }
+    public bool IsSystemTheme { get; private set; }
     public Dictionary<string, string> DraftFormState { get; set; } = new(StringComparer.Ordinal);
 
     public void SaveState()
@@ -36,6 +40,7 @@ public sealed class AppStateService : IAppStateService
         SaveJson(PizzeriaKey, SelectedPizzeria);
         Preferences.Default.Set(DeliveryTypeKey, (int)SelectedDeliveryType);
         Preferences.Default.Set(ThemeKey, IsDarkTheme);
+        Preferences.Default.Set(ThemeModeKey, IsSystemTheme ? "System" : IsDarkTheme ? "Dark" : "Light");
         SaveJson(DraftFormKey, DraftFormState);
     }
 
@@ -44,17 +49,39 @@ public sealed class AppStateService : IAppStateService
         SelectedCity = ReadJson<City>(CityKey);
         SelectedPizzeria = ReadJson<Pizzeria>(PizzeriaKey);
         SelectedDeliveryType = (DeliveryType)Preferences.Default.Get(DeliveryTypeKey, (int)DeliveryType.Delivery);
-        IsDarkTheme = Preferences.Default.Get(ThemeKey, false);
+        var savedTheme = Preferences.Default.Get(ThemeModeKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(savedTheme))
+            savedTheme = Preferences.Default.Get(ThemeKey, false) ? "Dark" : "Light";
         DraftFormState = ReadJson<Dictionary<string, string>>(DraftFormKey) ?? new(StringComparer.Ordinal);
-        ApplyTheme(IsDarkTheme);
+        ApplyThemeMode(savedTheme);
     }
 
     public void ApplyTheme(bool isDark)
     {
         IsDarkTheme = isDark;
+        IsSystemTheme = false;
         if (Application.Current is not null)
             Application.Current.UserAppTheme = isDark ? AppTheme.Dark : AppTheme.Light;
         Preferences.Default.Set(ThemeKey, isDark);
+        Preferences.Default.Set(ThemeModeKey, isDark ? "Dark" : "Light");
+    }
+
+    public void ApplySystemTheme()
+    {
+        IsDarkTheme = false;
+        IsSystemTheme = true;
+        if (Application.Current is not null)
+            Application.Current.UserAppTheme = AppTheme.Unspecified;
+        Preferences.Default.Set(ThemeKey, false);
+        Preferences.Default.Set(ThemeModeKey, "System");
+    }
+
+    private void ApplyThemeMode(string mode)
+    {
+        if (string.Equals(mode, "System", StringComparison.OrdinalIgnoreCase))
+            ApplySystemTheme();
+        else
+            ApplyTheme(string.Equals(mode, "Dark", StringComparison.OrdinalIgnoreCase));
     }
 
     private static void SaveJson<T>(string key, T value) =>

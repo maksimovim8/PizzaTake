@@ -9,7 +9,7 @@ using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
 
-public sealed class CitySelectionViewModel : BaseViewModel
+public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly ICityRepository cities;
     private readonly IAppStateService appState;
@@ -17,6 +17,7 @@ public sealed class CitySelectionViewModel : BaseViewModel
     public ObservableCollection<City> Cities { get; } = [];
     private string searchText = string.Empty;
     private string statusMessage = string.Empty;
+    private string? returnTo;
 
     public string SearchText
     {
@@ -37,6 +38,7 @@ public sealed class CitySelectionViewModel : BaseViewModel
     public ICommand LoadCommand { get; }
     public ICommand SelectCityCommand { get; }
     public ICommand FindNearbyCommand { get; }
+    public ICommand GoBackCommand { get; }
 
     public CitySelectionViewModel(ICityRepository cities, IAppStateService appState, IUserProfileRepository? userProfile = null)
     {
@@ -46,6 +48,12 @@ public sealed class CitySelectionViewModel : BaseViewModel
         LoadCommand = new Command(async () => await LoadAsync());
         SelectCityCommand = new Command<City>(async city => await SelectCityAsync(city));
         FindNearbyCommand = new Command(async () => await FindNearbyAsync());
+        GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        returnTo = query.TryGetValue("returnTo", out var value) ? NormalizeReturnRoute(value?.ToString()) : null;
     }
 
     private async Task LoadAsync()
@@ -77,6 +85,8 @@ public sealed class CitySelectionViewModel : BaseViewModel
     private async Task SelectCityAsync(City? city)
     {
         if (city is null) return;
+        if (appState.SelectedCity?.Id != city.Id)
+            appState.SelectedPizzeria = null;
         appState.SelectedCity = city;
         appState.SaveState();
         if (userProfile is not null)
@@ -86,7 +96,19 @@ public sealed class CitySelectionViewModel : BaseViewModel
             profile.UpdatedAt = DateTime.UtcNow;
             await userProfile.SaveAsync(profile);
         }
-        await Shell.Current.GoToAsync(appState.SelectedDeliveryType == DeliveryType.Pickup ? "pizzerias" : "///menu");
+        if (appState.SelectedDeliveryType == DeliveryType.Pickup)
+        {
+            var pizzeriaReturnTo = returnTo ?? "menu";
+            await Shell.Current.GoToAsync($"pizzerias?returnTo={pizzeriaReturnTo}");
+        }
+        else if (returnTo is not null)
+        {
+            await Shell.Current.GoToAsync($"///{returnTo}");
+        }
+        else
+        {
+            await Shell.Current.GoToAsync("///menu");
+        }
     }
 
     private async Task FindNearbyAsync()
@@ -137,4 +159,11 @@ public sealed class CitySelectionViewModel : BaseViewModel
     }
 
     private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
+
+    private static string? NormalizeReturnRoute(string? route) => route switch
+    {
+        "menu" => "menu",
+        "settings" => "settings",
+        _ => null
+    };
 }

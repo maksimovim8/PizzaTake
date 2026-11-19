@@ -13,12 +13,24 @@ public sealed class MenuViewModel : BaseViewModel
 {
     private readonly IProductRepository products;
     private readonly ICartRepository cart;
+    private readonly IOrderRepository orders;
     private string searchText = string.Empty;
     private string? selectedCategory;
     private string statusMessage = string.Empty;
+    private Order? activeOrder;
 
     public ObservableCollection<Product> Products { get; } = [];
     public ObservableCollection<string> Categories { get; } = [];
+    public Order? ActiveOrder
+    {
+        get => activeOrder;
+        private set
+        {
+            if (SetProperty(ref activeOrder, value))
+                OnPropertyChanged(nameof(HasActiveOrder));
+        }
+    }
+    public bool HasActiveOrder => ActiveOrder is not null;
     public string StatusMessage { get => statusMessage; private set => SetProperty(ref statusMessage, value); }
     public string SearchText
     {
@@ -35,10 +47,11 @@ public sealed class MenuViewModel : BaseViewModel
     public ICommand QuickAddCommand { get; }
     public ICommand OpenProductCommand { get; }
 
-    public MenuViewModel(IProductRepository products, ICartRepository cart)
+    public MenuViewModel(IProductRepository products, ICartRepository cart, IOrderRepository orders)
     {
         this.products = products;
         this.cart = cart;
+        this.orders = orders;
         LoadCommand = new Command(async () => await LoadAsync());
         QuickAddCommand = new Command<Product>(async product => await QuickAddAsync(product));
         OpenProductCommand = new Command<Product>(async product =>
@@ -53,6 +66,7 @@ public sealed class MenuViewModel : BaseViewModel
         IsBusy = true;
         try
         {
+            ActiveOrder = await orders.GetActiveAsync();
             var all = await products.GetAllAsync();
             Categories.Clear();
             Categories.Add("Усі категорії");

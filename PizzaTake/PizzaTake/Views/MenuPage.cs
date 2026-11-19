@@ -38,8 +38,13 @@ public partial class MenuPage : ContentPage
         foreach (var chip in CategoryChips.Children.OfType<Button>())
         {
             var selected = Equals(chip.CommandParameter, category);
-            chip.BackgroundColor = selected ? Color.FromArgb("#FFF1D3") : Colors.White;
-            chip.TextColor = selected ? Color.FromArgb("#F4511E") : Color.FromArgb("#777777");
+            var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            chip.BackgroundColor = selected
+                ? Color.FromArgb(isDark ? "#3A2D1E" : "#FFF1D3")
+                : Color.FromArgb(isDark ? "#26201B" : "#FFFFFF");
+            chip.TextColor = selected
+                ? Color.FromArgb("#F4511E")
+                : Color.FromArgb(isDark ? "#D6D3D1" : "#777777");
         }
     }
 
@@ -47,7 +52,8 @@ public partial class MenuPage : ContentPage
     {
         appState.SelectedDeliveryType = PizzaTake.Models.DeliveryType.Pickup;
         appState.SaveState();
-        await Shell.Current.GoToAsync(appState.SelectedCity is null ? "cities" : "pizzerias");
+        var route = appState.SelectedCity is null ? "cities?returnTo=menu" : "pizzerias?returnTo=menu";
+        await Shell.Current.GoToAsync(route);
     }
 
     protected override void OnAppearing()

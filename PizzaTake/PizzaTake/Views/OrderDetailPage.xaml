@@ -16,6 +16,13 @@
     <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
         <!-- Header -->
         <VerticalStackLayout Grid.Row="0" Spacing="4" Margin="0,0,0,14">
+            <Button Text="‹ Назад"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#242424, Dark=#F5F5F4}"
+                    HorizontalOptions="Start"
+                    Padding="0"
+                    Margin="0,0,0,6" />
             <Label Text="Деталі замовлення"
                    FontSize="26"
                    FontAttributes="Bold"

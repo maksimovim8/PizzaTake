@@ -5,20 +5,21 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Models"
-    Title="Обране">
-    <Grid Padding="18,16" RowDefinitions="Auto,Auto,*" RowSpacing="6" BackgroundColor="#FFFDFC">
-        <Label Text="Улюблене" FontSize="25" FontAttributes="Bold" TextColor="#252525" />
-        <Label Grid.Row="1" Text="Збережені піци" FontSize="12" TextColor="#858585" />
+    Title="Обране"
+    BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark=#181411}">
+    <Grid Padding="18,16" RowDefinitions="Auto,Auto,*" RowSpacing="6" BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark=#181411}">
+        <Label Text="Улюблене" FontSize="25" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+        <Label Grid.Row="1" Text="Збережені піци" FontSize="12" TextColor="{AppThemeBinding Light=#858585, Dark=#A8A29E}" />
         <CollectionView Grid.Row="2" ItemsSource="{Binding Favorites}" SelectionMode="None" Margin="0,8,0,0">
             <CollectionView.EmptyView>
                 <VerticalStackLayout Padding="24" Spacing="8" VerticalOptions="Center">
                     <Label Text="♡" FontSize="52" HorizontalOptions="Center" TextColor="#F05A24" />
-                    <Label Text="Тут будуть ваші улюблені піци" HorizontalTextAlignment="Center" TextColor="#777777" />
+                    <Label Text="Тут будуть ваші улюблені піци" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:Product">
-                    <Border Margin="0,0,0,10" Padding="12" BackgroundColor="White" Stroke="#EEEAE4" StrokeThickness="1" StrokeShape="RoundRectangle 16">
+                    <Border Margin="0,0,0,10" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" Stroke="{AppThemeBinding Light=#EEEAE4, Dark=#3D342C}" StrokeThickness="1" StrokeShape="RoundRectangle 16">
                     <Grid ColumnDefinitions="70,*,42,46" ColumnSpacing="8" MinimumHeightRequest="96">
                         <Image Source="pizza.svg" WidthRequest="64" HeightRequest="64" VerticalOptions="Center">
                             <Image.GestureRecognizers>
@@ -26,12 +27,12 @@
                             </Image.GestureRecognizers>
                         </Image>
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" TextColor="#252525">
+                            <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}">
                                 <Label.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenProductCommand}" CommandParameter="{Binding .}" />
                                 </Label.GestureRecognizers>
                             </Label>
-                            <Label Text="{Binding Description}" FontSize="11" TextColor="#858585" LineBreakMode="TailTruncation" MaxLines="2" />
+                            <Label Text="{Binding Description}" FontSize="11" TextColor="{AppThemeBinding Light=#858585, Dark=#A8A29E}" LineBreakMode="TailTruncation" MaxLines="2" />
                             <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0} ₴'}" FontSize="13" FontAttributes="Bold" TextColor="#F05A24" />
                         </VerticalStackLayout>
                         <Button Grid.Column="2" Text="♥" FontSize="18" TextColor="#F05A24" BackgroundColor="Transparent" Padding="0" WidthRequest="38" HeightRequest="38"

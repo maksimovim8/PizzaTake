@@ -6,14 +6,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Models"
     Title="Деталі піци">
-    <Grid RowDefinitions="*,Auto" BackgroundColor="#FFFDFC">
+    <Grid RowDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark=#181411}">
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Padding="20,12,20,18" Spacing="12">
-                <Button Text="‹" FontSize="28" TextColor="#292929" BackgroundColor="Transparent"
+                <Button Text="‹" FontSize="28" TextColor="{AppThemeBinding Light=#292929, Dark=#F5F5F4}" BackgroundColor="Transparent"
                         HorizontalOptions="Start" Padding="0" Command="{Binding GoBackCommand}" />
                 <Grid HeightRequest="220" Padding="8">
                     <Image Source="pizza.svg" WidthRequest="190" HeightRequest="190" HorizontalOptions="Center" VerticalOptions="Center" />
-                    <Border BackgroundColor="White" Stroke="#F5E9D6" StrokeThickness="1" StrokeShape="RoundRectangle 24"
+                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" Stroke="{AppThemeBinding Light=#F5E9D6, Dark=#3D342C}" StrokeThickness="1" StrokeShape="RoundRectangle 24"
                             WidthRequest="50" HeightRequest="50" Padding="0" Margin="8" HorizontalOptions="End" VerticalOptions="End">
                         <Label Text="{Binding FavoriteButtonText}" FontSize="24" TextColor="#F4511E" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
                         <Border.GestureRecognizers>
@@ -21,53 +21,53 @@
                         </Border.GestureRecognizers>
                     </Border>
                 </Grid>
-                <Label Text="{Binding Product.Name}" FontSize="23" FontAttributes="Bold" HorizontalTextAlignment="Center" TextColor="#252525" />
-                <Label Text="{Binding Product.Description}" FontSize="13" HorizontalTextAlignment="Center" TextColor="#777777" />
-                <Label Text="{Binding Product.WeightGrams, StringFormat='Вага: {0} г'}" FontSize="12" HorizontalOptions="Center" TextColor="#777777" />
-                <Button Text="КБЖУ" Clicked="OnKbjuClicked" BackgroundColor="#FFF2D4" TextColor="#333333" CornerRadius="14" />
-                <Label Text="Рекомендовані добавки" FontAttributes="Bold" FontSize="16" TextColor="#252525" />
+                <Label Text="{Binding Product.Name}" FontSize="23" FontAttributes="Bold" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <Label Text="{Binding Product.Description}" FontSize="13" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
+                <Label Text="{Binding Product.WeightGrams, StringFormat='Вага: {0} г'}" FontSize="12" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
+                <Button Text="КБЖУ" Clicked="OnKbjuClicked" BackgroundColor="{AppThemeBinding Light=#FFF2D4, Dark=#3A2D1E}" TextColor="{AppThemeBinding Light=#333333, Dark=#F5F5F4}" CornerRadius="14" />
+                <Label Text="Рекомендовані добавки" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding AddOns}" Spacing="2">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Grid Padding="8,5" ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="52">
-                                <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="2" />
-                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="#777777" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
+                                <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
                                 <Button Grid.Column="2" Text="+" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
                                         CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0" />
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="Виключити інгредієнти" FontAttributes="Bold" FontSize="16" TextColor="#252525" />
+                <Label Text="Виключити інгредієнти" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Exclusions}" Spacing="2">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Grid Padding="8,5" ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="52">
-                                <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="2" />
-                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="#777777" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
+                                <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
                                 <Button Grid.Column="2" Text="−" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
                                         CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0" />
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="Заміна інгредієнтів" FontAttributes="Bold" FontSize="16" TextColor="#252525" />
+                <Label Text="Заміна інгредієнтів" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Replacements}" Spacing="2">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Grid Padding="8,5" ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="52">
-                                <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="2" />
-                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="#777777" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
+                                <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                                <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
                                 <Button Grid.Column="2" Text="↔" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
                                         CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0" />
                             </Grid>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="{Binding SelectedOptionsSummary}" TextColor="Gray" />
+                <Label Text="{Binding SelectedOptionsSummary}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
             </VerticalStackLayout>
         </ScrollView>
-        <Grid Grid.Row="1" Padding="18,10,18,16" ColumnDefinitions="*,Auto" ColumnSpacing="12" BackgroundColor="White">
+        <Grid Grid.Row="1" Padding="18,10,18,16" ColumnDefinitions="*,Auto" ColumnSpacing="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}">
             <Button Text="Додати до кошика" BackgroundColor="#FFB400" TextColor="White" CornerRadius="22" FontAttributes="Bold" Command="{Binding AddToCartCommand}" />
             <Label Grid.Column="1" Text="{Binding CalculatedPrice, StringFormat='{}{0:0} ₴'}" FontAttributes="Bold" TextColor="#F05A24" VerticalOptions="Center" />
         </Grid>

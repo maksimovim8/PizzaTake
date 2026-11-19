@@ -9,11 +9,12 @@ using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
 
-public sealed class PizzeriaSelectionViewModel : BaseViewModel
+public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IPizzeriaRepository pizzerias;
     private readonly IAppStateService appState;
     private Pizzeria? selectedPizzeria;
+    private string? returnTo;
 
     public ObservableCollection<Pizzeria> Pizzerias { get; } = [];
     public Pizzeria? SelectedPizzeria
@@ -39,6 +40,13 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel
         ConfirmPizzeriaCommand = new Command(async () => await ConfirmAsync(), () => SelectedPizzeria is not null);
     }
 
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        returnTo = query.TryGetValue("returnTo", out var value) && value?.ToString() is "settings" or "menu"
+            ? value.ToString()
+            : null;
+    }
+
     private async Task LoadAsync()
     {
         if (appState.SelectedCity is null) return;
@@ -57,6 +65,10 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel
         if (SelectedPizzeria is null) return;
         appState.SelectedPizzeria = SelectedPizzeria;
         appState.SaveState();
-        await Shell.Current.GoToAsync("///menu");
+        await Shell.Current.GoToAsync(returnTo switch
+        {
+            "settings" => "///settings",
+            _ => "///menu"
+        });
     }
 }

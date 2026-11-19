@@ -286,7 +286,8 @@ public sealed class CheckoutViewModel : BaseViewModel
                 UpdatedAt = DateTime.UtcNow
             });
 
-            await Shell.Current.GoToAsync($"../orderdetail?id={order.Id}");
+            await Shell.Current.GoToAsync("///history");
+            await Shell.Current.GoToAsync($"orderdetail?id={order.Id}");
         }
         finally
         {

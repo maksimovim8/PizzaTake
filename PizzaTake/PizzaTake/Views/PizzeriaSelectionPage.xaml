@@ -5,21 +5,24 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Models"
-    Title="Оберіть піцерію">
-    <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14">
-        <Label Text="Оберіть піцерію" FontSize="26" FontAttributes="Bold" />
+    Title="Оберіть піцерію"
+    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+    <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+        <Label Text="Оберіть піцерію" FontSize="26" FontAttributes="Bold"
+               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
         <CollectionView Grid.Row="1" ItemsSource="{Binding Pizzerias}" SelectionMode="None">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:Pizzeria">
                     <Grid Padding="8" ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding StoreNumber, StringFormat='Піцерія № {0}'}" FontAttributes="Bold" />
-                            <Label Text="{Binding Address}" />
+                            <Label Text="{Binding StoreNumber, StringFormat='Піцерія № {0}'}" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                            <Label Text="{Binding Address}" TextColor="{AppThemeBinding Light=#44403C, Dark=#D6D3D1}" />
                             <HorizontalStackLayout Spacing="4">
-                                <Label Text="Години:" FontSize="12" TextColor="Gray" />
-                                <Label Text="{Binding OpenFrom, StringFormat='{0:c}'}" FontSize="12" TextColor="Gray" />
-                                <Label Text="–" FontSize="12" TextColor="Gray" />
-                                <Label Text="{Binding OpenTo, StringFormat='{0:c}'}" FontSize="12" TextColor="Gray" />
+                                <Label Text="Години:" FontSize="12" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                <Label Text="{Binding OpenFrom, StringFormat='{0:c}'}" FontSize="12" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                <Label Text="–" FontSize="12" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                <Label Text="{Binding OpenTo, StringFormat='{0:c}'}" FontSize="12" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
                         <Button Grid.Column="1" Text="Обрати"
