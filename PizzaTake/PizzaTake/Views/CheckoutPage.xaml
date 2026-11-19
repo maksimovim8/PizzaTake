@@ -33,42 +33,6 @@
                            TextColor="#92400E" />
                 </Border>
 
-                <!-- Selected Pizzeria -->
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="ПІЦЕРІЯ"
-                           FontSize="12"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-
-                    <Border StrokeShape="RoundRectangle 14"
-                            Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                            Padding="14">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                                <Label Text="{Binding SelectedPizzeriaText}"
-                                       FontSize="15"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                                <Label Text="Потрібно обрати піцерію для замовлення"
-                                       IsVisible="{Binding NeedsPizzeriaSelection}"
-                                       FontSize="12"
-                                       TextColor="#DC2626" />
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1"
-                                    Text="Обрати"
-                                    Command="{Binding SelectPizzeriaCommand}"
-                                    BackgroundColor="#FDF1D6"
-                                    TextColor="#B45309"
-                                    FontAttributes="Bold"
-                                    CornerRadius="14"
-                                    HeightRequest="36"
-                                    Padding="14,0"
-                                    VerticalOptions="Center" />
-                        </Grid>
-                    </Border>
-                </VerticalStackLayout>
-
                 <!-- Delivery Type -->
                 <VerticalStackLayout Spacing="8">
                     <Label Text="СПОСІБ ОТРИМАННЯ"
