@@ -35,6 +35,7 @@ namespace PizzaTake
             builder.Services.AddSingleton<HttpApiClient>();
             builder.Services.AddSingleton<ISyncService, SyncService>();
             builder.Services.AddSingleton<IAuthService, AuthService>();
+            builder.Services.AddSingleton<IUserDataResetService, UserDataResetService>();
             builder.Services.AddSingleton<AppShell>();
             builder.Services.AddTransient<WelcomePage>();
             builder.Services.AddTransient<CitySelectionPage>();

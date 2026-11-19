@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows.Input;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
@@ -22,7 +23,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         Title = "Деталі замовлення";
 
         RepeatSingleItemCommand = new Command<OrderItem?>(async item => await RepeatSingleItemAsync(item));
-        RepeatFullOrderCommand = new Command(async () => await RepeatFullOrderAsync(), () => Items.Count > 0);
+        RepeatFullOrderCommand = new Command(async () => await RepeatFullOrderAsync(), () => Items.Count > 0 && !IsBusy);
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
 
@@ -81,19 +82,43 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         if (item is null)
             return;
 
-        await AddOrderItemToCartAsync(item);
-        await Shell.Current.DisplayAlertAsync("Кошик", $"Додано «{item.ProductName}» до кошика.", "OK");
+        try
+        {
+            await AddOrderItemToCartAsync(item);
+            await Shell.Current.DisplayAlertAsync("Кошик", $"Додано «{item.ProductName}» до кошика.", "OK");
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"[OrderDetail] Could not repeat order item: {exception}");
+            await Shell.Current.DisplayAlertAsync("Не вдалося додати товар", "Спробуйте ще раз.", "OK");
+        }
     }
 
     private async Task RepeatFullOrderAsync()
     {
-        if (Items.Count == 0)
+        if (Items.Count == 0 || IsBusy)
             return;
 
-        foreach (var item in Items)
-            await AddOrderItemToCartAsync(item);
+        IsBusy = true;
+        ((Command)RepeatFullOrderCommand).ChangeCanExecute();
+        try
+        {
+            foreach (var item in Items.ToList())
+                await AddOrderItemToCartAsync(item);
 
-        await Shell.Current.GoToAsync("cart");
+            // The order detail is a global route over History; reset to the Cart tab root.
+            await Shell.Current.GoToAsync("///cart");
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"[OrderDetail] Could not repeat full order: {exception}");
+            await Shell.Current.DisplayAlertAsync("Не вдалося повторити замовлення", "Спробуйте ще раз.", "OK");
+        }
+        finally
+        {
+            IsBusy = false;
+            ((Command)RepeatFullOrderCommand).ChangeCanExecute();
+        }
     }
 
     private Task AddOrderItemToCartAsync(OrderItem item)

@@ -63,7 +63,7 @@ public sealed class AuthService : IAuthService
         return true;
     }
 
-    public async Task LogoutAsync()
+    public Task LogoutAsync()
     {
         try
         {
@@ -76,14 +76,7 @@ public sealed class AuthService : IAuthService
 
         Preferences.Default.Remove(AuthFlagPreferenceKey);
         isAuthenticatedCache = false;
-
-        var profile = await userProfileRepository.GetCurrentAsync();
-        if (profile is not null)
-        {
-            profile.IsPhoneVerified = false;
-            profile.UpdatedAt = DateTime.UtcNow;
-            await userProfileRepository.SaveAsync(profile);
-        }
+        return Task.CompletedTask;
     }
 
     private static bool CheckPersistedAuthState()

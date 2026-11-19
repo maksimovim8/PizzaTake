@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows.Input;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
@@ -14,6 +15,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private readonly IUserProfileRepository userProfileRepository;
     private readonly IAddressRepository addressRepository;
     private readonly IAuthService authService;
+    private readonly IUserDataResetService userDataResetService;
     private readonly IAppStateService appState;
 
     private bool isDarkTheme;
@@ -27,12 +29,14 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         IUserProfileRepository userProfileRepository,
         IAddressRepository addressRepository,
         IAuthService authService,
-        IAppStateService appState)
+        IAppStateService appState,
+        IUserDataResetService userDataResetService)
     {
         this.userProfileRepository = userProfileRepository;
         this.addressRepository = addressRepository;
         this.authService = authService;
         this.appState = appState;
+        this.userDataResetService = userDataResetService;
         Title = "Налаштування";
 
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
@@ -193,8 +197,23 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
 
     private async Task LogoutAsync()
     {
-        await authService.LogoutAsync();
-        await LoadSettingsAsync();
+        try
+        {
+            await userDataResetService.ResetForLogoutAsync();
+            Addresses.Clear();
+            CurrentCityName = "Не обрано";
+            MaskedPhone = "Не вказано";
+            IsPhoneVerified = false;
+            SyncThemeFlags();
+
+            await Shell.Current.GoToAsync("///menu");
+            await Shell.Current.GoToAsync("welcome");
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"[Settings] Logout cleanup failed: {exception}");
+            await Shell.Current.DisplayAlertAsync("Не вдалося вийти", "Не вдалося очистити дані облікового запису. Спробуйте ще раз.", "OK");
+        }
     }
 
     private static string MaskPhone(string phone)
