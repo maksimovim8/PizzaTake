@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PizzaTake.Views.PizzeriaSelectionPage"
+    x:Name="Page"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:models="clr-namespace:PizzaTake.Models"
+    Title="Оберіть піцерію">
+    <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+        <Label Text="Оберіть піцерію" FontSize="26" FontAttributes="Bold" />
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Pizzerias}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:Pizzeria">
+                    <Grid Padding="8" ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding StoreNumber, StringFormat='Піцерія № {0}'}" FontAttributes="Bold" />
+                            <Label Text="{Binding Address}" />
+                            <HorizontalStackLayout Spacing="4">
+                                <Label Text="Години:" FontSize="12" TextColor="Gray" />
+                                <Label Text="{Binding OpenFrom, StringFormat='{0:c}'}" FontSize="12" TextColor="Gray" />
+                                <Label Text="–" FontSize="12" TextColor="Gray" />
+                                <Label Text="{Binding OpenTo, StringFormat='{0:c}'}" FontSize="12" TextColor="Gray" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Обрати"
+                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPizzeriaCommand}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+        <Button Grid.Row="2" Text="Підтвердити" BackgroundColor="#FFB400" Command="{Binding ConfirmPizzeriaCommand}" />
+    </Grid>
+</ContentPage>

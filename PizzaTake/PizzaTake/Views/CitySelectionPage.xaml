@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PizzaTake.Views.CitySelectionPage"
+    x:Name="Page"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:models="clr-namespace:PizzaTake.Models"
+    Title="Оберіть місто">
+    <Grid Padding="20" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="12">
+        <Label Text="Оберіть місто" FontSize="26" FontAttributes="Bold" />
+        <Entry Grid.Row="1" Placeholder="Пошук міста" Text="{Binding SearchText, Mode=TwoWay}" />
+        <Button Grid.Row="2" Text="Знайти найближче місто" Command="{Binding FindNearbyCommand}" />
+        <Label Grid.Row="3" Text="{Binding StatusMessage}" TextColor="Gray" />
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Cities}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:City">
+                    <Button Text="{Binding Name}" HorizontalOptions="Fill"
+                            BackgroundColor="Transparent" TextColor="Black" BorderColor="#EEEEEE" BorderWidth="1"
+                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectCityCommand}"
+                            CommandParameter="{Binding .}" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

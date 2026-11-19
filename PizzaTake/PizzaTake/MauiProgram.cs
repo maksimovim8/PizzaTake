@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using PizzaTake.Services;
+using PizzaTake.Repositories;
 using PizzaTake.ViewModels;
 using PizzaTake.Views;
 
@@ -20,6 +21,12 @@ namespace PizzaTake
 
             SQLitePCL.Batteries_V2.Init();
             builder.Services.AddSingleton<SqliteDatabase>();
+            builder.Services.AddSingleton<IAppStateService, AppStateService>();
+            builder.Services.AddSingleton<ICityRepository, CityRepository>();
+            builder.Services.AddSingleton<IPizzeriaRepository, PizzeriaRepository>();
+            builder.Services.AddSingleton<IProductRepository, ProductRepository>();
+            builder.Services.AddSingleton<IFavoriteRepository, FavoriteRepository>();
+            builder.Services.AddSingleton<ICartRepository, CartRepository>();
             builder.Services.AddSingleton<AppShell>();
             builder.Services.AddTransient<WelcomePage>();
             builder.Services.AddTransient<CitySelectionPage>();
