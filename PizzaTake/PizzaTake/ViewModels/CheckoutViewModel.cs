@@ -286,7 +286,11 @@ public sealed class CheckoutViewModel : BaseViewModel
                 UpdatedAt = DateTime.UtcNow
             });
 
+            // Checkout is pushed on top of the Cart tab. Pop it before leaving so the tab
+            // cannot reopen the payment page when the user selects Cart later.
+            await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync("///history");
+            await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync($"orderdetail?id={order.Id}");
         }
         finally

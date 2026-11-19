@@ -106,8 +106,10 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
             foreach (var item in Items.ToList())
                 await AddOrderItemToCartAsync(item);
 
-            // The order detail is a global route over History; reset to the Cart tab root.
+            // Clear the detail route, then select Cart and clear any stale checkout route there.
+            await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync("///cart");
+            await Shell.Current.Navigation.PopToRootAsync(false);
         }
         catch (Exception exception)
         {
