@@ -69,11 +69,11 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
             foreach (var item in items)
                 Items.Add(item);
 
-            ((Command)RepeatFullOrderCommand).ChangeCanExecute();
         }
         finally
         {
             IsBusy = false;
+            ((Command)RepeatFullOrderCommand).ChangeCanExecute();
         }
     }
 
