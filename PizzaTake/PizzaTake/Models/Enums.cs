@@ -30,3 +30,9 @@ public enum OptionKind
     Exclusion,
     Replacement
 }
+
+public enum UserRole
+{
+    Customer,
+    Administrator
+}

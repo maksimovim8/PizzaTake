@@ -4,6 +4,7 @@ obj/
 
 # User-specific files
 .vs/
+.idea/
 *.user
 *.suo
 

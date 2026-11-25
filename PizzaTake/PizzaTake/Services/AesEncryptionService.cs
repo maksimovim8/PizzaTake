@@ -13,8 +13,14 @@ public sealed class AesEncryptionService : IEncryptionService
     private const int KeySizeBytes = 32;
     private const int IvSizeBytes = 16;
 
+    private readonly ISecureStoreService? secureStore;
     private readonly SemaphoreSlim keyLock = new(1, 1);
     private byte[]? cachedKey;
+
+    public AesEncryptionService(ISecureStoreService? secureStore = null)
+    {
+        this.secureStore = secureStore;
+    }
 
     public string Encrypt(string plainText)
     {
@@ -95,7 +101,9 @@ public sealed class AesEncryptionService : IEncryptionService
             string? storedKey = null;
             try
             {
-                storedKey = await SecureStorage.Default.GetAsync(KeyStorageName);
+                storedKey = secureStore is not null
+                    ? await secureStore.GetAsync(KeyStorageName)
+                    : await SecureStorage.Default.GetAsync(KeyStorageName);
             }
             catch (Exception ex)
             {
@@ -116,7 +124,10 @@ public sealed class AesEncryptionService : IEncryptionService
             var encoded = Convert.ToBase64String(generated);
             try
             {
-                await SecureStorage.Default.SetAsync(KeyStorageName, encoded);
+                if (secureStore is not null)
+                    await secureStore.SetAsync(KeyStorageName, encoded);
+                else
+                    await SecureStorage.Default.SetAsync(KeyStorageName, encoded);
             }
             catch (Exception ex)
             {

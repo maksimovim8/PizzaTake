@@ -32,6 +32,7 @@ public sealed class UserProfileRepository : SqliteRepositoryBase, IUserProfileRe
             Phone = DecryptIfNotEmpty(stored.Phone),
             CityName = DecryptIfNotEmpty(stored.CityName),
             IsPhoneVerified = stored.IsPhoneVerified,
+            Role = stored.Role,
             UpdatedAt = stored.UpdatedAt
         };
     }
@@ -58,6 +59,7 @@ public sealed class UserProfileRepository : SqliteRepositoryBase, IUserProfileRe
             Phone = EncryptIfNotEmpty(profile.Phone),
             CityName = EncryptIfNotEmpty(profile.CityName),
             IsPhoneVerified = profile.IsPhoneVerified,
+            Role = profile.Role,
             UpdatedAt = updatedAt
         };
 
