@@ -10,6 +10,7 @@
     BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
     <ContentPage.Resources>
         <converters:OrderProgressConverter x:Key="OrderProgressConverter" />
+        <converters:CategoryChipConverter x:Key="CategoryChipConverter" />
     </ContentPage.Resources>
     <ScrollView x:Name="MenuScrollView" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
         <VerticalStackLayout Spacing="0" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
@@ -63,9 +64,22 @@
                 </Border>
                 <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                     <HorizontalStackLayout x:Name="CategoryChips" Spacing="8">
-                        <Button Text="Новинки" FontSize="13" Padding="20,8" CornerRadius="24" BackgroundColor="{AppThemeBinding Light=#FFF1D3, Dark=#3A2D1E}" TextColor="#F4511E" Clicked="OnCategoryClicked" CommandParameter="Новинки" />
-                        <Button Text="WOW піци" FontSize="13" Padding="20,8" CornerRadius="24" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" TextColor="{AppThemeBinding Light=#777777, Dark=#D6D3D1}" Clicked="OnCategoryClicked" CommandParameter="WOW піци" />
-                        <Button Text="Standard" FontSize="13" Padding="20,8" CornerRadius="24" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" TextColor="{AppThemeBinding Light=#777777, Dark=#D6D3D1}" Clicked="OnCategoryClicked" CommandParameter="Standard" />
+                        <Button Text="Усі" FontSize="13" Padding="18,8" CornerRadius="24"
+                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Background'}"
+                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Text'}"
+                                Command="{Binding SelectCategoryCommand}" CommandParameter="Усі категорії" />
+                        <Button Text="Новинки" FontSize="13" Padding="20,8" CornerRadius="24"
+                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Background'}"
+                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Text'}"
+                                Command="{Binding SelectCategoryCommand}" CommandParameter="Новинки" />
+                        <Button Text="WOW піци" FontSize="13" Padding="20,8" CornerRadius="24"
+                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Background'}"
+                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Text'}"
+                                Command="{Binding SelectCategoryCommand}" CommandParameter="WOW піци" />
+                        <Button Text="Standard" FontSize="13" Padding="20,8" CornerRadius="24"
+                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Background'}"
+                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Text'}"
+                                Command="{Binding SelectCategoryCommand}" CommandParameter="Standard" />
                     </HorizontalStackLayout>
                 </ScrollView>
                 <Label Text="{Binding StatusMessage}" FontSize="12" TextColor="#F4511E" />

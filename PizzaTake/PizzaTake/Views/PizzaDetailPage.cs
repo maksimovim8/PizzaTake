@@ -25,9 +25,4 @@ public partial class PizzaDetailPage : ContentPage
         Debug.WriteLine("Leaving page: PizzaDetailPage");
         base.OnDisappearing();
     }
-
-    private async void OnKbjuClicked(object? sender, EventArgs e)
-    {
-        await DisplayAlertAsync("Харчова цінність", viewModel.KbjuSummary, "Зрозуміло");
-    }
 }

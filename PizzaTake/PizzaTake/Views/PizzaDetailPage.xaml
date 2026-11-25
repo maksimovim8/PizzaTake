@@ -24,7 +24,17 @@
                 <Label Text="{Binding Product.Name}" FontSize="23" FontAttributes="Bold" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                 <Label Text="{Binding Product.Description}" FontSize="13" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
                 <Label Text="{Binding Product.WeightGrams, StringFormat='Вага: {0} г'}" FontSize="12" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
-                <Button Text="КБЖУ" Clicked="OnKbjuClicked" BackgroundColor="{AppThemeBinding Light=#FFF2D4, Dark=#3A2D1E}" TextColor="{AppThemeBinding Light=#333333, Dark=#F5F5F4}" CornerRadius="14" />
+                <Button Text="КБЖУ" Command="{Binding ToggleKbjuCommand}" BackgroundColor="{AppThemeBinding Light=#FFF2D4, Dark=#3A2D1E}" TextColor="{AppThemeBinding Light=#333333, Dark=#F5F5F4}" CornerRadius="14" />
+                <Border IsVisible="{Binding IsKbjuVisible}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Stroke="{AppThemeBinding Light=#F5E9D6, Dark=#3D342C}"
+                        StrokeShape="RoundRectangle 14"
+                        Padding="14,10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Харчова цінність (на 100 г)" FontSize="12" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
+                        <Label Text="{Binding KbjuSummary}" FontSize="13" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                    </VerticalStackLayout>
+                </Border>
                 <Label Text="Рекомендовані добавки" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding AddOns}" Spacing="2">
                     <BindableLayout.ItemTemplate>

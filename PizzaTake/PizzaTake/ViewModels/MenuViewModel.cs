@@ -43,10 +43,15 @@ public sealed class MenuViewModel : BaseViewModel
     public string? SelectedCategory
     {
         get => selectedCategory;
-        set => SetProperty(ref selectedCategory, value);
+        set
+        {
+            if (SetProperty(ref selectedCategory, value))
+                _ = ApplyFilterAsync();
+        }
     }
 
     public ICommand LoadCommand { get; }
+    public ICommand SelectCategoryCommand { get; }
     public ICommand QuickAddCommand { get; }
     public ICommand OpenProductCommand { get; }
     public ICommand OpenPizzeriaSelectorCommand { get; }
@@ -58,6 +63,11 @@ public sealed class MenuViewModel : BaseViewModel
         this.orders = orders;
         this.appState = appState;
         LoadCommand = new Command(async () => await LoadAsync());
+        SelectCategoryCommand = new Command<string?>(category =>
+        {
+            if (!string.IsNullOrWhiteSpace(category))
+                SelectedCategory = category;
+        });
         QuickAddCommand = new Command<Product>(async product => await QuickAddAsync(product));
         OpenProductCommand = new Command<Product>(async product =>
         {
@@ -87,7 +97,11 @@ public sealed class MenuViewModel : BaseViewModel
             Categories.Add("Усі категорії");
             foreach (var category in all.Select(product => product.Category).Where(category => !string.IsNullOrWhiteSpace(category)).Distinct().OrderBy(category => category))
                 Categories.Add(category);
-            SelectedCategory ??= "Новинки";
+            if (string.IsNullOrWhiteSpace(selectedCategory))
+            {
+                selectedCategory = "Усі категорії";
+                OnPropertyChanged(nameof(SelectedCategory));
+            }
             await ShowProductsAsync(Filter(all));
         }
         finally { IsBusy = false; }
@@ -102,6 +116,12 @@ public sealed class MenuViewModel : BaseViewModel
     private IEnumerable<Product> Filter(IEnumerable<Product> all)
     {
         var query = all;
+        if (!string.IsNullOrWhiteSpace(SelectedCategory) &&
+            !string.Equals(SelectedCategory, "Усі категорії", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(product => string.Equals(product.Category, SelectedCategory, StringComparison.OrdinalIgnoreCase));
+        }
+
         if (!string.IsNullOrWhiteSpace(SearchText))
             query = query.Where(product => product.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase));
         return query;
