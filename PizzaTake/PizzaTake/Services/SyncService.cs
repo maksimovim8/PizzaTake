@@ -1,27 +1,38 @@
-using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 
 namespace PizzaTake.Services;
 
 /// <summary>
-/// Offline synchronization queue service using Connectivity monitoring and Last Write Wins conflict resolution.
+/// Offline synchronization queue service using Connectivity monitoring and Last-Write-Wins conflict resolution.
 /// </summary>
 public sealed class SyncService : ISyncService
 {
     private readonly ISyncQueueRepository syncQueueRepository;
     private readonly HttpApiClient httpApiClient;
+    private readonly ILogger<SyncService>? logger;
     private readonly SemaphoreSlim syncLock = new(1, 1);
     private bool isListening;
 
-    public SyncService(ISyncQueueRepository syncQueueRepository, HttpApiClient httpApiClient)
+    public SyncService(
+        ISyncQueueRepository syncQueueRepository,
+        HttpApiClient httpApiClient,
+        ILogger<SyncService>? logger = null)
     {
         this.syncQueueRepository = syncQueueRepository;
         this.httpApiClient = httpApiClient;
+        this.logger = logger;
     }
 
     public event EventHandler? SyncCompleted;
+
+    public async Task<int> GetPendingCountAsync()
+    {
+        var items = await syncQueueRepository.GetAllPendingAsync();
+        return items.Count;
+    }
 
     public async Task EnqueueAsync(string entityType, string operation, object payload)
     {
@@ -39,6 +50,7 @@ public sealed class SyncService : ISyncService
         };
 
         await syncQueueRepository.EnqueueAsync(item);
+        logger?.LogInformation("SyncQueue: enqueued {Operation} for {EntityType}.", operation, entityType);
 
         if (Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
             await SyncPendingAsync();
@@ -62,8 +74,21 @@ public sealed class SyncService : ISyncService
             var syncedAny = false;
             foreach (var item in pendingItems)
             {
-                var resolvedItem = (SyncQueueItem)ResolveConflictLastWriteWins(item, item);
-                var pushed = await httpApiClient.PushSyncItemAsync(resolvedItem);
+                var entityKey = ExtractEntityKey(item);
+                var localUpdatedAt = ExtractUpdatedAt(item);
+                var remoteUpdatedAt = await httpApiClient.GetRemoteUpdatedAtAsync(item.EntityType, entityKey);
+
+                if (!ShouldLocalWinLastWriteWins(localUpdatedAt, remoteUpdatedAt))
+                {
+                    logger?.LogWarning(
+                        "SyncQueue LWW conflict on {EntityType}:{EntityKey}: remote ({RemoteAt:O}) is newer than local ({LocalAt:O}); keeping remote version.",
+                        item.EntityType, entityKey, remoteUpdatedAt, localUpdatedAt);
+                    await syncQueueRepository.DeleteAsync(item);
+                    syncedAny = true;
+                    continue;
+                }
+
+                var pushed = await httpApiClient.PushSyncItemAsync(item, entityKey, localUpdatedAt);
                 if (!pushed)
                     break;
 
@@ -98,6 +123,9 @@ public sealed class SyncService : ISyncService
         isListening = false;
     }
 
+    internal static bool ShouldLocalWinLastWriteWins(DateTime localUpdatedAt, DateTime? remoteUpdatedAt) =>
+        !remoteUpdatedAt.HasValue || localUpdatedAt >= remoteUpdatedAt.Value;
+
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
         if (e.NetworkAccess != NetworkAccess.Internet)
@@ -114,16 +142,29 @@ public sealed class SyncService : ISyncService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[SyncService] Background sync failed: {ex.Message}");
+            logger?.LogError(ex, "Background sync failed.");
         }
     }
 
-    private static object ResolveConflictLastWriteWins(object local, object remote)
+    private static string ExtractEntityKey(SyncQueueItem item)
     {
-        if (local is SyncQueueItem localItem && remote is SyncQueueItem remoteItem)
-            return ExtractUpdatedAt(localItem) >= ExtractUpdatedAt(remoteItem) ? localItem : remoteItem;
+        try
+        {
+            using var document = JsonDocument.Parse(item.PayloadJson);
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                if (document.RootElement.TryGetProperty("Id", out var idProp))
+                    return idProp.ToString();
+                if (document.RootElement.TryGetProperty("OrderNumber", out var orderNumProp))
+                    return orderNumProp.ToString();
+            }
+        }
+        catch (JsonException)
+        {
+            // Fall back to queue row id when payload is not structured JSON.
+        }
 
-        return local;
+        return item.Id.ToString();
     }
 
     private static DateTime ExtractUpdatedAt(SyncQueueItem item)

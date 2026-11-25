@@ -17,6 +17,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private readonly IAuthService authService;
     private readonly IUserDataResetService userDataResetService;
     private readonly IAppStateService appState;
+    private readonly ISyncService syncService;
 
     private bool isDarkTheme;
     private bool isLightTheme = true;
@@ -24,19 +25,22 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private string currentCityName = "Не обрано";
     private string maskedPhone = "Не вказано";
     private bool isPhoneVerified;
+    private int pendingSyncCount;
 
     public SettingsViewModel(
         IUserProfileRepository userProfileRepository,
         IAddressRepository addressRepository,
         IAuthService authService,
         IAppStateService appState,
-        IUserDataResetService userDataResetService)
+        IUserDataResetService userDataResetService,
+        ISyncService syncService)
     {
         this.userProfileRepository = userProfileRepository;
         this.addressRepository = addressRepository;
         this.authService = authService;
         this.appState = appState;
         this.userDataResetService = userDataResetService;
+        this.syncService = syncService;
         Title = "Налаштування";
 
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
@@ -45,7 +49,10 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         ChangePhoneCommand = new Command(async () => await Shell.Current.GoToAsync("auth"));
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
+        SyncNowCommand = new Command(async () => await SyncNowAsync());
         LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
+
+        this.syncService.SyncCompleted += async (_, _) => await RefreshSyncStatusAsync();
 
         Addresses.CollectionChanged += (_, _) =>
         {
@@ -98,12 +105,27 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         }
     }
 
+    public int PendingSyncCount
+    {
+        get => pendingSyncCount;
+        private set
+        {
+            if (SetProperty(ref pendingSyncCount, value))
+                OnPropertyChanged(nameof(SyncStatusText));
+        }
+    }
+
+    public string SyncStatusText => PendingSyncCount == 0
+        ? "Усі дані синхронізовано"
+        : $"У черзі офлайн-змін: {PendingSyncCount}";
+
     public ICommand LoadSettingsCommand { get; }
     public ICommand ChangeCityCommand { get; }
     public ICommand ToggleThemeCommand { get; }
     public ICommand ChangePhoneCommand { get; }
     public ICommand EditAddressCommand { get; }
     public ICommand AddAddressCommand { get; }
+    public ICommand SyncNowCommand { get; }
     public ICommand LogoutCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -158,11 +180,25 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             Addresses.Clear();
             foreach (var address in savedAddresses)
                 Addresses.Add(address);
+
+            PendingSyncCount = await syncService.GetPendingCountAsync();
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private async Task SyncNowAsync()
+    {
+        await syncService.SyncPendingAsync();
+        await RefreshSyncStatusAsync();
+    }
+
+    private async Task RefreshSyncStatusAsync()
+    {
+        var count = await syncService.GetPendingCountAsync();
+        await MainThread.InvokeOnMainThreadAsync(() => PendingSyncCount = count);
     }
 
     private void ApplyThemeMode(string? mode)

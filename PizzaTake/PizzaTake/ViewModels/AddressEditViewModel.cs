@@ -20,6 +20,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     private readonly IAddressRepository addressRepository;
     private readonly IUserProfileRepository userProfileRepository;
     private readonly IAppStateService appState;
+    private readonly ISyncService syncService;
 
     private UserAddress? editingAddress;
     private string label = string.Empty;
@@ -33,11 +34,13 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     public AddressEditViewModel(
         IAddressRepository addressRepository,
         IUserProfileRepository userProfileRepository,
-        IAppStateService appState)
+        IAppStateService appState,
+        ISyncService syncService)
     {
         this.addressRepository = addressRepository;
         this.userProfileRepository = userProfileRepository;
         this.appState = appState;
+        this.syncService = syncService;
         Title = "Нова адреса";
 
         SaveCommand = new Command(async () => await SaveAsync(), CanSave);
@@ -238,7 +241,16 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                     LastUsedAt = DateTime.UtcNow
                 };
 
+            var operation = address.Id == 0 ? "Insert" : "Update";
             await addressRepository.SaveAsync(address);
+            await syncService.EnqueueAsync("UserAddress", operation, new
+            {
+                address.Id,
+                address.Label,
+                address.Text,
+                address.Notes,
+                UpdatedAt = address.LastUsedAt
+            });
             ClearDraft();
 
             await Shell.Current.GoToAsync("..", new Dictionary<string, object>
@@ -264,6 +276,11 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         {
             var deletedId = editingAddress.Id;
             await addressRepository.DeleteAsync(editingAddress);
+            await syncService.EnqueueAsync("UserAddress", "Delete", new
+            {
+                Id = deletedId,
+                UpdatedAt = DateTime.UtcNow
+            });
             ClearDraft();
 
             await Shell.Current.GoToAsync("..", new Dictionary<string, object>

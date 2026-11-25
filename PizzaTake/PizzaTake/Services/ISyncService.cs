@@ -8,6 +8,7 @@ public interface ISyncService
     event EventHandler? SyncCompleted;
     Task EnqueueAsync(string entityType, string operation, object payload);
     Task SyncPendingAsync();
+    Task<int> GetPendingCountAsync();
     void StartConnectivityListener();
     void StopConnectivityListener();
 }

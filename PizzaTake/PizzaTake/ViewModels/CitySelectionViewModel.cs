@@ -14,6 +14,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     private readonly ICityRepository cities;
     private readonly IAppStateService appState;
     private readonly IUserProfileRepository? userProfile;
+    private readonly ISyncService? syncService;
     public ObservableCollection<City> Cities { get; } = [];
     private string searchText = string.Empty;
     private string statusMessage = string.Empty;
@@ -40,11 +41,16 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     public ICommand FindNearbyCommand { get; }
     public ICommand GoBackCommand { get; }
 
-    public CitySelectionViewModel(ICityRepository cities, IAppStateService appState, IUserProfileRepository? userProfile = null)
+    public CitySelectionViewModel(
+        ICityRepository cities,
+        IAppStateService appState,
+        IUserProfileRepository? userProfile = null,
+        ISyncService? syncService = null)
     {
         this.cities = cities;
         this.appState = appState;
         this.userProfile = userProfile;
+        this.syncService = syncService;
         LoadCommand = new Command(async () => await LoadAsync());
         SelectCityCommand = new Command<City>(async city => await SelectCityAsync(city));
         FindNearbyCommand = new Command(async () => await FindNearbyAsync());
@@ -95,6 +101,15 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
             profile.CityName = city.Name;
             profile.UpdatedAt = DateTime.UtcNow;
             await userProfile.SaveAsync(profile);
+            if (syncService is not null)
+            {
+                await syncService.EnqueueAsync("UserProfile", "Update", new
+                {
+                    profile.Id,
+                    profile.CityName,
+                    UpdatedAt = profile.UpdatedAt
+                });
+            }
         }
         if (appState.SelectedPizzeria is null || appState.SelectedDeliveryType == DeliveryType.Pickup)
         {

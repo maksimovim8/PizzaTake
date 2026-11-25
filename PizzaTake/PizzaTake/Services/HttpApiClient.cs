@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
@@ -7,11 +8,12 @@ namespace PizzaTake.Services;
 
 /// <summary>
 /// HTTP client wrapper for synchronization and OTP authentication requests.
-/// Falls back to local simulation when no remote API base address is configured.
+/// Falls back to local simulation with server timestamp tracking when no remote API base address is configured.
 /// </summary>
 public sealed class HttpApiClient
 {
     private readonly HttpClient httpClient;
+    private readonly ConcurrentDictionary<string, DateTime> simulatedRemoteTimestamps = new(StringComparer.Ordinal);
 
     public HttpApiClient()
     {
@@ -21,14 +23,44 @@ public sealed class HttpApiClient
         };
     }
 
-    public async Task<bool> PushSyncItemAsync(SyncQueueItem item)
+    public async Task<DateTime?> GetRemoteUpdatedAtAsync(string entityType, string entityKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityKey);
+
+        var compositeKey = BuildCompositeKey(entityType, entityKey);
+        if (httpClient.BaseAddress is null)
+        {
+            await Task.Delay(25);
+            return simulatedRemoteTimestamps.TryGetValue(compositeKey, out var timestamp) ? timestamp : null;
+        }
+
+        try
+        {
+            var metadata = await httpClient.GetFromJsonAsync<RemoteSyncMetadata>(
+                $"api/sync/metadata?entityType={Uri.EscapeDataString(entityType)}&entityKey={Uri.EscapeDataString(entityKey)}");
+            return metadata?.UpdatedAtUtc;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[HttpApiClient] GetRemoteUpdatedAtAsync failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    public Task<bool> PushSyncItemAsync(SyncQueueItem item) =>
+        PushSyncItemAsync(item, item.Id.ToString(), item.CreatedAt);
+
+    public async Task<bool> PushSyncItemAsync(SyncQueueItem item, string entityKey, DateTime localUpdatedAtUtc)
     {
         ArgumentNullException.ThrowIfNull(item);
 
+        var compositeKey = BuildCompositeKey(item.EntityType, entityKey);
         if (httpClient.BaseAddress is null)
         {
             await Task.Delay(80);
-            Debug.WriteLine($"[HttpApiClient] Synced {item.EntityType} ({item.Operation}) locally.");
+            simulatedRemoteTimestamps[compositeKey] = localUpdatedAtUtc;
+            Debug.WriteLine($"[HttpApiClient] Synced {item.EntityType}:{entityKey} ({item.Operation}) locally at {localUpdatedAtUtc:O}.");
             return true;
         }
 
@@ -92,6 +124,9 @@ public sealed class HttpApiClient
         }
     }
 
+    private static string BuildCompositeKey(string entityType, string entityKey) =>
+        $"{entityType.Trim()}:{entityKey.Trim()}";
+
     private static bool IsValidPhone(string phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
@@ -100,4 +135,6 @@ public sealed class HttpApiClient
         var digits = Regex.Replace(phone, @"\D", string.Empty);
         return digits.Length >= 9;
     }
+
+    private sealed record RemoteSyncMetadata(DateTime UpdatedAtUtc);
 }
