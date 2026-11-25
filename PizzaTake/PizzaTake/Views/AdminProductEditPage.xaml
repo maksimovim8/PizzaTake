@@ -7,8 +7,8 @@
              Title="{Binding Title}"
              BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
 
-    <ScrollView Padding="20,16">
-        <VerticalStackLayout Spacing="18">
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0" Padding="20,14,20,8">
             <Button Text="‹ Назад"
                     Command="{Binding GoBackCommand}"
                     HorizontalOptions="Start"
@@ -17,8 +17,11 @@
                     FontSize="16"
                     FontAttributes="Bold"
                     Padding="0" />
+        </Grid>
 
-            <VerticalStackLayout Spacing="4">
+        <ScrollView Grid.Row="1" Padding="20,4,20,28">
+            <VerticalStackLayout Spacing="18">
+                <VerticalStackLayout Spacing="4">
                 <Label Text="{Binding Title}"
                        FontSize="26"
                        FontAttributes="Bold"
@@ -193,6 +196,7 @@
                     FontAttributes="Bold"
                     CornerRadius="24"
                     HeightRequest="46" />
-        </VerticalStackLayout>
-    </ScrollView>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>

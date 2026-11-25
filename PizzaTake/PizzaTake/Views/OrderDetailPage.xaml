@@ -109,7 +109,7 @@
                 </Border>
 
                 <!-- Admin Order Management Panel -->
-                <Border IsVisible="{Binding IsAdmin}"
+                <Border IsVisible="{Binding CanShowAdminPanel}"
                         StrokeShape="RoundRectangle 16"
                         Stroke="#F7A600"
                         BackgroundColor="{AppThemeBinding Light=#FFFDF7, Dark=#2B2219}"

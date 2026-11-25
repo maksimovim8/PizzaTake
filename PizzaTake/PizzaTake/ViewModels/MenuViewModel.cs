@@ -15,6 +15,7 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly ICartRepository cart;
     private readonly IOrderRepository orders;
     private readonly IAppStateService appState;
+    private readonly IAuthService authService;
     private readonly ISessionService sessionService;
     private readonly ILogger<MenuViewModel>? logger;
     private string searchText = string.Empty;
@@ -65,6 +66,7 @@ public sealed class MenuViewModel : BaseViewModel
         ICartRepository cart,
         IOrderRepository orders,
         IAppStateService appState,
+        IAuthService authService,
         ISessionService sessionService,
         ILogger<MenuViewModel>? logger = null)
     {
@@ -72,6 +74,7 @@ public sealed class MenuViewModel : BaseViewModel
         this.cart = cart;
         this.orders = orders;
         this.appState = appState;
+        this.authService = authService;
         this.sessionService = sessionService;
         this.logger = logger;
 
@@ -124,7 +127,8 @@ public sealed class MenuViewModel : BaseViewModel
         {
             OnPropertyChanged(nameof(IsAdmin));
             SelectedPizzeriaText = appState.SelectedPizzeria?.StoreNumber ?? "Оберіть піцерію";
-            ActiveOrder = await orders.GetActiveAsync();
+            var isSessionLocked = await authService.HasSavedCredentialsAsync() && !sessionService.IsAuthenticated;
+            ActiveOrder = isSessionLocked ? null : await orders.GetActiveAsync();
             var all = await products.GetAllAsync();
             Categories.Clear();
             Categories.Add("Усі категорії");

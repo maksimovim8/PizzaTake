@@ -142,7 +142,10 @@ public sealed class ProductRepository(SqliteDatabase database) : IProductReposit
     {
         ArgumentNullException.ThrowIfNull(product);
         await database.InitializeAsync();
-        await database.Connection.InsertOrReplaceAsync(product);
+        if (product.Id == 0)
+            await database.Connection.InsertAsync(product);
+        else
+            await database.Connection.UpdateAsync(product);
     }
 
     public async Task DeleteAsync(Product product)

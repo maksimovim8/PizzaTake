@@ -15,6 +15,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IOrderRepository orderRepository;
     private readonly ICartRepository cartRepository;
+    private readonly IAuthService authService;
     private readonly ISessionService sessionService;
     private readonly ISyncService syncService;
     private readonly ILogger<OrderDetailViewModel>? logger;
@@ -24,19 +25,25 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     public OrderDetailViewModel(
         IOrderRepository orderRepository,
         ICartRepository cartRepository,
+        IAuthService authService,
         ISessionService sessionService,
         ISyncService syncService,
         ILogger<OrderDetailViewModel>? logger = null)
     {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
+        this.authService = authService;
         this.sessionService = sessionService;
         this.syncService = syncService;
         this.logger = logger;
         Title = "Деталі замовлення";
 
         this.sessionService.SessionChanged += (_, _) =>
-            MainThread.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(IsAdmin)));
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                OnPropertyChanged(nameof(IsAdmin));
+                OnPropertyChanged(nameof(CanShowAdminPanel));
+            });
 
         RepeatSingleItemCommand = new Command<OrderItem?>(async item => await RepeatSingleItemAsync(item));
         RepeatFullOrderCommand = new Command(async () => await RepeatFullOrderAsync(), () => Items.Count > 0 && !IsBusy);
@@ -46,11 +53,16 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     }
 
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
+    public bool CanShowAdminPanel => IsAdmin && CurrentOrder is not null;
 
     public Order? CurrentOrder
     {
         get => currentOrder;
-        private set => SetProperty(ref currentOrder, value);
+        private set
+        {
+            if (SetProperty(ref currentOrder, value))
+                OnPropertyChanged(nameof(CanShowAdminPanel));
+        }
     }
 
     public ObservableCollection<OrderItem> Items { get; } = new();
@@ -86,6 +98,13 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         IsBusy = true;
         try
         {
+            if (await authService.HasSavedCredentialsAsync() && !sessionService.IsAuthenticated)
+            {
+                CurrentOrder = null;
+                Items.Clear();
+                return;
+            }
+
             CurrentOrder = order;
             var items = await orderRepository.GetItemsByOrderIdAsync(order.Id);
             Items.Clear();
@@ -111,7 +130,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         if (CurrentOrder is null || IsBusy)
             return;
 
-        var nextStatus = GetNextOrderStatus(CurrentOrder.Status);
+        var nextStatus = GetNextOrderStatus(CurrentOrder.Status, CurrentOrder.DeliveryType);
         if (nextStatus is null)
         {
             await Shell.Current.DisplayAlertAsync("Статус замовлення", "Замовлення вже має фінальний статус.", "OK");
@@ -256,12 +275,12 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         return cartRepository.SaveAsync(cartItem);
     }
 
-    private static OrderStatus? GetNextOrderStatus(OrderStatus current) => current switch
+    private static OrderStatus? GetNextOrderStatus(OrderStatus current, DeliveryType deliveryType) => current switch
     {
         OrderStatus.Pending => OrderStatus.Accepted,
         OrderStatus.Accepted => OrderStatus.Preparing,
         OrderStatus.Preparing => OrderStatus.Ready,
-        OrderStatus.Ready => OrderStatus.Delivering,
+        OrderStatus.Ready => deliveryType == DeliveryType.Pickup ? OrderStatus.Completed : OrderStatus.Delivering,
         OrderStatus.Delivering => OrderStatus.Completed,
         _ => null
     };

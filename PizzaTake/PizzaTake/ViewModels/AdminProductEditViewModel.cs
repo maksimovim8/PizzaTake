@@ -225,6 +225,11 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
                 ErrorMessage = "Акційна ціна має бути більшою за 0.";
                 return;
             }
+            if (parsedPromo >= basePrice)
+            {
+                ErrorMessage = "Акційна ціна має бути меншою за базову ціну.";
+                return;
+            }
             promoPrice = parsedPromo;
         }
 
