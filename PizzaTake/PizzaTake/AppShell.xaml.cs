@@ -62,6 +62,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("checkout", typeof(CheckoutPage));
         Routing.RegisterRoute("orderdetail", typeof(OrderDetailPage));
         Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
+        Routing.RegisterRoute("adminproductedit", typeof(AdminProductEditPage));
 
         this.appState.StateChanged += (_, _) => MainThread.BeginInvokeOnMainThread(UpdateTabAvailability);
         Loaded += async (_, _) => await TryNavigatePendingDeepLinkAsync();

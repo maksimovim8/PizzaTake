@@ -31,8 +31,11 @@ namespace PizzaTake
             builder.Services.AddSingleton<IUserProfileRepository, UserProfileRepository>();
             builder.Services.AddSingleton<IAddressRepository, AddressRepository>();
             builder.Services.AddSingleton<ISyncQueueRepository, SyncQueueRepository>();
+            builder.Services.AddSingleton<ISecureStoreService, MauiSecureStoreService>();
+            builder.Services.AddSingleton<ISessionService, SessionService>();
+            builder.Services.AddSingleton<IBiometricAuthService, MauiBiometricAuthService>();
             builder.Services.AddSingleton<IEncryptionService, AesEncryptionService>();
-            builder.Services.AddSingleton<HttpApiClient>();
+            builder.Services.AddSingleton(sp => new HttpApiClient(sp.GetService<ILogger<HttpApiClient>>()));
             builder.Services.AddSingleton<ISyncService, SyncService>();
             builder.Services.AddSingleton<IAuthService, AuthService>();
             builder.Services.AddSingleton<IUserDataResetService, UserDataResetService>();
@@ -50,6 +53,7 @@ namespace PizzaTake
             builder.Services.AddTransient<OrderDetailPage>();
             builder.Services.AddTransient<SettingsPage>();
             builder.Services.AddTransient<AddressEditPage>();
+            builder.Services.AddTransient<AdminProductEditPage>();
             builder.Services.AddTransient<WelcomeViewModel>();
             builder.Services.AddTransient<CitySelectionViewModel>();
             builder.Services.AddTransient<PizzeriaSelectionViewModel>();
@@ -63,6 +67,7 @@ namespace PizzaTake
             builder.Services.AddTransient<OrderDetailViewModel>();
             builder.Services.AddTransient<SettingsViewModel>();
             builder.Services.AddTransient<AddressEditViewModel>();
+            builder.Services.AddTransient<AdminProductEditViewModel>();
 
 #if DEBUG
     		builder.Logging.AddDebug();

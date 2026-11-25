@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Devices.Sensors;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -15,6 +15,8 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly ICartRepository cart;
     private readonly IOrderRepository orders;
     private readonly IAppStateService appState;
+    private readonly ISessionService sessionService;
+    private readonly ILogger<MenuViewModel>? logger;
     private string searchText = string.Empty;
     private string? selectedCategory;
     private string statusMessage = string.Empty;
@@ -23,6 +25,7 @@ public sealed class MenuViewModel : BaseViewModel
 
     public ObservableCollection<Product> Products { get; } = [];
     public ObservableCollection<string> Categories { get; } = [];
+    public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
     public Order? ActiveOrder
     {
         get => activeOrder;
@@ -55,13 +58,26 @@ public sealed class MenuViewModel : BaseViewModel
     public ICommand QuickAddCommand { get; }
     public ICommand OpenProductCommand { get; }
     public ICommand OpenPizzeriaSelectorCommand { get; }
+    public ICommand OpenAdminProductCommand { get; }
 
-    public MenuViewModel(IProductRepository products, ICartRepository cart, IOrderRepository orders, IAppStateService appState)
+    public MenuViewModel(
+        IProductRepository products,
+        ICartRepository cart,
+        IOrderRepository orders,
+        IAppStateService appState,
+        ISessionService sessionService,
+        ILogger<MenuViewModel>? logger = null)
     {
         this.products = products;
         this.cart = cart;
         this.orders = orders;
         this.appState = appState;
+        this.sessionService = sessionService;
+        this.logger = logger;
+
+        this.sessionService.SessionChanged += (_, _) =>
+            MainThread.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(IsAdmin)));
+
         LoadCommand = new Command(async () => await LoadAsync());
         SelectCategoryCommand = new Command<string?>(category =>
         {
@@ -75,6 +91,22 @@ public sealed class MenuViewModel : BaseViewModel
                 await Shell.Current.GoToAsync("pizzadetail", new Dictionary<string, object> { ["Product"] = product });
         });
         OpenPizzeriaSelectorCommand = new Command(async () => await OpenPizzeriaSelectorAsync());
+        OpenAdminProductCommand = new Command<Product?>(async product => await OpenAdminProductAsync(product));
+    }
+
+    private async Task OpenAdminProductAsync(Product? product)
+    {
+        if (!sessionService.IsInRole(UserRole.Administrator))
+        {
+            logger?.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenAdminProductCommand));
+            await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
+            return;
+        }
+
+        if (product is not null)
+            await Shell.Current.GoToAsync("adminproductedit", new Dictionary<string, object> { ["Product"] = product });
+        else
+            await Shell.Current.GoToAsync("adminproductedit");
     }
 
     private async Task OpenPizzeriaSelectorAsync()
@@ -90,6 +122,7 @@ public sealed class MenuViewModel : BaseViewModel
         IsBusy = true;
         try
         {
+            OnPropertyChanged(nameof(IsAdmin));
             SelectedPizzeriaText = appState.SelectedPizzeria?.StoreNumber ?? "Оберіть піцерію";
             ActiveOrder = await orders.GetActiveAsync();
             var all = await products.GetAllAsync();

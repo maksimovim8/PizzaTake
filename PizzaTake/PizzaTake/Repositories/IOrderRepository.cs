@@ -12,4 +12,6 @@ public interface IOrderRepository
     Task<Order?> GetByIdAsync(int id);
     Task<List<OrderItem>> GetItemsByOrderIdAsync(int orderId);
     Task SaveOrderWithItemsAsync(Order order, IEnumerable<OrderItem> items);
+    Task UpdateStatusAsync(int orderId, OrderStatus status);
+    Task DeleteOrderAsync(int orderId);
 }

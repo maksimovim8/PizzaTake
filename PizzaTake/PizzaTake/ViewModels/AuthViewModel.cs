@@ -1,30 +1,42 @@
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
 using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
 
 /// <summary>
-/// ViewModel for phone-based OTP authentication and SMS verification modal flow.
+/// ViewModel for phone-based OTP authentication, biometric unlock of saved sessions, and SMS verification modal flow.
 /// </summary>
 public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IAuthService authService;
+    private readonly IBiometricAuthService biometricAuthService;
+    private readonly ILogger<AuthViewModel>? logger;
 
     private string phoneInput = "+380";
     private string smsOtpCode = string.Empty;
     private bool isPolicyAccepted;
     private bool isSmsPopupVisible;
+    private bool isBiometricLoginVisible;
+    private string biometricStatusMessage = string.Empty;
     private string errorMessage = string.Empty;
     private string? nextRoute;
 
-    public AuthViewModel(IAuthService authService)
+    public AuthViewModel(
+        IAuthService authService,
+        IBiometricAuthService biometricAuthService,
+        ILogger<AuthViewModel>? logger = null)
     {
         this.authService = authService;
+        this.biometricAuthService = biometricAuthService;
+        this.logger = logger;
         Title = "Авторизація";
 
+        InitializeCommand = new Command(async () => await InitializeAsync());
         RequestSmsCommand = new Command(async () => await RequestSmsAsync(), CanRequestSms);
         VerifySmsCommand = new Command(async () => await VerifySmsAsync(), CanVerifySms);
+        BiometricLoginCommand = new Command(async () => await BiometricLoginAsync(), () => !IsBusy);
         CloseSmsPopupCommand = new Command(() => IsSmsPopupVisible = false);
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
@@ -71,6 +83,24 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         set => SetProperty(ref isSmsPopupVisible, value);
     }
 
+    public bool IsBiometricLoginVisible
+    {
+        get => isBiometricLoginVisible;
+        private set => SetProperty(ref isBiometricLoginVisible, value);
+    }
+
+    public string BiometricStatusMessage
+    {
+        get => biometricStatusMessage;
+        private set
+        {
+            if (SetProperty(ref biometricStatusMessage, value))
+                OnPropertyChanged(nameof(HasBiometricStatusMessage));
+        }
+    }
+
+    public bool HasBiometricStatusMessage => !string.IsNullOrEmpty(BiometricStatusMessage);
+
     public string ErrorMessage
     {
         get => errorMessage;
@@ -83,8 +113,10 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
+    public ICommand InitializeCommand { get; }
     public ICommand RequestSmsCommand { get; }
     public ICommand VerifySmsCommand { get; }
+    public ICommand BiometricLoginCommand { get; }
     public ICommand CloseSmsPopupCommand { get; }
     public ICommand GoBackCommand { get; }
 
@@ -92,6 +124,32 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
     {
         if (query.TryGetValue("next", out var nextObj))
             nextRoute = nextObj?.ToString();
+    }
+
+    public async Task InitializeAsync()
+    {
+        try
+        {
+            var hasSavedToken = await authService.HasSavedCredentialsAsync();
+            if (!hasSavedToken)
+            {
+                IsBiometricLoginVisible = false;
+                BiometricStatusMessage = string.Empty;
+                return;
+            }
+
+            var biometricAvailable = await biometricAuthService.IsAvailableAsync();
+            IsBiometricLoginVisible = biometricAvailable;
+            BiometricStatusMessage = biometricAvailable
+                ? string.Empty
+                : "Біометрія недоступна на цьому пристрої — увійдіть за номером телефону.";
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to initialize biometric state on AuthPage.");
+            IsBiometricLoginVisible = false;
+            BiometricStatusMessage = "Біометрія недоступна на цьому пристрої.";
+        }
     }
 
     private bool CanRequestSms()
@@ -113,6 +171,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
 
         IsBusy = true;
         ErrorMessage = string.Empty;
+        RefreshCommandStates();
         try
         {
             var sent = await authService.SendOtpAsync(PhoneInput.Trim());
@@ -128,8 +187,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         finally
         {
             IsBusy = false;
-            ((Command)RequestSmsCommand).ChangeCanExecute();
-            ((Command)VerifySmsCommand).ChangeCanExecute();
+            RefreshCommandStates();
         }
     }
 
@@ -140,6 +198,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
 
         IsBusy = true;
         ErrorMessage = string.Empty;
+        RefreshCommandStates();
         try
         {
             var verified = await authService.VerifyOtpAsync(PhoneInput.Trim(), SmsOtpCode.Trim());
@@ -150,16 +209,83 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
             }
 
             IsSmsPopupVisible = false;
-            if (!string.IsNullOrWhiteSpace(nextRoute))
-                await Shell.Current.GoToAsync($"../{nextRoute}");
-            else
-                await Shell.Current.GoToAsync("..");
+            await NavigateAfterAuthAsync();
         }
         finally
         {
             IsBusy = false;
-            ((Command)RequestSmsCommand).ChangeCanExecute();
-            ((Command)VerifySmsCommand).ChangeCanExecute();
+            RefreshCommandStates();
         }
+    }
+
+    private async Task BiometricLoginAsync()
+    {
+        if (IsBusy)
+            return;
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        RefreshCommandStates();
+        try
+        {
+            var hasSavedToken = await authService.HasSavedCredentialsAsync();
+            if (!hasSavedToken)
+            {
+                ErrorMessage = "Збережений токен відсутній. Увійдіть за номером телефону.";
+                IsBiometricLoginVisible = false;
+                return;
+            }
+
+            var isAvailable = await biometricAuthService.IsAvailableAsync();
+            if (!isAvailable)
+            {
+                logger?.LogWarning("Biometric login attempted, but biometrics are not available on this device.");
+                ErrorMessage = "Біометрична автентифікація недоступна на цьому пристрої.";
+                IsBiometricLoginVisible = false;
+                return;
+            }
+
+            var authResult = await biometricAuthService.AuthenticateAsync("Підтвердіть особу для повторного входу в PizzaTake");
+            if (!authResult.IsSuccess)
+            {
+                ErrorMessage = authResult.ErrorMessage ?? "Біометричну автентифікацію не пройдено.";
+                return;
+            }
+
+            var restored = await authService.RestoreSavedSessionAsync();
+            if (!restored)
+            {
+                ErrorMessage = "Не вдалося відновити сесію. Увійдіть за SMS-кодом.";
+                return;
+            }
+
+            logger?.LogInformation("Biometric login succeeded; session restored.");
+            await NavigateAfterAuthAsync();
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Biometric login failed unexpectedly.");
+            ErrorMessage = "Помилка біометричного входу. Увійдіть за SMS-кодом.";
+        }
+        finally
+        {
+            IsBusy = false;
+            RefreshCommandStates();
+        }
+    }
+
+    private async Task NavigateAfterAuthAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(nextRoute))
+            await Shell.Current.GoToAsync($"../{nextRoute}");
+        else
+            await Shell.Current.GoToAsync("..");
+    }
+
+    private void RefreshCommandStates()
+    {
+        ((Command)RequestSmsCommand).ChangeCanExecute();
+        ((Command)VerifySmsCommand).ChangeCanExecute();
+        ((Command)BiometricLoginCommand).ChangeCanExecute();
     }
 }

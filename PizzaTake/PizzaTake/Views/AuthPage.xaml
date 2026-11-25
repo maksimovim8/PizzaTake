@@ -63,6 +63,24 @@
                            TextColor="#FCA5A5"
                            FontSize="13"
                            HorizontalTextAlignment="Center" />
+
+                    <Button Text="Увійти за біометрією"
+                            Command="{Binding BiometricLoginCommand}"
+                            IsVisible="{Binding IsBiometricLoginVisible}"
+                            BackgroundColor="#3B2616"
+                            BorderColor="#F7A600"
+                            BorderWidth="1.5"
+                            TextColor="#FDF1D6"
+                            FontSize="15"
+                            FontAttributes="Bold"
+                            CornerRadius="22"
+                            HeightRequest="46" />
+
+                    <Label Text="{Binding BiometricStatusMessage}"
+                           IsVisible="{Binding HasBiometricStatusMessage}"
+                           TextColor="#E7DCD2"
+                           FontSize="12"
+                           HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
             </Border>
 

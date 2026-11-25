@@ -107,6 +107,40 @@
                                TextColor="#EB5E28" />
                     </Grid>
                 </Border>
+
+                <!-- Admin Order Management Panel -->
+                <Border IsVisible="{Binding IsAdmin}"
+                        StrokeShape="RoundRectangle 16"
+                        Stroke="#F7A600"
+                        BackgroundColor="{AppThemeBinding Light=#FFFDF7, Dark=#2B2219}"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Керування замовленням (Адміністратор)"
+                               FontSize="15"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+
+                        <Button Text="Перевести на наступний статус"
+                                Command="{Binding AdvanceOrderStatusCommand}"
+                                BackgroundColor="#EB5E28"
+                                TextColor="#FFFFFF"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                CornerRadius="20"
+                                HeightRequest="44" />
+
+                        <Button Text="Видалити замовлення"
+                                Command="{Binding DeleteOrderCommand}"
+                                BackgroundColor="Transparent"
+                                BorderColor="#DC2626"
+                                BorderWidth="1"
+                                TextColor="#DC2626"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                CornerRadius="20"
+                                HeightRequest="42" />
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
         </ScrollView>
 

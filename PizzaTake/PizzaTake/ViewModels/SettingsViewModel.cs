@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -8,16 +8,19 @@ using PizzaTake.Services;
 namespace PizzaTake.ViewModels;
 
 /// <summary>
-/// ViewModel for user account settings, theme selection, decrypted profile display, and address management.
+/// ViewModel for user account settings, role display, theme selection, decrypted profile display,
+/// address management, biometric session lock, and administrator logs access.
 /// </summary>
 public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IUserProfileRepository userProfileRepository;
     private readonly IAddressRepository addressRepository;
     private readonly IAuthService authService;
+    private readonly ISessionService sessionService;
     private readonly IUserDataResetService userDataResetService;
     private readonly IAppStateService appState;
     private readonly ISyncService syncService;
+    private readonly ILogger<SettingsViewModel>? logger;
 
     private bool isDarkTheme;
     private bool isLightTheme = true;
@@ -31,17 +34,27 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         IUserProfileRepository userProfileRepository,
         IAddressRepository addressRepository,
         IAuthService authService,
+        ISessionService sessionService,
         IAppStateService appState,
         IUserDataResetService userDataResetService,
-        ISyncService syncService)
+        ISyncService syncService,
+        ILogger<SettingsViewModel>? logger = null)
     {
         this.userProfileRepository = userProfileRepository;
         this.addressRepository = addressRepository;
         this.authService = authService;
+        this.sessionService = sessionService;
         this.appState = appState;
         this.userDataResetService = userDataResetService;
         this.syncService = syncService;
+        this.logger = logger;
         Title = "Налаштування";
+
+        this.sessionService.SessionChanged += (_, _) => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            OnPropertyChanged(nameof(IsAdmin));
+            OnPropertyChanged(nameof(CurrentRoleText));
+        });
 
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
         ChangeCityCommand = new Command(async () => await Shell.Current.GoToAsync("cities?returnTo=settings"));
@@ -50,6 +63,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
         SyncNowCommand = new Command(async () => await SyncNowAsync());
+        OpenLogsCommand = new Command(async () => await OpenLogsAsync());
+        LockSessionCommand = new Command(async () => await LockSessionAsync(), () => IsPhoneVerified);
         LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
 
         this.syncService.SyncCompleted += async (_, _) => await RefreshSyncStatusAsync();
@@ -64,6 +79,15 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ObservableCollection<UserAddress> Addresses { get; } = new();
     public bool HasAddresses => Addresses.Count > 0;
     public bool HasNoAddresses => Addresses.Count == 0;
+
+    public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
+
+    public string CurrentRoleText => sessionService.CurrentRole switch
+    {
+        UserRole.Administrator => "Роль: Адміністратор",
+        UserRole.Customer => "Роль: Клієнт",
+        _ => "Роль: Гість"
+    };
 
     public bool IsDarkTheme
     {
@@ -101,7 +125,10 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         private set
         {
             if (SetProperty(ref isPhoneVerified, value))
+            {
+                ((Command)LockSessionCommand).ChangeCanExecute();
                 ((Command)LogoutCommand).ChangeCanExecute();
+            }
         }
     }
 
@@ -126,6 +153,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ICommand EditAddressCommand { get; }
     public ICommand AddAddressCommand { get; }
     public ICommand SyncNowCommand { get; }
+    public ICommand OpenLogsCommand { get; }
+    public ICommand LockSessionCommand { get; }
     public ICommand LogoutCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -161,6 +190,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         try
         {
             SyncThemeFlags();
+            OnPropertyChanged(nameof(IsAdmin));
+            OnPropertyChanged(nameof(CurrentRoleText));
 
             var profile = await userProfileRepository.GetCurrentAsync();
             if (profile is not null)
@@ -187,6 +218,35 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         {
             IsBusy = false;
         }
+    }
+
+    private async Task OpenLogsAsync()
+    {
+        if (!sessionService.IsInRole(UserRole.Administrator))
+        {
+            logger?.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenLogsCommand));
+            await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
+            return;
+        }
+
+        try
+        {
+            await Shell.Current.GoToAsync("logs");
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Route 'logs' is not registered yet.");
+            await Shell.Current.DisplayAlertAsync("Журнал логів", "Екран журналу логів буде доступний після інтеграції модуля ЛР №5.", "OK");
+        }
+    }
+
+    private async Task LockSessionAsync()
+    {
+        await authService.LockSessionAsync();
+        IsPhoneVerified = false;
+        OnPropertyChanged(nameof(IsAdmin));
+        OnPropertyChanged(nameof(CurrentRoleText));
+        await Shell.Current.GoToAsync("auth");
     }
 
     private async Task SyncNowAsync()
@@ -248,6 +308,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             CurrentCityName = "Не обрано";
             MaskedPhone = "Не вказано";
             IsPhoneVerified = false;
+            OnPropertyChanged(nameof(IsAdmin));
+            OnPropertyChanged(nameof(CurrentRoleText));
             SyncThemeFlags();
 
             await Shell.Current.GoToAsync("///menu");
@@ -255,7 +317,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[Settings] Logout cleanup failed: {exception}");
+            logger?.LogError(exception, "Logout cleanup failed.");
             await Shell.Current.DisplayAlertAsync("Не вдалося вийти", "Не вдалося очистити дані облікового запису. Спробуйте ще раз.", "OK");
         }
     }

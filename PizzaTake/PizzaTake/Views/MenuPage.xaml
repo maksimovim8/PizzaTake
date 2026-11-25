@@ -62,6 +62,17 @@
                 <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" StrokeThickness="0" StrokeShape="RoundRectangle 28" Padding="12,0" HeightRequest="50">
                     <SearchBar Placeholder="Введіть назву піци або товару" Text="{Binding SearchText, Mode=TwoWay}" FontSize="14" BackgroundColor="Transparent" />
                 </Border>
+                <Button Text="+ Додати піцу"
+                        IsVisible="{Binding IsAdmin}"
+                        Command="{Binding OpenAdminProductCommand}"
+                        BackgroundColor="#EB5E28"
+                        TextColor="#FFFFFF"
+                        FontSize="14"
+                        FontAttributes="Bold"
+                        CornerRadius="20"
+                        HeightRequest="42"
+                        HorizontalOptions="Start"
+                        Padding="18,0" />
                 <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                     <HorizontalStackLayout x:Name="CategoryChips" Spacing="8">
                         <Button Text="Усі" FontSize="13" Padding="18,8" CornerRadius="24"
@@ -97,8 +108,21 @@
                             <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light=#8B8986, Dark=#A8A29E}" LineBreakMode="TailTruncation" MaxLines="2" />
                             <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F4511E" Margin="0,5,0,0" />
                         </VerticalStackLayout>
-                        <Button Grid.Column="2" Text="+" FontSize="26" TextColor="White" BackgroundColor="#FFB400" CornerRadius="24" WidthRequest="44" HeightRequest="44" Padding="0" VerticalOptions="End" Margin="0,0,2,0"
-                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.QuickAddCommand}" CommandParameter="{Binding .}" />
+                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="End" Margin="0,0,2,0">
+                            <Button Text="✎"
+                                    IsVisible="{Binding Source={x:Reference Page}, Path=BindingContext.IsAdmin}"
+                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenAdminProductCommand}"
+                                    CommandParameter="{Binding .}"
+                                    FontSize="16"
+                                    TextColor="#B45309"
+                                    BackgroundColor="#FDF1D6"
+                                    CornerRadius="20"
+                                    WidthRequest="40"
+                                    HeightRequest="40"
+                                    Padding="0" />
+                            <Button Text="+" FontSize="26" TextColor="White" BackgroundColor="#FFB400" CornerRadius="24" WidthRequest="44" HeightRequest="44" Padding="0"
+                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.QuickAddCommand}" CommandParameter="{Binding .}" />
+                        </HorizontalStackLayout>
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenProductCommand}" CommandParameter="{Binding .}" />
                         </Grid.GestureRecognizers>

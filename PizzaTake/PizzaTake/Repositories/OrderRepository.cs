@@ -68,4 +68,30 @@ public sealed class OrderRepository : SqliteRepositoryBase, IOrderRepository
             }
         });
     }
+
+    public async Task UpdateStatusAsync(int orderId, OrderStatus status)
+    {
+        var connection = await GetConnectionAsync();
+        var order = await connection.Table<Order>().FirstOrDefaultAsync(o => o.Id == orderId);
+        if (order is null)
+            return;
+
+        order.Status = status;
+        await connection.UpdateAsync(order);
+    }
+
+    public async Task DeleteOrderAsync(int orderId)
+    {
+        var connection = await GetConnectionAsync();
+        await connection.RunInTransactionAsync(tran =>
+        {
+            var items = tran.Table<OrderItem>().Where(i => i.OrderId == orderId).ToList();
+            foreach (var item in items)
+                tran.Delete(item);
+
+            var order = tran.Table<Order>().FirstOrDefault(o => o.Id == orderId);
+            if (order is not null)
+                tran.Delete(order);
+        });
+    }
 }

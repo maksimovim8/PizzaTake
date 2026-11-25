@@ -31,7 +31,7 @@
                     Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
                     BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
                     Padding="16">
-                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
                     <Label Grid.Row="0" Grid.Column="0"
                            Text="НОМЕР ТЕЛЕФОНУ"
                            FontSize="11"
@@ -47,6 +47,11 @@
                            IsVisible="{Binding IsPhoneVerified}"
                            FontSize="13"
                            TextColor="#16A34A" />
+                    <Label Grid.Row="3" Grid.Column="0"
+                           Text="{Binding CurrentRoleText}"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           TextColor="#B45309" />
 
                     <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
                             Text="Змінити"
@@ -248,6 +253,44 @@
                             VerticalOptions="Center" />
                 </Grid>
             </Border>
+
+            <!-- Admin Logs Section -->
+            <Border IsVisible="{Binding IsAdmin}"
+                    StrokeShape="RoundRectangle 18"
+                    Stroke="#F7A600"
+                    BackgroundColor="{AppThemeBinding Light=#FFFDF7, Dark=#2B2219}"
+                    Padding="16">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="Журнал логів"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Text="Діагностика та події (лише адміністратор)"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    </VerticalStackLayout>
+
+                    <Button Grid.Column="1"
+                            Text="Відкрити"
+                            Command="{Binding OpenLogsCommand}"
+                            BackgroundColor="#EB5E28"
+                            TextColor="#FFFFFF"
+                            FontAttributes="Bold"
+                            CornerRadius="16"
+                            HeightRequest="38"
+                            VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <Button Text="Заблокувати сесію (вхід за біометрією)"
+                    Command="{Binding LockSessionCommand}"
+                    IsVisible="{Binding IsPhoneVerified}"
+                    BackgroundColor="#FDF1D6"
+                    TextColor="#B45309"
+                    FontAttributes="Bold"
+                    CornerRadius="22"
+                    HeightRequest="46" />
 
             <Button Text="Вийти з облікового запису"
                     Command="{Binding LogoutCommand}"

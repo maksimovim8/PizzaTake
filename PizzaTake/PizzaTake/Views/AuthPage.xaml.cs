@@ -1,19 +1,21 @@
-using System.Diagnostics;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
 
 public partial class AuthPage : ContentPage
 {
+    private readonly AuthViewModel viewModel;
+
     public AuthPage(AuthViewModel viewModel)
     {
         InitializeComponent();
+        this.viewModel = viewModel;
         BindingContext = viewModel;
     }
 
-    protected override void OnDisappearing()
+    protected override void OnAppearing()
     {
-        base.OnDisappearing();
-        Debug.WriteLine("[Navigation] Leaving AuthPage");
+        base.OnAppearing();
+        viewModel.InitializeCommand.Execute(null);
     }
 }

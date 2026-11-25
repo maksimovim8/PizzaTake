@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             x:Class="PizzaTake.Views.AdminProductEditPage"
+             x:DataType="vm:AdminProductEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <ScrollView Padding="20,16">
+        <VerticalStackLayout Spacing="18">
+            <Button Text="‹ Назад"
+                    Command="{Binding GoBackCommand}"
+                    HorizontalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="#EB5E28"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    Padding="0" />
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="{Binding Title}"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Text="Керування каталогом піц (лише адміністратор)"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+            </VerticalStackLayout>
+
+            <Border StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="14">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="НАЗВА ПІЦИ *"
+                               FontSize="11"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                        <Border StrokeShape="RoundRectangle 12"
+                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                Padding="12,4">
+                            <Entry Text="{Binding Name, Mode=TwoWay}"
+                                   Placeholder="Наприклад: Пепероні Делюкс"
+                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                   FontSize="15" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="ОПИС ТА ІНГРЕДІЄНТИ"
+                               FontSize="11"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                        <Border StrokeShape="RoundRectangle 12"
+                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                Padding="12,4">
+                            <Entry Text="{Binding Description, Mode=TwoWay}"
+                                   Placeholder="Томатний соус, моцарела, пепероні"
+                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                   FontSize="15" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="КАТЕГОРІЯ *"
+                               FontSize="11"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                        <Border StrokeShape="RoundRectangle 12"
+                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                Padding="12,4">
+                            <Picker ItemsSource="{Binding AvailableCategories}"
+                                    SelectedItem="{Binding Category, Mode=TwoWay}"
+                                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                    FontSize="15" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <VerticalStackLayout Grid.Column="0" Spacing="6">
+                            <Label Text="БАЗОВА ЦІНА (₴) *"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding BasePriceInput, Mode=TwoWay}"
+                                       Keyboard="Numeric"
+                                       Placeholder="259"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="6">
+                            <Label Text="АКЦІЙНА ЦІНА (₴)"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding PromoPriceInput, Mode=TwoWay}"
+                                       Keyboard="Numeric"
+                                       Placeholder="Опційно"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <VerticalStackLayout Grid.Column="0" Spacing="6">
+                            <Label Text="ВАГА (Г) *"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding WeightGramsInput, Mode=TwoWay}"
+                                       Keyboard="Numeric"
+                                       Placeholder="520"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="6">
+                            <Label Text="КАЛОРІЇ (ККАЛ)"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding CaloriesInput, Mode=TwoWay}"
+                                       Keyboard="Numeric"
+                                       Placeholder="240"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
+                        <Label Text="Позначити як новинку"
+                               FontSize="15"
+                               VerticalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding IsNew, Mode=TwoWay}"
+                                OnColor="#EB5E28" />
+                    </Grid>
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="#DC2626"
+                           FontSize="13" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Зберегти піцу"
+                    Command="{Binding SaveProductCommand}"
+                    IsVisible="{Binding IsAdmin}"
+                    BackgroundColor="#EB5E28"
+                    TextColor="#FFFFFF"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    CornerRadius="24"
+                    HeightRequest="50" />
+
+            <Button Text="Видалити піцу"
+                    Command="{Binding DeleteProductCommand}"
+                    IsVisible="{Binding IsEditMode}"
+                    BackgroundColor="Transparent"
+                    BorderColor="#DC2626"
+                    BorderWidth="1"
+                    TextColor="#DC2626"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    CornerRadius="24"
+                    HeightRequest="46" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
