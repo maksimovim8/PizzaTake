@@ -47,6 +47,11 @@
                            IsVisible="{Binding IsPhoneVerified}"
                            FontSize="13"
                            TextColor="#16A34A" />
+                    <Label Grid.Row="2" Grid.Column="0"
+                           Text="🔒 Доступ заблоковано — підтвердіть особу"
+                           IsVisible="{Binding IsSessionLocked}"
+                           FontSize="13"
+                           TextColor="#D97706" />
                     <Label Grid.Row="3" Grid.Column="0"
                            Text="{Binding CurrentRoleText}"
                            FontSize="13"
@@ -111,6 +116,7 @@
                         <Button Grid.Column="1"
                                 Text="+ Додати"
                                 Command="{Binding AddAddressCommand}"
+                                IsVisible="{Binding CanManageAddresses}"
                                 BackgroundColor="#FDF1D6"
                                 TextColor="#B45309"
                                 FontAttributes="Bold"
@@ -118,6 +124,11 @@
                                 HeightRequest="38"
                                 VerticalOptions="Center" />
                     </Grid>
+
+                    <Label Text="Розблокуйте сесію, щоб переглядати та редагувати збережені адреси."
+                           IsVisible="{Binding IsSessionLocked}"
+                           FontSize="13"
+                           TextColor="#D97706" />
 
                     <Label Text="Поки немає збережених адрес."
                            IsVisible="{Binding HasNoAddresses}"
@@ -283,18 +294,46 @@
                 </Grid>
             </Border>
 
-            <Button Text="Заблокувати сесію (вхід за біометрією)"
-                    Command="{Binding LockSessionCommand}"
-                    IsVisible="{Binding IsPhoneVerified}"
-                    BackgroundColor="#FDF1D6"
-                    TextColor="#B45309"
-                    FontAttributes="Bold"
-                    CornerRadius="22"
-                    HeightRequest="46" />
+            <!-- Session Security / Biometric Lock -->
+            <Border IsVisible="{Binding HasAccountSession}"
+                    StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="Безпека сесії"
+                               FontSize="16"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Text="Блокування приховує особисті дані без видалення акаунта — повторний вхід можливий за біометрією або SMS."
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    </VerticalStackLayout>
+
+                    <Button Text="Заблокувати сесію"
+                            Command="{Binding LockSessionCommand}"
+                            IsVisible="{Binding IsPhoneVerified}"
+                            BackgroundColor="#FDF1D6"
+                            TextColor="#B45309"
+                            FontAttributes="Bold"
+                            CornerRadius="20"
+                            HeightRequest="44" />
+
+                    <Button Text="Розблокувати сесію (біометрія / вхід)"
+                            Command="{Binding UnlockSessionCommand}"
+                            IsVisible="{Binding IsSessionLocked}"
+                            BackgroundColor="#EB5E28"
+                            TextColor="#FFFFFF"
+                            FontAttributes="Bold"
+                            CornerRadius="20"
+                            HeightRequest="44" />
+                </VerticalStackLayout>
+            </Border>
 
             <Button Text="Вийти з облікового запису"
                     Command="{Binding LogoutCommand}"
-                    IsVisible="{Binding IsPhoneVerified}"
+                    IsVisible="{Binding HasAccountSession}"
                     BackgroundColor="Transparent"
                     BorderColor="#DC2626"
                     BorderWidth="1"

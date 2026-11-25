@@ -19,6 +19,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
     private bool isPolicyAccepted;
     private bool isSmsPopupVisible;
     private bool isBiometricLoginVisible;
+    private bool isSessionLocked;
     private string biometricStatusMessage = string.Empty;
     private string errorMessage = string.Empty;
     private string? nextRoute;
@@ -89,6 +90,25 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         private set => SetProperty(ref isBiometricLoginVisible, value);
     }
 
+    public bool IsSessionLocked
+    {
+        get => isSessionLocked;
+        private set
+        {
+            if (SetProperty(ref isSessionLocked, value))
+            {
+                OnPropertyChanged(nameof(HeaderTitle));
+                OnPropertyChanged(nameof(SubtitleText));
+            }
+        }
+    }
+
+    public string HeaderTitle => IsSessionLocked ? "Сесію заблоковано" : "Приєднуйся до";
+
+    public string SubtitleText => IsSessionLocked
+        ? "Підтвердіть особу за біометрією або увійдіть повторно за номером телефону"
+        : "Введіть номер телефону, щоб увійти у додаток";
+
     public string BiometricStatusMessage
     {
         get => biometricStatusMessage;
@@ -124,6 +144,12 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
     {
         if (query.TryGetValue("next", out var nextObj))
             nextRoute = nextObj?.ToString();
+
+        if (query.TryGetValue("locked", out var lockedObj) &&
+            bool.TryParse(lockedObj?.ToString(), out var locked))
+        {
+            IsSessionLocked = locked;
+        }
     }
 
     public async Task InitializeAsync()
@@ -131,6 +157,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         try
         {
             var hasSavedToken = await authService.HasSavedCredentialsAsync();
+            IsSessionLocked = hasSavedToken && !authService.IsAuthenticated;
             if (!hasSavedToken)
             {
                 IsBiometricLoginVisible = false;

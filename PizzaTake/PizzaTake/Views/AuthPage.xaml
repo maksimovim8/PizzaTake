@@ -27,7 +27,7 @@
                     Padding="24,36">
                 <VerticalStackLayout Spacing="22">
                     <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-                        <Label Text="Приєднуйся до"
+                        <Label Text="{Binding HeaderTitle}"
                                FontSize="26"
                                FontAttributes="Bold"
                                HorizontalTextAlignment="Center"
@@ -39,7 +39,7 @@
                                TextColor="#F7A600" />
                     </VerticalStackLayout>
 
-                    <Label Text="Введіть номер телефону, щоб увійти у додаток"
+                    <Label Text="{Binding SubtitleText}"
                            FontSize="14"
                            HorizontalTextAlignment="Center"
                            TextColor="#E7DCD2" />

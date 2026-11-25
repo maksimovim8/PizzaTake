@@ -28,6 +28,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private string currentCityName = "Не обрано";
     private string maskedPhone = "Не вказано";
     private bool isPhoneVerified;
+    private bool isSessionLocked;
     private int pendingSyncCount;
 
     public SettingsViewModel(
@@ -59,13 +60,14 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
         ChangeCityCommand = new Command(async () => await Shell.Current.GoToAsync("cities?returnTo=settings"));
         ToggleThemeCommand = new Command<string?>(ApplyThemeMode);
-        ChangePhoneCommand = new Command(async () => await Shell.Current.GoToAsync("auth"));
+        ChangePhoneCommand = new Command(async () => await Shell.Current.GoToAsync(IsSessionLocked ? "auth?locked=true" : "auth"));
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
         SyncNowCommand = new Command(async () => await SyncNowAsync());
         OpenLogsCommand = new Command(async () => await OpenLogsAsync());
         LockSessionCommand = new Command(async () => await LockSessionAsync(), () => IsPhoneVerified);
-        LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
+        UnlockSessionCommand = new Command(async () => await Shell.Current.GoToAsync("auth?locked=true"), () => IsSessionLocked);
+        LogoutCommand = new Command(async () => await LogoutAsync(), () => HasAccountSession);
 
         this.syncService.SyncCompleted += async (_, _) => await RefreshSyncStatusAsync();
 
@@ -77,17 +79,19 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     }
 
     public ObservableCollection<UserAddress> Addresses { get; } = new();
-    public bool HasAddresses => Addresses.Count > 0;
-    public bool HasNoAddresses => Addresses.Count == 0;
+    public bool HasAddresses => !IsSessionLocked && Addresses.Count > 0;
+    public bool HasNoAddresses => !IsSessionLocked && Addresses.Count == 0;
 
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
 
-    public string CurrentRoleText => sessionService.CurrentRole switch
-    {
-        UserRole.Administrator => "Роль: Адміністратор",
-        UserRole.Customer => "Роль: Клієнт",
-        _ => "Роль: Гість"
-    };
+    public string CurrentRoleText => IsSessionLocked
+        ? "Сесію заблоковано (потрібне розблокування)"
+        : sessionService.CurrentRole switch
+        {
+            UserRole.Administrator => "Роль: Адміністратор",
+            UserRole.Customer => "Роль: Клієнт",
+            _ => "Роль: Гість"
+        };
 
     public bool IsDarkTheme
     {
@@ -126,11 +130,33 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         {
             if (SetProperty(ref isPhoneVerified, value))
             {
+                OnPropertyChanged(nameof(HasAccountSession));
                 ((Command)LockSessionCommand).ChangeCanExecute();
                 ((Command)LogoutCommand).ChangeCanExecute();
             }
         }
     }
+
+    public bool IsSessionLocked
+    {
+        get => isSessionLocked;
+        private set
+        {
+            if (SetProperty(ref isSessionLocked, value))
+            {
+                OnPropertyChanged(nameof(HasAccountSession));
+                OnPropertyChanged(nameof(CurrentRoleText));
+                OnPropertyChanged(nameof(HasAddresses));
+                OnPropertyChanged(nameof(HasNoAddresses));
+                OnPropertyChanged(nameof(CanManageAddresses));
+                ((Command)UnlockSessionCommand).ChangeCanExecute();
+                ((Command)LogoutCommand).ChangeCanExecute();
+            }
+        }
+    }
+
+    public bool HasAccountSession => IsPhoneVerified || IsSessionLocked;
+    public bool CanManageAddresses => !IsSessionLocked;
 
     public int PendingSyncCount
     {
@@ -155,6 +181,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ICommand SyncNowCommand { get; }
     public ICommand OpenLogsCommand { get; }
     public ICommand LockSessionCommand { get; }
+    public ICommand UnlockSessionCommand { get; }
     public ICommand LogoutCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -190,27 +217,39 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         try
         {
             SyncThemeFlags();
+            var hasSavedCredentials = await authService.HasSavedCredentialsAsync();
+            var locked = hasSavedCredentials && !authService.IsAuthenticated;
+            IsSessionLocked = locked;
+
             OnPropertyChanged(nameof(IsAdmin));
             OnPropertyChanged(nameof(CurrentRoleText));
 
             var profile = await userProfileRepository.GetCurrentAsync();
-            if (profile is not null)
+            if (locked)
+            {
+                CurrentCityName = string.IsNullOrWhiteSpace(profile?.CityName) ? "Не обрано" : profile.CityName;
+                MaskedPhone = "Сесію заблоковано";
+                IsPhoneVerified = false;
+                Addresses.Clear();
+            }
+            else if (profile is not null)
             {
                 CurrentCityName = string.IsNullOrWhiteSpace(profile.CityName) ? "Не обрано" : profile.CityName;
                 MaskedPhone = MaskPhone(profile.Phone);
                 IsPhoneVerified = profile.IsPhoneVerified && authService.IsAuthenticated;
+
+                var savedAddresses = await addressRepository.GetAllAsync();
+                Addresses.Clear();
+                foreach (var address in savedAddresses)
+                    Addresses.Add(address);
             }
             else
             {
                 CurrentCityName = "Не обрано";
                 MaskedPhone = "Не вказано";
                 IsPhoneVerified = false;
+                Addresses.Clear();
             }
-
-            var savedAddresses = await addressRepository.GetAllAsync();
-            Addresses.Clear();
-            foreach (var address in savedAddresses)
-                Addresses.Add(address);
 
             PendingSyncCount = await syncService.GetPendingCountAsync();
         }
@@ -244,9 +283,12 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     {
         await authService.LockSessionAsync();
         IsPhoneVerified = false;
+        IsSessionLocked = true;
+        MaskedPhone = "Сесію заблоковано";
+        Addresses.Clear();
         OnPropertyChanged(nameof(IsAdmin));
         OnPropertyChanged(nameof(CurrentRoleText));
-        await Shell.Current.GoToAsync("auth");
+        await Shell.Current.GoToAsync("auth?locked=true");
     }
 
     private async Task SyncNowAsync()
@@ -308,6 +350,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             CurrentCityName = "Не обрано";
             MaskedPhone = "Не вказано";
             IsPhoneVerified = false;
+            IsSessionLocked = false;
             OnPropertyChanged(nameof(IsAdmin));
             OnPropertyChanged(nameof(CurrentRoleText));
             SyncThemeFlags();
