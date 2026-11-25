@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices.Sensors;
@@ -13,6 +15,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
 {
     private readonly IPizzeriaRepository pizzerias;
     private readonly IAppStateService appState;
+    private readonly ILogger<PizzeriaSelectionViewModel> logger;
     private Pizzeria? selectedPizzeria;
     private string? returnTo;
 
@@ -31,10 +34,14 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
     public ICommand SelectPizzeriaCommand { get; }
     public ICommand ConfirmPizzeriaCommand { get; }
 
-    public PizzeriaSelectionViewModel(IPizzeriaRepository pizzerias, IAppStateService appState)
+    public PizzeriaSelectionViewModel(
+        IPizzeriaRepository pizzerias,
+        IAppStateService appState,
+        ILogger<PizzeriaSelectionViewModel>? logger = null)
     {
         this.pizzerias = pizzerias;
         this.appState = appState;
+        this.logger = logger ?? NullLogger<PizzeriaSelectionViewModel>.Instance;
         LoadCommand = new Command(async () => await LoadAsync());
         SelectPizzeriaCommand = new Command<Pizzeria>(pizzeria => SelectedPizzeria = pizzeria);
         ConfirmPizzeriaCommand = new Command(async () => await ConfirmAsync(), () => SelectedPizzeria is not null);
@@ -56,6 +63,11 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
             Pizzerias.Clear();
             foreach (var pizzeria in await pizzerias.GetByCityIdAsync(appState.SelectedCity.Id))
                 Pizzerias.Add(pizzeria);
+            logger.LogInformation("Loaded {PizzeriaCount} pizzeria(s) for city {CityName}", Pizzerias.Count, appState.SelectedCity.Name);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load pizzerias for city {CityId}", appState.SelectedCity.Id);
         }
         finally { IsBusy = false; }
     }
@@ -65,6 +77,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
         if (SelectedPizzeria is null) return;
         appState.SelectedPizzeria = SelectedPizzeria;
         appState.SaveState();
+        logger.LogInformation("Confirmed pizzeria {StoreNumber} ({Address})", SelectedPizzeria.StoreNumber, SelectedPizzeria.Address);
         await Shell.Current.GoToAsync(returnTo switch
         {
             "settings" => "///settings",

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices.Sensors;
@@ -13,16 +15,21 @@ public sealed class FavoritesViewModel : BaseViewModel
 {
     private readonly IFavoriteRepository favorites;
     private readonly ICartRepository cart;
+    private readonly ILogger<FavoritesViewModel> logger;
     public ObservableCollection<Product> Favorites { get; } = [];
     public ICommand LoadCommand { get; }
     public ICommand ToggleFavoriteCommand { get; }
     public ICommand AddToCartCommand { get; }
     public ICommand OpenProductCommand { get; }
 
-    public FavoritesViewModel(IFavoriteRepository favorites, ICartRepository cart)
+    public FavoritesViewModel(
+        IFavoriteRepository favorites,
+        ICartRepository cart,
+        ILogger<FavoritesViewModel>? logger = null)
     {
         this.favorites = favorites;
         this.cart = cart;
+        this.logger = logger ?? NullLogger<FavoritesViewModel>.Instance;
         LoadCommand = new Command(async () => await LoadAsync());
         ToggleFavoriteCommand = new Command<Product>(async product =>
         {
@@ -40,6 +47,7 @@ public sealed class FavoritesViewModel : BaseViewModel
                 Quantity = 1,
                 UnitPrice = product.GetEffectivePrice()
             });
+            this.logger.LogInformation("Added favorite product {ProductName} to cart", product.Name);
         });
         OpenProductCommand = new Command<Product>(async product =>
         {
@@ -50,8 +58,16 @@ public sealed class FavoritesViewModel : BaseViewModel
 
     private async Task LoadAsync()
     {
-        var items = await favorites.GetFavoriteProductsAsync();
-        Favorites.Clear();
-        foreach (var product in items) Favorites.Add(product);
+        try
+        {
+            var items = await favorites.GetFavoriteProductsAsync();
+            Favorites.Clear();
+            foreach (var product in items) Favorites.Add(product);
+            logger.LogDebug("Loaded {FavoriteCount} favorite product(s)", Favorites.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load favorite products");
+        }
     }
 }

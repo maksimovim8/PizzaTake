@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
@@ -10,6 +12,7 @@ namespace PizzaTake.ViewModels;
 public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IAuthService authService;
+    private readonly ILogger<AuthViewModel> logger;
 
     private string phoneInput = "+380";
     private string smsOtpCode = string.Empty;
@@ -18,9 +21,10 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
     private string errorMessage = string.Empty;
     private string? nextRoute;
 
-    public AuthViewModel(IAuthService authService)
+    public AuthViewModel(IAuthService authService, ILogger<AuthViewModel>? logger = null)
     {
         this.authService = authService;
+        this.logger = logger ?? NullLogger<AuthViewModel>.Instance;
         Title = "Авторизація";
 
         RequestSmsCommand = new Command(async () => await RequestSmsAsync(), CanRequestSms);
@@ -118,12 +122,18 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
             var sent = await authService.SendOtpAsync(PhoneInput.Trim());
             if (!sent)
             {
+                logger.LogWarning("OTP SMS request failed in AuthViewModel");
                 ErrorMessage = "Не вдалося надіслати код. Перевірте номер телефону.";
                 return;
             }
 
             SmsOtpCode = string.Empty;
             IsSmsPopupVisible = true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error requesting OTP SMS code");
+            ErrorMessage = "Виникла помилка під час надсилання коду.";
         }
         finally
         {
@@ -145,15 +155,22 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
             var verified = await authService.VerifyOtpAsync(PhoneInput.Trim(), SmsOtpCode.Trim());
             if (!verified)
             {
+                logger.LogWarning("OTP SMS code verification failed in AuthViewModel");
                 ErrorMessage = "Невірний код підтвердження. Введіть 4 цифри (наприклад, 1234).";
                 return;
             }
 
+            logger.LogInformation("OTP verification succeeded; navigating to {NextRoute}", nextRoute ?? "..");
             IsSmsPopupVisible = false;
             if (!string.IsNullOrWhiteSpace(nextRoute))
                 await Shell.Current.GoToAsync($"../{nextRoute}");
             else
                 await Shell.Current.GoToAsync("..");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error verifying OTP SMS code");
+            ErrorMessage = "Не вдалося перевірити код. Спробуйте ще раз.";
         }
         finally
         {

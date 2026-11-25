@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
@@ -6,11 +7,13 @@ namespace PizzaTake.Views;
 public partial class MenuPage : ContentPage
 {
     private readonly MenuViewModel viewModel;
+    private readonly ILogger<MenuPage> logger;
 
-    public MenuPage(MenuViewModel viewModel)
+    public MenuPage(MenuViewModel viewModel, ILogger<MenuPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.logger = logger ?? NullLogger<MenuPage>.Instance;
         BindingContext = viewModel;
     }
 
@@ -54,7 +57,7 @@ public partial class MenuPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        Debug.WriteLine("Leaving page: MenuPage");
+        logger.LogDebug("Leaving page {PageName}", nameof(MenuPage));
         base.OnDisappearing();
     }
 }

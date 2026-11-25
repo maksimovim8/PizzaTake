@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
@@ -6,11 +7,13 @@ namespace PizzaTake.Views;
 public partial class CheckoutPage : ContentPage
 {
     private readonly CheckoutViewModel viewModel;
+    private readonly ILogger<CheckoutPage> logger;
 
-    public CheckoutPage(CheckoutViewModel viewModel)
+    public CheckoutPage(CheckoutViewModel viewModel, ILogger<CheckoutPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.logger = logger ?? NullLogger<CheckoutPage>.Instance;
         BindingContext = viewModel;
     }
 
@@ -24,6 +27,6 @@ public partial class CheckoutPage : ContentPage
     {
         base.OnDisappearing();
         viewModel.SaveDraftState();
-        Debug.WriteLine("[Navigation] Leaving CheckoutPage (draft saved)");
+        logger.LogDebug("Leaving page {PageName} (draft saved)", nameof(CheckoutPage));
     }
 }

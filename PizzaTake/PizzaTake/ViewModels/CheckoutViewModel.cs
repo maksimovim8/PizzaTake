@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -20,6 +22,8 @@ public sealed class CheckoutViewModel : BaseViewModel
     private readonly IUserProfileRepository userProfileRepository;
     private readonly ISyncService syncService;
     private readonly IAppStateService appState;
+    private readonly ILogger<CheckoutViewModel> logger;
+    private readonly ICrashReportingService? crashReporting;
 
     private string deliveryAddress = string.Empty;
     private DeliveryType deliveryType = DeliveryType.Delivery;
@@ -35,7 +39,9 @@ public sealed class CheckoutViewModel : BaseViewModel
         IAddressRepository addressRepository,
         IUserProfileRepository userProfileRepository,
         ISyncService syncService,
-        IAppStateService appState)
+        IAppStateService appState,
+        ILogger<CheckoutViewModel>? logger = null,
+        ICrashReportingService? crashReporting = null)
     {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
@@ -43,6 +49,8 @@ public sealed class CheckoutViewModel : BaseViewModel
         this.userProfileRepository = userProfileRepository;
         this.syncService = syncService;
         this.appState = appState;
+        this.logger = logger ?? NullLogger<CheckoutViewModel>.Instance;
+        this.crashReporting = crashReporting;
         Title = "Оплата замовлення";
 
         LoadCheckoutCommand = new Command(async () => await LoadCheckoutAsync());
@@ -167,6 +175,13 @@ public sealed class CheckoutViewModel : BaseViewModel
 
             if (string.IsNullOrWhiteSpace(DeliveryAddress) && SavedAddresses.Count > 0)
                 DeliveryAddress = SavedAddresses[0].Text;
+
+            logger.LogInformation("Checkout loaded: {ItemsCount} item(s), Total={TotalAmount}, IsOffline={IsOffline}", ItemsCount, TotalAmount, IsOffline);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load checkout state");
+            ErrorMessage = "Не вдалося завантажити дані оформлення.";
         }
         finally
         {
@@ -198,8 +213,9 @@ public sealed class CheckoutViewModel : BaseViewModel
             DeliveryType = draft.DeliveryType;
             PaymentMethod = draft.PaymentMethod;
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            logger.LogWarning(ex, "Corrupt checkout draft state cleared");
             Preferences.Default.Remove(DraftPreferenceKey);
         }
     }
@@ -237,6 +253,7 @@ public sealed class CheckoutViewModel : BaseViewModel
 
         if (appState.SelectedPizzeria is null)
         {
+            logger.LogWarning("Checkout blocked because no pizzeria is selected");
             ErrorMessage = "Оберіть піцерію перед оформленням замовлення.";
             return;
         }
@@ -248,6 +265,7 @@ public sealed class CheckoutViewModel : BaseViewModel
             var cartItems = await cartRepository.GetAllAsync();
             if (cartItems.Count == 0)
             {
+                logger.LogWarning("Checkout aborted because cart is empty");
                 ErrorMessage = "Кошик порожній.";
                 return;
             }
@@ -296,12 +314,33 @@ public sealed class CheckoutViewModel : BaseViewModel
                 UpdatedAt = DateTime.UtcNow
             });
 
+            logger.LogInformation(
+                "Order {OrderNumber} placed successfully (Total={TotalAmount}, DeliveryType={DeliveryType}, PaymentMethod={PaymentMethod})",
+                order.OrderNumber,
+                order.TotalAmount,
+                order.DeliveryType,
+                order.PaymentMethod);
+
+            crashReporting?.TrackEvent(CrashEventNames.OrderPlaced, new Dictionary<string, string>
+            {
+                ["order_number"] = order.OrderNumber,
+                ["delivery_type"] = order.DeliveryType.ToString(),
+                ["payment_method"] = order.PaymentMethod.ToString(),
+                ["items_count"] = orderItems.Count.ToString()
+            });
+
             // Checkout is pushed on top of the Cart tab. Pop it before leaving so the tab
             // cannot reopen the payment page when the user selects Cart later.
             await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync("///history");
             await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync($"orderdetail?id={order.Id}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Order checkout failed");
+            crashReporting?.CaptureException(ex, "CheckoutViewModel.ConfirmPaymentAsync");
+            ErrorMessage = "Не вдалося оформити замовлення. Спробуйте ще раз.";
         }
         finally
         {
