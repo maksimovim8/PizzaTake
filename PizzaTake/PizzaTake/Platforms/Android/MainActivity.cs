@@ -3,7 +3,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Microsoft.Maui.ApplicationModel;
-using System.Diagnostics;
+using Serilog;
 using System.Globalization;
 
 namespace PizzaTake;
@@ -37,11 +37,14 @@ public class MainActivity : MauiAppCompatActivity
             try
             {
                 if (Shell.Current is not null)
+                {
+                    Log.ForContext<MainActivity>().Information("Navigating via deep link to product {ProductId}", productId);
                     await Shell.Current.GoToAsync($"pizzadetail?id={productId}");
+                }
             }
             catch (Exception exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Deep link navigation failed: {exception}");
+                Log.ForContext<MainActivity>().Error(exception, "Deep link navigation failed for product {ProductId}", productId);
             }
         });
     }
