@@ -14,6 +14,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     private const string DraftPrefix = "addressEdit.";
     private const string DraftLabelKey = "addressEdit.label";
     private const string DraftTextKey = "addressEdit.text";
+    private const string DraftNotesKey = "addressEdit.notes";
     private const string DraftIdKey = "addressEdit.id";
 
     private readonly IAddressRepository addressRepository;
@@ -23,6 +24,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     private UserAddress? editingAddress;
     private string label = string.Empty;
     private string addressText = string.Empty;
+    private string notes = string.Empty;
     private string errorMessage = string.Empty;
     private bool isEditMode;
     private bool suppressDraftSync;
@@ -72,6 +74,16 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         }
     }
 
+    public string Notes
+    {
+        get => notes;
+        set
+        {
+            if (SetProperty(ref notes, value) && !suppressDraftSync)
+                appState.SetDraftValue(DraftNotesKey, value);
+        }
+    }
+
     public bool IsEditMode
     {
         get => isEditMode;
@@ -117,11 +129,13 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                 {
                     Label = appState.GetDraftValue(DraftLabelKey) ?? address.Label;
                     AddressText = appState.GetDraftValue(DraftTextKey) ?? address.Text;
+                    Notes = appState.GetDraftValue(DraftNotesKey) ?? address.Notes;
                 }
                 else
                 {
                     Label = address.Label;
                     AddressText = address.Text;
+                    Notes = address.Notes;
                 }
             }
             else
@@ -133,11 +147,13 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                 {
                     Label = appState.GetDraftValue(DraftLabelKey) ?? string.Empty;
                     AddressText = appState.GetDraftValue(DraftTextKey) ?? string.Empty;
+                    Notes = appState.GetDraftValue(DraftNotesKey) ?? string.Empty;
                 }
                 else
                 {
                     Label = string.Empty;
                     AddressText = string.Empty;
+                    Notes = string.Empty;
                 }
             }
         }
@@ -149,6 +165,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
         appState.SetDraftValue(DraftLabelKey, Label);
         appState.SetDraftValue(DraftTextKey, AddressText);
+        appState.SetDraftValue(DraftNotesKey, Notes);
 
         ErrorMessage = string.Empty;
         RefreshCommandStates();
@@ -162,6 +179,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
         appState.SetDraftValue(DraftLabelKey, Label);
         appState.SetDraftValue(DraftTextKey, AddressText);
+        appState.SetDraftValue(DraftNotesKey, Notes);
         appState.SaveState();
     }
 
@@ -206,6 +224,9 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                     UserId = editingAddress.UserId != 0 ? editingAddress.UserId : profile?.Id ?? 0,
                     Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
                     Text = trimmedText,
+                    Notes = Notes.Trim(),
+                    Latitude = editingAddress.Latitude,
+                    Longitude = editingAddress.Longitude,
                     LastUsedAt = DateTime.UtcNow
                 }
                 : new UserAddress
@@ -213,6 +234,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                     UserId = profile?.Id ?? 0,
                     Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
                     Text = trimmedText,
+                    Notes = Notes.Trim(),
                     LastUsedAt = DateTime.UtcNow
                 };
 

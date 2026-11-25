@@ -20,7 +20,7 @@ namespace PizzaTake
                 });
 
             SQLitePCL.Batteries_V2.Init();
-            builder.Services.AddSingleton<SqliteDatabase>();
+            builder.Services.AddSingleton(sp => new SqliteDatabase(sp.GetService<ILogger<SqliteDatabase>>()));
             builder.Services.AddSingleton<IAppStateService, AppStateService>();
             builder.Services.AddSingleton<ICityRepository, CityRepository>();
             builder.Services.AddSingleton<IPizzeriaRepository, PizzeriaRepository>();

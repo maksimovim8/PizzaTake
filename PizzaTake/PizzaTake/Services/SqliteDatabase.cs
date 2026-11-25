@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using PizzaTake.Models;
 using SQLite;
 
@@ -5,17 +6,31 @@ namespace PizzaTake.Services;
 
 public sealed class SqliteDatabase
 {
+    public const int LatestSchemaVersion = 2;
+
     private readonly SQLiteAsyncConnection connection;
+    private readonly ILogger<SqliteDatabase>? logger;
     private readonly SemaphoreSlim initializationLock = new(1, 1);
     private bool isInitialized;
 
-    public SqliteDatabase()
+    public SqliteDatabase(ILogger<SqliteDatabase>? logger = null)
+        : this(Path.Combine(FileSystem.AppDataDirectory, "pizzatake.db3"), logger)
     {
-        var databasePath = Path.Combine(FileSystem.AppDataDirectory, "pizzatake.db3");
+    }
+
+    public SqliteDatabase(string databasePath, ILogger<SqliteDatabase>? logger = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        this.logger = logger;
         connection = new SQLiteAsyncConnection(databasePath);
     }
 
     public SQLiteAsyncConnection Connection => connection;
+
+    public Task<int> GetSchemaVersionAsync() =>
+        connection.ExecuteScalarAsync<int>("PRAGMA user_version;");
+
+    public Task CloseAsync() => connection.CloseAsync();
 
     public async Task InitializeAsync()
     {
@@ -28,18 +43,7 @@ public sealed class SqliteDatabase
             if (isInitialized)
                 return;
 
-            await connection.CreateTableAsync<City>();
-            await connection.CreateTableAsync<Pizzeria>();
-            await connection.CreateTableAsync<Product>();
-            await connection.CreateTableAsync<IngredientOption>();
-            await connection.CreateTableAsync<FavoriteProduct>();
-            await connection.CreateTableAsync<UserProfile>();
-            await connection.CreateTableAsync<UserAddress>();
-            await connection.CreateTableAsync<CartItem>();
-            await connection.CreateTableAsync<Order>();
-            await connection.CreateTableAsync<OrderItem>();
-            await connection.CreateTableAsync<SyncQueueItem>();
-
+            await ApplyMigrationsAsync();
             await SeedCatalogAsync();
             isInitialized = true;
         }
@@ -47,6 +51,67 @@ public sealed class SqliteDatabase
         {
             initializationLock.Release();
         }
+    }
+
+    private async Task ApplyMigrationsAsync()
+    {
+        var currentVersion = await GetSchemaVersionAsync();
+        logger?.LogInformation("SQLite schema check: current user_version={CurrentVersion}, target={TargetVersion}",
+            currentVersion, LatestSchemaVersion);
+
+        if (currentVersion < 1)
+        {
+            await CreateBaseTablesAsync();
+            await connection.ExecuteAsync("PRAGMA user_version = 1;");
+            currentVersion = 1;
+            logger?.LogInformation("Applied SQLite migration to schema v1 (base tables).");
+        }
+
+        if (currentVersion < 2)
+        {
+            await MigrateToV2Async();
+            await connection.ExecuteAsync("PRAGMA user_version = 2;");
+            logger?.LogInformation("Applied SQLite migration to schema v2 (UserAddresses Notes & coordinates).");
+        }
+    }
+
+    private async Task CreateBaseTablesAsync()
+    {
+        await connection.CreateTableAsync<City>();
+        await connection.CreateTableAsync<Pizzeria>();
+        await connection.CreateTableAsync<Product>();
+        await connection.CreateTableAsync<IngredientOption>();
+        await connection.CreateTableAsync<FavoriteProduct>();
+        await connection.CreateTableAsync<UserProfile>();
+        await connection.CreateTableAsync<UserAddress>();
+        await connection.CreateTableAsync<CartItem>();
+        await connection.CreateTableAsync<Order>();
+        await connection.CreateTableAsync<OrderItem>();
+        await connection.CreateTableAsync<SyncQueueItem>();
+    }
+
+    private async Task MigrateToV2Async()
+    {
+        // Ensure table exists for databases created before schema versioning was introduced.
+        await CreateBaseTablesAsync();
+
+        var columns = await connection.QueryAsync<TableColumnInfo>("PRAGMA table_info(UserAddresses);");
+        var existingNames = new HashSet<string>(columns.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+
+        if (!existingNames.Contains(nameof(UserAddress.Notes)))
+            await connection.ExecuteAsync("ALTER TABLE UserAddresses ADD COLUMN Notes TEXT NOT NULL DEFAULT '';");
+
+        if (!existingNames.Contains(nameof(UserAddress.Latitude)))
+            await connection.ExecuteAsync("ALTER TABLE UserAddresses ADD COLUMN Latitude REAL NOT NULL DEFAULT 0;");
+
+        if (!existingNames.Contains(nameof(UserAddress.Longitude)))
+            await connection.ExecuteAsync("ALTER TABLE UserAddresses ADD COLUMN Longitude REAL NOT NULL DEFAULT 0;");
+    }
+
+    private sealed class TableColumnInfo
+    {
+        [Column("name")]
+        public string Name { get; set; } = string.Empty;
     }
 
     private async Task SeedCatalogAsync()

@@ -67,6 +67,23 @@
                         </Border>
                     </VerticalStackLayout>
 
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="ПРИМІТКА ДЛЯ КУР'ЄРА"
+                               FontSize="11"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                        <Border StrokeShape="RoundRectangle 12"
+                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                Padding="12,4">
+                            <Entry Text="{Binding Notes, Mode=TwoWay}"
+                                   Placeholder="Під'їзд, поверх, код домофона"
+                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                   FontSize="15" />
+                        </Border>
+                    </VerticalStackLayout>
+
                     <Label Text="{Binding ErrorMessage}"
                            IsVisible="{Binding HasError}"
                            TextColor="#DC2626"
