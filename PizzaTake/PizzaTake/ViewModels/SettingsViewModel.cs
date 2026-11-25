@@ -46,9 +46,17 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
         LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
+
+        Addresses.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasAddresses));
+            OnPropertyChanged(nameof(HasNoAddresses));
+        };
     }
 
     public ObservableCollection<UserAddress> Addresses { get; } = new();
+    public bool HasAddresses => Addresses.Count > 0;
+    public bool HasNoAddresses => Addresses.Count == 0;
 
     public bool IsDarkTheme
     {
