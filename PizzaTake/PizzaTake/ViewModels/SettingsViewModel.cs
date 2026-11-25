@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -17,6 +18,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private readonly IAuthService authService;
     private readonly IUserDataResetService userDataResetService;
     private readonly IAppStateService appState;
+    private readonly ILogger<SettingsViewModel> logger;
 
     private bool isDarkTheme;
     private bool isLightTheme = true;
@@ -30,13 +32,15 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         IAddressRepository addressRepository,
         IAuthService authService,
         IAppStateService appState,
-        IUserDataResetService userDataResetService)
+        IUserDataResetService userDataResetService,
+        ILogger<SettingsViewModel>? logger = null)
     {
         this.userProfileRepository = userProfileRepository;
         this.addressRepository = addressRepository;
         this.authService = authService;
         this.appState = appState;
         this.userDataResetService = userDataResetService;
+        this.logger = logger ?? NullLogger<SettingsViewModel>.Instance;
         Title = "Налаштування";
 
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
@@ -45,6 +49,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         ChangePhoneCommand = new Command(async () => await Shell.Current.GoToAsync("auth"));
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
+        OpenLogsCommand = new Command(async () => await OpenLogsAsync());
         LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
     }
 
@@ -96,6 +101,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ICommand ChangePhoneCommand { get; }
     public ICommand EditAddressCommand { get; }
     public ICommand AddAddressCommand { get; }
+    public ICommand OpenLogsCommand { get; }
     public ICommand LogoutCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -150,6 +156,12 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             Addresses.Clear();
             foreach (var address in savedAddresses)
                 Addresses.Add(address);
+
+            logger.LogInformation("Settings loaded with {AddressCount} saved address(es)", Addresses.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load user settings");
         }
         finally
         {
@@ -177,6 +189,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         }
 
         SyncThemeFlags();
+        logger.LogInformation("Application theme changed to {ThemeMode}", selectedMode);
     }
 
     private void SyncThemeFlags()
@@ -195,6 +208,12 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         await Shell.Current.GoToAsync("addressedit", parameters);
     }
 
+    private async Task OpenLogsAsync()
+    {
+        logger.LogInformation("Opening local logs diagnostics screen");
+        await Shell.Current.GoToAsync("logs");
+    }
+
     private async Task LogoutAsync()
     {
         try
@@ -206,12 +225,13 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             IsPhoneVerified = false;
             SyncThemeFlags();
 
+            logger.LogInformation("User logged out from SettingsPage");
             await Shell.Current.GoToAsync("///menu");
             await Shell.Current.GoToAsync("welcome");
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[Settings] Logout cleanup failed: {exception}");
+            logger.LogError(exception, "Logout cleanup failed");
             await Shell.Current.DisplayAlertAsync("Не вдалося вийти", "Не вдалося очистити дані облікового запису. Спробуйте ще раз.", "OK");
         }
     }
