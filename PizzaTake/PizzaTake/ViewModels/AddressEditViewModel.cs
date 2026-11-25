@@ -1,34 +1,46 @@
 using System.Windows.Input;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
+using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
 
 /// <summary>
-/// ViewModel for creating, editing, and deleting saved delivery addresses with query-parameter return navigation.
+/// ViewModel for creating, editing, and deleting saved delivery addresses with query-parameter return navigation
+/// and draft persistence across app lifecycle transitions.
 /// </summary>
 public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
 {
+    private const string DraftPrefix = "addressEdit.";
+    private const string DraftLabelKey = "addressEdit.label";
+    private const string DraftTextKey = "addressEdit.text";
+    private const string DraftIdKey = "addressEdit.id";
+
     private readonly IAddressRepository addressRepository;
     private readonly IUserProfileRepository userProfileRepository;
+    private readonly IAppStateService appState;
 
     private UserAddress? editingAddress;
     private string label = string.Empty;
     private string addressText = string.Empty;
     private string errorMessage = string.Empty;
     private bool isEditMode;
+    private bool suppressDraftSync;
+    private bool isDraftCleared;
 
     public AddressEditViewModel(
         IAddressRepository addressRepository,
-        IUserProfileRepository userProfileRepository)
+        IUserProfileRepository userProfileRepository,
+        IAppStateService appState)
     {
         this.addressRepository = addressRepository;
         this.userProfileRepository = userProfileRepository;
+        this.appState = appState;
         Title = "Нова адреса";
 
         SaveCommand = new Command(async () => await SaveAsync(), CanSave);
         DeleteCommand = new Command(async () => await DeleteAsync(), CanDelete);
-        GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
+        GoBackCommand = new Command(async () => await GoBackAsync());
     }
 
     public string Label
@@ -37,7 +49,11 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         set
         {
             if (SetProperty(ref label, value))
+            {
+                if (!suppressDraftSync)
+                    appState.SetDraftValue(DraftLabelKey, value);
                 ErrorMessage = string.Empty;
+            }
         }
     }
 
@@ -48,6 +64,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         {
             if (SetProperty(ref addressText, value))
             {
+                if (!suppressDraftSync)
+                    appState.SetDraftValue(DraftTextKey, value);
                 ErrorMessage = string.Empty;
                 ((Command)SaveCommand).ChangeCanExecute();
             }
@@ -85,24 +103,79 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        if (query.TryGetValue("Address", out var value) && value is UserAddress address)
+        isDraftCleared = false;
+        suppressDraftSync = true;
+        try
         {
-            editingAddress = address;
-            Label = address.Label;
-            AddressText = address.Text;
-            IsEditMode = address.Id > 0;
+            if (query.TryGetValue("Address", out var value) && value is UserAddress address)
+            {
+                editingAddress = address;
+                IsEditMode = address.Id > 0;
+
+                var draftId = appState.GetDraftValue(DraftIdKey);
+                if (string.Equals(draftId, address.Id.ToString(), StringComparison.Ordinal))
+                {
+                    Label = appState.GetDraftValue(DraftLabelKey) ?? address.Label;
+                    AddressText = appState.GetDraftValue(DraftTextKey) ?? address.Text;
+                }
+                else
+                {
+                    Label = address.Label;
+                    AddressText = address.Text;
+                }
+            }
+            else
+            {
+                editingAddress = null;
+                IsEditMode = false;
+                var draftId = appState.GetDraftValue(DraftIdKey);
+                if (string.IsNullOrEmpty(draftId) || draftId == "0")
+                {
+                    Label = appState.GetDraftValue(DraftLabelKey) ?? string.Empty;
+                    AddressText = appState.GetDraftValue(DraftTextKey) ?? string.Empty;
+                }
+                else
+                {
+                    Label = string.Empty;
+                    AddressText = string.Empty;
+                }
+            }
         }
-        else
+        finally
         {
-            editingAddress = null;
-            Label = string.Empty;
-            AddressText = string.Empty;
-            IsEditMode = false;
+            suppressDraftSync = false;
         }
 
+        appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
+        appState.SetDraftValue(DraftLabelKey, Label);
+        appState.SetDraftValue(DraftTextKey, AddressText);
+
         ErrorMessage = string.Empty;
-        ((Command)SaveCommand).ChangeCanExecute();
-        ((Command)DeleteCommand).ChangeCanExecute();
+        RefreshCommandStates();
+    }
+
+    public void SaveDraftState()
+    {
+        if (isDraftCleared)
+            return;
+
+        appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
+        appState.SetDraftValue(DraftLabelKey, Label);
+        appState.SetDraftValue(DraftTextKey, AddressText);
+        appState.SaveState();
+    }
+
+    private async Task GoBackAsync()
+    {
+        ClearDraft();
+        await Shell.Current.GoToAsync("..");
+    }
+
+    private void ClearDraft()
+    {
+        isDraftCleared = true;
+        appState.ClearDraftPrefix(DraftPrefix);
+        appState.SaveState();
     }
 
     private bool CanSave() => !IsBusy && !string.IsNullOrWhiteSpace(AddressText);
@@ -144,6 +217,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                 };
 
             await addressRepository.SaveAsync(address);
+            ClearDraft();
 
             await Shell.Current.GoToAsync("..", new Dictionary<string, object>
             {
@@ -168,6 +242,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         {
             var deletedId = editingAddress.Id;
             await addressRepository.DeleteAsync(editingAddress);
+            ClearDraft();
 
             await Shell.Current.GoToAsync("..", new Dictionary<string, object>
             {

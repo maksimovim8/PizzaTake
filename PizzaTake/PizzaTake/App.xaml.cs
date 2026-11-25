@@ -1,6 +1,6 @@
-using PizzaTake.Services;
 using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using PizzaTake.Services;
 
 namespace PizzaTake;
 
@@ -10,13 +10,20 @@ public partial class App : Application
     private readonly AppShell shell;
     private readonly IAppStateService appState;
     private readonly IServiceProvider services;
+    private readonly ILogger<App> logger;
 
-    public App(SqliteDatabase database, AppShell shell, IAppStateService appState, IServiceProvider services)
+    public App(
+        SqliteDatabase database,
+        AppShell shell,
+        IAppStateService appState,
+        IServiceProvider services,
+        ILogger<App> logger)
     {
         this.database = database;
         this.shell = shell;
         this.appState = appState;
         this.services = services;
+        this.logger = logger;
         InitializeComponent();
         this.appState.RestoreState();
     }
@@ -24,23 +31,27 @@ public partial class App : Application
     protected override Window CreateWindow(IActivationState? activationState)
     {
         _ = database.InitializeAsync();
+        services.GetService<ISyncService>()?.StartConnectivityListener();
+        logger.LogInformation("Lifecycle: Application window created.");
+
         var window = new Window(shell);
         window.Stopped += (_, _) =>
         {
             appState.SaveState();
             services.GetService<ISyncService>()?.StopConnectivityListener();
-            Debug.WriteLine("Application stopped; state saved.");
+            logger.LogInformation("Lifecycle: Application stopped; session and form draft state saved.");
         };
         window.Resumed += (_, _) =>
         {
             appState.RestoreState();
             services.GetService<ISyncService>()?.StartConnectivityListener();
-            Debug.WriteLine("Application resumed; state restored.");
+            logger.LogInformation("Lifecycle: Application resumed; session and form draft state restored.");
         };
         window.Destroying += (_, _) =>
         {
+            appState.SaveState();
             services.GetService<ISyncService>()?.StopConnectivityListener();
-            Debug.WriteLine("Application window destroyed.");
+            logger.LogInformation("Lifecycle: Application window destroying; resources released.");
         };
         return window;
     }

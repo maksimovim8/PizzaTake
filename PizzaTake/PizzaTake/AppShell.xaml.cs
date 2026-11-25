@@ -6,11 +6,15 @@ namespace PizzaTake;
 
 public partial class AppShell : Shell
 {
+    private static string? coldStartDeepLinkRoute;
+
     private readonly IAppStateService appState;
     private readonly ShellContent favoritesTab;
     private readonly ShellContent cartTab;
     private readonly ShellContent historyTab;
     private readonly ShellContent settingsTab;
+
+    public static void SetColdStartDeepLink(string route) => coldStartDeepLinkRoute = route;
 
     public AppShell(IServiceProvider services, IAuthService authService, IAppStateService appState)
     {
@@ -60,7 +64,20 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
 
         this.appState.StateChanged += (_, _) => MainThread.BeginInvokeOnMainThread(UpdateTabAvailability);
+        Loaded += async (_, _) => await TryNavigatePendingDeepLinkAsync();
         UpdateTabAvailability();
+    }
+
+    public async Task TryNavigatePendingDeepLinkAsync()
+    {
+        var route = appState.PendingDeepLinkRoute ?? coldStartDeepLinkRoute;
+        if (string.IsNullOrWhiteSpace(route))
+            return;
+
+        appState.PendingDeepLinkRoute = null;
+        coldStartDeepLinkRoute = null;
+
+        await GoToAsync(route);
     }
 
     protected override void OnNavigating(ShellNavigatingEventArgs args)

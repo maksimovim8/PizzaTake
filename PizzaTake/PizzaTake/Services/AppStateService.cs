@@ -13,6 +13,10 @@ public interface IAppStateService
     bool IsDarkTheme { get; }
     bool IsSystemTheme { get; }
     Dictionary<string, string> DraftFormState { get; set; }
+    string? PendingDeepLinkRoute { get; set; }
+    void SetDraftValue(string key, string value);
+    string? GetDraftValue(string key);
+    void ClearDraftPrefix(string prefix);
     void SaveState();
     void RestoreState();
     void ApplyTheme(bool isDark);
@@ -36,6 +40,28 @@ public sealed class AppStateService : IAppStateService
     public bool IsDarkTheme { get; private set; }
     public bool IsSystemTheme { get; private set; }
     public Dictionary<string, string> DraftFormState { get; set; } = new(StringComparer.Ordinal);
+    public string? PendingDeepLinkRoute { get; set; }
+
+    public void SetDraftValue(string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return;
+
+        DraftFormState[key] = value;
+    }
+
+    public string? GetDraftValue(string key) =>
+        DraftFormState.TryGetValue(key, out var value) ? value : null;
+
+    public void ClearDraftPrefix(string prefix)
+    {
+        var keysToRemove = DraftFormState.Keys
+            .Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+            .ToList();
+
+        foreach (var key in keysToRemove)
+            DraftFormState.Remove(key);
+    }
 
     public void SaveState()
     {

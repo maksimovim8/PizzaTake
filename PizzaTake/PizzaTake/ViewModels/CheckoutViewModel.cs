@@ -12,7 +12,11 @@ namespace PizzaTake.ViewModels;
 /// </summary>
 public sealed class CheckoutViewModel : BaseViewModel
 {
-    private const string DraftPreferenceKey = "checkout_draft_state";
+    private const string DraftPrefix = "checkout.";
+    private const string DraftAddressKey = "checkout.address";
+    private const string DraftDeliveryTypeKey = "checkout.deliveryType";
+    private const string DraftPaymentMethodKey = "checkout.paymentMethod";
+    private const string LegacyDraftPreferenceKey = "checkout_draft_state";
 
     private readonly ICartRepository cartRepository;
     private readonly IOrderRepository orderRepository;
@@ -28,6 +32,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private int itemsCount;
     private bool isOffline;
     private string errorMessage = string.Empty;
+    private bool isOrderSubmitted;
 
     public CheckoutViewModel(
         ICartRepository cartRepository,
@@ -62,6 +67,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         {
             if (SetProperty(ref deliveryAddress, value))
             {
+                appState.SetDraftValue(DraftAddressKey, value);
                 ErrorMessage = string.Empty;
                 ((Command)ConfirmPaymentCommand).ChangeCanExecute();
             }
@@ -75,6 +81,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         {
             if (SetProperty(ref deliveryType, value))
             {
+                appState.SetDraftValue(DraftDeliveryTypeKey, value.ToString());
                 OnPropertyChanged(nameof(IsDelivery));
                 OnPropertyChanged(nameof(IsPickup));
                 ((Command)ConfirmPaymentCommand).ChangeCanExecute();
@@ -92,6 +99,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         {
             if (SetProperty(ref paymentMethod, value))
             {
+                appState.SetDraftValue(DraftPaymentMethodKey, value.ToString());
                 OnPropertyChanged(nameof(IsCardOnline));
                 OnPropertyChanged(nameof(IsCardOnDelivery));
                 OnPropertyChanged(nameof(IsCash));
@@ -149,6 +157,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         if (IsBusy)
             return;
 
+        isOrderSubmitted = false;
         IsBusy = true;
         try
         {
@@ -177,13 +186,32 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     public void SaveDraftState()
     {
-        var draft = new CheckoutDraft(DeliveryAddress, DeliveryType, PaymentMethod);
-        Preferences.Default.Set(DraftPreferenceKey, JsonSerializer.Serialize(draft));
+        if (isOrderSubmitted)
+            return;
+
+        appState.SetDraftValue(DraftAddressKey, DeliveryAddress);
+        appState.SetDraftValue(DraftDeliveryTypeKey, DeliveryType.ToString());
+        appState.SetDraftValue(DraftPaymentMethodKey, PaymentMethod.ToString());
+        appState.SaveState();
     }
 
     private void RestoreDraftState()
     {
-        var raw = Preferences.Default.Get(DraftPreferenceKey, string.Empty);
+        var savedAddress = appState.GetDraftValue(DraftAddressKey);
+        var savedDeliveryType = appState.GetDraftValue(DraftDeliveryTypeKey);
+        var savedPaymentMethod = appState.GetDraftValue(DraftPaymentMethodKey);
+
+        if (!string.IsNullOrWhiteSpace(savedAddress))
+            DeliveryAddress = savedAddress;
+        if (Enum.TryParse<DeliveryType>(savedDeliveryType, true, out var parsedDelivery))
+            DeliveryType = parsedDelivery;
+        if (Enum.TryParse<PaymentMethod>(savedPaymentMethod, true, out var parsedPayment))
+            PaymentMethod = parsedPayment;
+
+        if (!string.IsNullOrWhiteSpace(savedAddress) || !string.IsNullOrWhiteSpace(savedDeliveryType))
+            return;
+
+        var raw = Preferences.Default.Get(LegacyDraftPreferenceKey, string.Empty);
         if (string.IsNullOrWhiteSpace(raw))
             return;
 
@@ -200,7 +228,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         }
         catch (JsonException)
         {
-            Preferences.Default.Remove(DraftPreferenceKey);
+            Preferences.Default.Remove(LegacyDraftPreferenceKey);
         }
     }
 
@@ -283,7 +311,10 @@ public sealed class CheckoutViewModel : BaseViewModel
                 await PersistRecentAddressAsync(profile?.Id ?? 0, DeliveryAddress.Trim());
 
             await cartRepository.ClearAsync();
-            Preferences.Default.Remove(DraftPreferenceKey);
+            isOrderSubmitted = true;
+            appState.ClearDraftPrefix(DraftPrefix);
+            appState.SaveState();
+            Preferences.Default.Remove(LegacyDraftPreferenceKey);
 
             IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
             await syncService.EnqueueAsync("Order", "Insert", new
