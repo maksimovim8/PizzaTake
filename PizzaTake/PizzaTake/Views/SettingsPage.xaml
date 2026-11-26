@@ -311,6 +311,41 @@
                 </Grid>
             </Border>
 
+            <!-- Map & Quality Reports (Lab 7) -->
+            <Border StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Карта та контроль якості"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Grid.Column="0"
+                                Text="🗺 Карта OSM"
+                                AutomationId="SettingsOpenMapButton"
+                                Command="{Binding OpenMapCommand}"
+                                BackgroundColor="#FDF1D6"
+                                TextColor="#B45309"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                CornerRadius="16"
+                                HeightRequest="40" />
+                        <Button Grid.Column="1"
+                                Text="📷 Акт якості"
+                                AutomationId="SettingsQualityReportButton"
+                                Command="{Binding OpenQualityReportCommand}"
+                                BackgroundColor="#FDF1D6"
+                                TextColor="#B45309"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                CornerRadius="16"
+                                HeightRequest="40" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Admin Logs Section (hidden for Customer) -->
             <Border IsVisible="{Binding IsAdmin}"
                     StrokeShape="RoundRectangle 18"

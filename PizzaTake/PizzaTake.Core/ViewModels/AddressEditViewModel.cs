@@ -24,6 +24,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     private readonly IAppStateService appState;
     private readonly ISyncService syncService;
     private readonly INavigationService navigation;
+    private readonly ILocationService? locationService;
+    private readonly IPermissionService? permissionService;
     private readonly IBugReportService? bugReportService;
     private readonly ILogger<AddressEditViewModel> logger;
 
@@ -31,6 +33,9 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     private string label = string.Empty;
     private string addressText = string.Empty;
     private string notes = string.Empty;
+    private double latitude;
+    private double longitude;
+    private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
     private string? reportableErrorContext;
     private bool isEditMode;
@@ -43,6 +48,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         IAppStateService appState,
         ISyncService syncService,
         INavigationService navigation,
+        ILocationService? locationService = null,
+        IPermissionService? permissionService = null,
         IBugReportService? bugReportService = null,
         ILogger<AddressEditViewModel>? logger = null)
     {
@@ -51,12 +58,15 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         this.appState = appState;
         this.syncService = syncService;
         this.navigation = navigation;
+        this.locationService = locationService;
+        this.permissionService = permissionService;
         this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<AddressEditViewModel>.Instance;
         Title = "Нова адреса";
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, CanSave);
         DeleteCommand = new AsyncRelayCommand(DeleteAsync, CanDelete);
+        GetMyCoordinatesCommand = new AsyncRelayCommand(GetMyCoordinatesAsync, () => !IsBusy);
         ReportErrorCommand = new AsyncRelayCommand(ReportErrorAsync, () => CanReportError);
         GoBackCommand = new AsyncRelayCommand(GoBackAsync);
     }
@@ -114,6 +124,50 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         }
     }
 
+    public double Latitude
+    {
+        get => latitude;
+        private set
+        {
+            if (SetProperty(ref latitude, value))
+            {
+                OnPropertyChanged(nameof(HasCoordinates));
+                OnPropertyChanged(nameof(CoordinatesText));
+            }
+        }
+    }
+
+    public double Longitude
+    {
+        get => longitude;
+        private set
+        {
+            if (SetProperty(ref longitude, value))
+            {
+                OnPropertyChanged(nameof(HasCoordinates));
+                OnPropertyChanged(nameof(CoordinatesText));
+            }
+        }
+    }
+
+    public bool HasCoordinates => Math.Abs(Latitude) > 0.00001 || Math.Abs(Longitude) > 0.00001;
+
+    public string CoordinatesText => HasCoordinates
+        ? string.Format(System.Globalization.CultureInfo.InvariantCulture, "GPS: {0:F5}, {1:F5}", Latitude, Longitude)
+        : "Координати не визначено";
+
+    public string StatusMessage
+    {
+        get => statusMessage;
+        private set
+        {
+            if (SetProperty(ref statusMessage, value))
+                OnPropertyChanged(nameof(HasStatusMessage));
+        }
+    }
+
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+
     public string ErrorMessage
     {
         get => errorMessage;
@@ -133,6 +187,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
 
     public IAsyncRelayCommand SaveCommand { get; }
     public IAsyncRelayCommand DeleteCommand { get; }
+    public IAsyncRelayCommand GetMyCoordinatesCommand { get; }
     public IAsyncRelayCommand ReportErrorCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
@@ -146,6 +201,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
             {
                 editingAddress = address;
                 IsEditMode = address.Id > 0;
+                Latitude = address.Latitude;
+                Longitude = address.Longitude;
 
                 var draftId = appState.GetDraftValue(DraftIdKey);
                 if (string.Equals(draftId, address.Id.ToString(), StringComparison.Ordinal))
@@ -165,6 +222,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
             {
                 editingAddress = null;
                 IsEditMode = false;
+                Latitude = 0;
+                Longitude = 0;
                 var draftId = appState.GetDraftValue(DraftIdKey);
                 if (string.IsNullOrEmpty(draftId) || draftId == "0")
                 {
@@ -190,6 +249,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         appState.SetDraftValue(DraftTextKey, AddressText);
         appState.SetDraftValue(DraftNotesKey, Notes);
 
+        StatusMessage = string.Empty;
         ErrorMessage = string.Empty;
         RefreshCommandStates();
     }
@@ -204,6 +264,65 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         appState.SetDraftValue(DraftTextKey, AddressText);
         appState.SetDraftValue(DraftNotesKey, Notes);
         appState.SaveState();
+    }
+
+    private async Task GetMyCoordinatesAsync()
+    {
+        if (IsBusy)
+            return;
+
+        if (locationService is null)
+        {
+            ErrorMessage = "Сервіс геолокації недоступний.";
+            return;
+        }
+
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        StatusMessage = "Визначаємо координати...";
+        RefreshCommandStates();
+        try
+        {
+            if (permissionService is not null)
+            {
+                var granted = await permissionService.EnsureGrantedAsync(
+                    AppPermission.LocationWhenInUse,
+                    "Дозвіл на геолокацію",
+                    "Геолокація потрібна, щоб зберегти точні координати вашої адреси доставки.");
+                if (!granted)
+                {
+                    StatusMessage = string.Empty;
+                    ErrorMessage = "Дозвіл на геолокацію не надано.";
+                    return;
+                }
+            }
+
+            var result = await locationService.GetCurrentLocationAsync(TimeSpan.FromSeconds(10));
+            if (result.IsSuccess && result.Location is not null)
+            {
+                Latitude = result.Location.Latitude;
+                Longitude = result.Location.Longitude;
+                StatusMessage = "Координати оновлено.";
+                logger.LogInformation("Address GPS coordinates updated ({Latitude:F5}, {Longitude:F5})", Latitude, Longitude);
+            }
+            else
+            {
+                StatusMessage = string.Empty;
+                logger.LogWarning("Failed to detect address coordinates: {Reason} {Message}", result.FailureReason, result.ErrorMessage);
+                ErrorMessage = result.ErrorMessage ?? "Не вдалося визначити координати.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = string.Empty;
+            logger.LogError(ex, "Unexpected error while detecting coordinates for address");
+            ErrorMessage = "Не вдалося визначити координати.";
+        }
+        finally
+        {
+            IsBusy = false;
+            RefreshCommandStates();
+        }
     }
 
     private async Task GoBackAsync()
@@ -248,8 +367,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
                     Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
                     Text = trimmedText,
                     Notes = Notes.Trim(),
-                    Latitude = editingAddress.Latitude,
-                    Longitude = editingAddress.Longitude,
+                    Latitude = Latitude,
+                    Longitude = Longitude,
                     LastUsedAt = DateTime.UtcNow
                 }
                 : new UserAddress
@@ -258,6 +377,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
                     Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
                     Text = trimmedText,
                     Notes = Notes.Trim(),
+                    Latitude = Latitude,
+                    Longitude = Longitude,
                     LastUsedAt = DateTime.UtcNow
                 };
 
@@ -269,6 +390,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
                 address.Label,
                 address.Text,
                 address.Notes,
+                address.Latitude,
+                address.Longitude,
                 UpdatedAt = address.LastUsedAt
             });
             ClearDraft();
@@ -348,5 +471,6 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     {
         SaveCommand.NotifyCanExecuteChanged();
         DeleteCommand.NotifyCanExecuteChanged();
+        GetMyCoordinatesCommand.NotifyCanExecuteChanged();
     }
 }

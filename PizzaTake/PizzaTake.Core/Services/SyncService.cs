@@ -66,7 +66,7 @@ public sealed class SyncService : ISyncService
     {
         if (!connectivityService.IsConnected)
         {
-            logger.LogWarning("Skipping pending sync because network access is {ConnectionDescription}", connectivityService.ConnectionDescription);
+            logger.LogWarning("Skipping pending sync because connectivity is offline ({Description})", connectivityService.ConnectionDescription);
             return;
         }
 
@@ -131,8 +131,8 @@ public sealed class SyncService : ISyncService
         if (isListening)
             return;
 
-        connectivityService.ConnectivityChanged += OnConnectivityChanged;
         connectivityService.StartMonitoring();
+        connectivityService.ConnectivityChanged += OnConnectivityChanged;
         isListening = true;
         logger.LogDebug("SyncService connectivity listener started");
     }
@@ -155,11 +155,12 @@ public sealed class SyncService : ISyncService
     {
         if (!isConnected)
         {
-            logger.LogWarning("Connectivity changed to offline ({ConnectionDescription})", connectivityService.ConnectionDescription);
+            logger.LogWarning("Connectivity changed to offline ({Description})", connectivityService.ConnectionDescription);
             return;
         }
 
-        logger.LogInformation("Internet connectivity restored; triggering background sync");
+        logger.LogInformation("Internet connectivity restored ({Description}); triggering background sync",
+            connectivityService.ConnectionDescription);
         _ = SyncPendingSafeAsync();
     }
 

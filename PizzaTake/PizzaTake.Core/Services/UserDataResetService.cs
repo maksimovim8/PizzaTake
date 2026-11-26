@@ -50,6 +50,7 @@ public sealed class UserDataResetService : IUserDataResetService
                 transaction.DeleteAll<OrderItem>();
                 transaction.DeleteAll<Order>();
                 transaction.DeleteAll<FavoriteProduct>();
+                transaction.DeleteAll<QualityReport>();
                 transaction.DeleteAll<SyncQueueItem>();
             });
 

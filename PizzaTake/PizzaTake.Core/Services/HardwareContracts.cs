@@ -40,7 +40,14 @@ public sealed record MapPinItem(
     string Subtitle,
     double Latitude,
     double Longitude,
-    string Category = "Pizzeria");
+    string Category = "Pizzeria")
+{
+    public string CategoryDisplayName => Category switch
+    {
+        "QualityReport" => "Акт якості",
+        _ => "Піцерія"
+    };
+}
 
 public interface IPermissionService
 {

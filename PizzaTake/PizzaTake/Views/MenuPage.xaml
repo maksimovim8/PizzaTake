@@ -29,6 +29,45 @@
                         </Border>
                     </Grid>
 
+                    <Border IsVisible="{Binding IsOffline}"
+                            AutomationId="MenuOfflineBanner"
+                            StrokeShape="RoundRectangle 14"
+                            Stroke="#F59E0B"
+                            BackgroundColor="#FEF3C7"
+                            Padding="12,8">
+                        <Label Text="{Binding OfflineBannerText}"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               TextColor="#92400E" />
+                    </Border>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Button Grid.Column="0"
+                                Text="🗺 Карта піцерій"
+                                AutomationId="MenuOpenMapButton"
+                                Command="{Binding OpenMapCommand}"
+                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                BorderWidth="1"
+                                TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                CornerRadius="16"
+                                HeightRequest="38" />
+                        <Button Grid.Column="1"
+                                Text="📷 Контроль якості"
+                                AutomationId="MenuQualityReportButton"
+                                Command="{Binding OpenQualityReportCommand}"
+                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                BorderWidth="1"
+                                TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                FontSize="13"
+                                FontAttributes="Bold"
+                                CornerRadius="16"
+                                HeightRequest="38" />
+                    </Grid>
+
                     <Border BackgroundColor="#2460A0" StrokeThickness="0" StrokeShape="RoundRectangle 24" Padding="18,12" HeightRequest="174">
                         <Grid ColumnDefinitions="*,132">
                             <VerticalStackLayout Spacing="5" VerticalOptions="Center">

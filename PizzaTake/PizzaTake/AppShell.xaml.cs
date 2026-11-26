@@ -67,6 +67,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
         Routing.RegisterRoute("adminproductedit", typeof(AdminProductEditPage));
         Routing.RegisterRoute("logs", typeof(LogsPage));
+        Routing.RegisterRoute("qualityreport", typeof(QualityReportPage));
+        Routing.RegisterRoute("pizzeriasmap", typeof(PizzeriasMapPage));
 
         this.appState.StateChanged += (_, _) =>
         {

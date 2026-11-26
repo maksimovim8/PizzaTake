@@ -7,6 +7,7 @@ using PizzaTake.Views;
 using Sentry;
 using Serilog;
 using Serilog.Events;
+using SkiaSharp.Views.Maui.Controls.Hosting;
 
 namespace PizzaTake
 {
@@ -23,6 +24,7 @@ namespace PizzaTake
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseSkiaSharp()
                 .UseSentry(options =>
                 {
                     options.Dsn = ResolveSentryDsn();
@@ -51,8 +53,6 @@ namespace PizzaTake
             builder.Services.AddSingleton<INavigationService, MauiNavigationService>();
             builder.Services.AddSingleton<IDialogService, MauiDialogService>();
             builder.Services.AddSingleton<IMainThreadDispatcher, MauiMainThreadDispatcher>();
-            builder.Services.AddSingleton<IConnectivityService, MauiConnectivityService>();
-            builder.Services.AddSingleton<ILocationService, MauiLocationService>();
 
             builder.Services.AddSingleton(sp => new SqliteDatabase(
                 sp.GetRequiredService<IAppPathsService>(),
@@ -67,10 +67,17 @@ namespace PizzaTake
             builder.Services.AddSingleton<IUserProfileRepository, UserProfileRepository>();
             builder.Services.AddSingleton<IAddressRepository, AddressRepository>();
             builder.Services.AddSingleton<ISyncQueueRepository, SyncQueueRepository>();
+            builder.Services.AddSingleton<IQualityReportRepository, QualityReportRepository>();
             builder.Services.AddSingleton<ISecureStoreService, MauiSecureStoreService>();
             builder.Services.AddSingleton<ISessionService, SessionService>();
             builder.Services.AddSingleton<IBiometricAuthService, MauiBiometricAuthService>();
             builder.Services.AddSingleton<IEncryptionService, AesEncryptionService>();
+            builder.Services.AddSingleton<IPermissionService, MauiPermissionService>();
+            builder.Services.AddSingleton<IMediaService, MauiMediaService>();
+            builder.Services.AddSingleton<ILocationService, MauiLocationService>();
+            builder.Services.AddSingleton<IMapLauncherService, MauiMapLauncherService>();
+            builder.Services.AddSingleton<IShakeSensorService, MauiShakeSensorService>();
+            builder.Services.AddSingleton<IConnectivityService, MauiConnectivityService>();
             builder.Services.AddSingleton(sp => new HttpApiClient(sp.GetService<ILogger<HttpApiClient>>()));
             builder.Services.AddSingleton<ISyncService, SyncService>();
             builder.Services.AddSingleton<IAuthService, AuthService>();
@@ -94,6 +101,8 @@ namespace PizzaTake
             builder.Services.AddTransient<AddressEditPage>();
             builder.Services.AddTransient<AdminProductEditPage>();
             builder.Services.AddTransient<LogsPage>();
+            builder.Services.AddTransient<QualityReportPage>();
+            builder.Services.AddTransient<PizzeriasMapPage>();
             builder.Services.AddTransient<WelcomeViewModel>();
             builder.Services.AddTransient<CitySelectionViewModel>();
             builder.Services.AddTransient<PizzeriaSelectionViewModel>();
@@ -109,6 +118,8 @@ namespace PizzaTake
             builder.Services.AddTransient<AddressEditViewModel>();
             builder.Services.AddTransient<AdminProductEditViewModel>();
             builder.Services.AddTransient<LogsViewModel>();
+            builder.Services.AddTransient<QualityReportViewModel>();
+            builder.Services.AddTransient<PizzeriasMapViewModel>();
 
             Log.Information("PizzaTake MauiApp configured successfully");
             return builder.Build();

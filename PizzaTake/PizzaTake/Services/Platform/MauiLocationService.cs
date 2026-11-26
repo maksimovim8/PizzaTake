@@ -1,9 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using PizzaTake.Core.Services;
 
 namespace PizzaTake.Services.Platform;
 
+/// <summary>
+/// MAUI geolocation service with configurable timeout, last-known-location fallback, and structured error mapping.
+/// </summary>
 public sealed class MauiLocationService : ILocationService
 {
     private readonly ILogger<MauiLocationService> logger;
@@ -15,44 +19,75 @@ public sealed class MauiLocationService : ILocationService
 
     public async Task<LocationResult> GetCurrentLocationAsync(TimeSpan? timeout = null, CancellationToken ct = default)
     {
+        var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(10);
         try
         {
-            var request = new GeolocationRequest(GeolocationAccuracy.Medium, timeout ?? TimeSpan.FromSeconds(10));
+            var request = new GeolocationRequest(GeolocationAccuracy.Medium, effectiveTimeout);
             var location = await Geolocation.Default.GetLocationAsync(request, ct);
-            if (location is null)
+            if (location is not null)
             {
-                var fallback = await GetLastKnownLocationAsync();
-                if (fallback is not null)
-                    return new LocationResult(fallback);
-
-                return new LocationResult(null, HardwareFailureReason.Error, "Не вдалося визначити місце розташування.");
+                var point = new GeoPoint(location.Latitude, location.Longitude, location.Accuracy);
+                logger.LogInformation(
+                    "Detected current GPS location ({Latitude:F5}, {Longitude:F5}, Accuracy={Accuracy}m)",
+                    point.Latitude,
+                    point.Longitude,
+                    point.AccuracyMeters);
+                return new LocationResult(point);
             }
 
-            return new LocationResult(new GeoPoint(location.Latitude, location.Longitude, location.Accuracy));
-        }
-        catch (FeatureNotEnabledException ex)
-        {
-            logger.LogWarning(ex, "GPS/Location service is disabled on device");
-            return new LocationResult(null, HardwareFailureReason.FeatureNotEnabled, "Увімкніть геолокацію на пристрої.");
+            logger.LogWarning("Active GPS lookup returned null; attempting GetLastKnownLocationAsync fallback");
+            var fallback = await GetLastKnownLocationAsync();
+            if (fallback is not null)
+                return new LocationResult(fallback);
+
+            return new LocationResult(
+                null,
+                HardwareFailureReason.Error,
+                "Не вдалося визначити координати. Перевірте сигнал GPS.");
         }
         catch (FeatureNotSupportedException ex)
         {
-            logger.LogWarning(ex, "Geolocation is not supported on this device");
-            return new LocationResult(null, HardwareFailureReason.FeatureNotSupported, "Геолокація не підтримується на цьому пристрої.");
+            logger.LogWarning(ex, "Geolocation feature is not supported on this device");
+            return new LocationResult(
+                null,
+                HardwareFailureReason.FeatureNotSupported,
+                "Геолокація не підтримується на цьому пристрої.");
+        }
+        catch (FeatureNotEnabledException ex)
+        {
+            logger.LogWarning(ex, "GPS/Location services are disabled on device");
+            return new LocationResult(
+                null,
+                HardwareFailureReason.FeatureNotEnabled,
+                "Увімкніть геолокацію (GPS) у налаштуваннях пристрою.");
         }
         catch (PermissionException ex)
         {
             logger.LogWarning(ex, "Location permission denied by user");
-            return new LocationResult(null, HardwareFailureReason.PermissionDenied, "Надайте застосунку дозвіл на геолокацію.");
+            return new LocationResult(
+                null,
+                HardwareFailureReason.PermissionDenied,
+                "Надайте застосунку дозвіл на геолокацію.");
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
-            return new LocationResult(null, HardwareFailureReason.Cancelled, "Запит геолокації скасовано.");
+            logger.LogInformation(ex, "Location lookup was cancelled or timed out");
+            var fallback = await GetLastKnownLocationAsync();
+            if (fallback is not null)
+                return new LocationResult(fallback);
+
+            return new LocationResult(
+                null,
+                HardwareFailureReason.Cancelled,
+                "Пошук координат скасовано або перевищено час очікування.");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error while retrieving device location");
-            return new LocationResult(null, HardwareFailureReason.Error, "Не вдалося визначити місце розташування.");
+            logger.LogError(ex, "Unexpected error while retrieving current location");
+            return new LocationResult(
+                null,
+                HardwareFailureReason.Error,
+                "Не вдалося визначити місце розташування. Спробуйте ще раз.");
         }
     }
 
@@ -60,8 +95,15 @@ public sealed class MauiLocationService : ILocationService
     {
         try
         {
-            var last = await Geolocation.Default.GetLastKnownLocationAsync();
-            return last is null ? null : new GeoPoint(last.Latitude, last.Longitude, last.Accuracy);
+            var lastKnown = await Geolocation.Default.GetLastKnownLocationAsync();
+            if (lastKnown is null)
+                return null;
+
+            logger.LogInformation(
+                "Using last known GPS location ({Latitude:F5}, {Longitude:F5})",
+                lastKnown.Latitude,
+                lastKnown.Longitude);
+            return new GeoPoint(lastKnown.Latitude, lastKnown.Longitude, lastKnown.Accuracy);
         }
         catch (Exception ex)
         {

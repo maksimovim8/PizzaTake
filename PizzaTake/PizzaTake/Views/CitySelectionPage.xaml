@@ -16,7 +16,16 @@
                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" VerticalOptions="Center" />
         </Grid>
         <Entry Grid.Row="1" Placeholder="Пошук міста" Text="{Binding SearchText, Mode=TwoWay}" />
-        <Button Grid.Row="2" Text="Знайти найближче місто" Command="{Binding FindNearbyCommand}" />
+        <Button Grid.Row="2"
+                Text="📍 Знайти найближче місто"
+                AutomationId="CityFindNearbyButton"
+                Command="{Binding FindNearbyCommand}"
+                BackgroundColor="#EB5E28"
+                TextColor="#FFFFFF"
+                FontSize="15"
+                FontAttributes="Bold"
+                CornerRadius="20"
+                HeightRequest="46" />
         <Label Grid.Row="3" Text="{Binding StatusMessage}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
         <CollectionView Grid.Row="4" ItemsSource="{Binding Cities}" SelectionMode="None">
             <CollectionView.ItemTemplate>

@@ -15,8 +15,10 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
     private readonly INavigationService navigation;
     private readonly ILocationService locationService;
     private readonly IMainThreadDispatcher dispatcher;
+    private readonly IPizzeriaRepository? pizzerias;
     private readonly IUserProfileRepository? userProfile;
     private readonly ISyncService? syncService;
+    private readonly IPermissionService? permissionService;
     private readonly ILogger<CitySelectionViewModel> logger;
 
     public ObservableCollection<City> Cities { get; } = [];
@@ -51,8 +53,10 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
         INavigationService navigation,
         ILocationService locationService,
         IMainThreadDispatcher dispatcher,
+        IPizzeriaRepository? pizzerias = null,
         IUserProfileRepository? userProfile = null,
         ISyncService? syncService = null,
+        IPermissionService? permissionService = null,
         ILogger<CitySelectionViewModel>? logger = null)
     {
         this.cities = cities;
@@ -60,8 +64,10 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
         this.navigation = navigation;
         this.locationService = locationService;
         this.dispatcher = dispatcher;
+        this.pizzerias = pizzerias;
         this.userProfile = userProfile;
         this.syncService = syncService;
+        this.permissionService = permissionService;
         this.logger = logger ?? NullLogger<CitySelectionViewModel>.Instance;
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
@@ -160,10 +166,24 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
     {
         try
         {
+            if (permissionService is not null)
+            {
+                var granted = await permissionService.EnsureGrantedAsync(
+                    AppPermission.LocationWhenInUse,
+                    "Дозвіл на геолокацію",
+                    "Геолокація потрібна для автоматичного визначення найближчого міста з піцеріями PizzaTake.");
+                if (!granted)
+                {
+                    logger.LogWarning("Location permission denied while searching for nearby city");
+                    StatusMessage = "Надайте застосунку дозвіл на геолокацію.";
+                    return;
+                }
+            }
+
             var result = await locationService.GetCurrentLocationAsync(TimeSpan.FromSeconds(10));
             if (!result.IsSuccess || result.Location is null)
             {
-                logger.LogWarning("Location lookup failed ({Reason}): {Message}", result.FailureReason, result.ErrorMessage);
+                logger.LogWarning("Geolocation failed while searching for nearby city: {Reason}", result.FailureReason);
                 StatusMessage = result.ErrorMessage ?? "Не вдалося визначити місце розташування.";
                 return;
             }
@@ -175,9 +195,52 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
                 .FirstOrDefault();
 
             if (nearest is null)
+            {
                 StatusMessage = "Немає міст із координатами для пошуку поруч.";
-            else
-                await SelectCityAsync(nearest);
+                return;
+            }
+
+            if (pizzerias is not null)
+            {
+                var cityPizzerias = await pizzerias.GetByCityIdAsync(nearest.Id);
+                var nearestPizzeria = cityPizzerias
+                    .Where(p => p.Latitude != 0 || p.Longitude != 0)
+                    .OrderBy(p => DistanceKm(result.Location.Latitude, result.Location.Longitude, p.Latitude, p.Longitude))
+                    .FirstOrDefault() ?? cityPizzerias.FirstOrDefault();
+
+                if (nearestPizzeria is not null)
+                {
+                    appState.SelectedCity = nearest;
+                    appState.SelectedPizzeria = nearestPizzeria;
+                    appState.SaveState();
+                    logger.LogInformation(
+                        "Auto-selected nearest city {CityName} and pizzeria {StoreNumber} via GPS",
+                        nearest.Name,
+                        nearestPizzeria.StoreNumber);
+
+                    if (userProfile is not null)
+                    {
+                        var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
+                        profile.CityName = nearest.Name;
+                        profile.UpdatedAt = DateTime.UtcNow;
+                        await userProfile.SaveAsync(profile);
+                        if (syncService is not null)
+                        {
+                            await syncService.EnqueueAsync("UserProfile", "Update", new
+                            {
+                                profile.Id,
+                                profile.CityName,
+                                UpdatedAt = profile.UpdatedAt
+                            });
+                        }
+                    }
+
+                    await navigation.GoToAsync($"///{returnTo ?? "menu"}");
+                    return;
+                }
+            }
+
+            await SelectCityAsync(nearest);
         }
         catch (Exception ex)
         {

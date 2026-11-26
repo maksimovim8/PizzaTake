@@ -40,6 +40,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private decimal totalAmount;
     private int itemsCount;
     private bool isOffline;
+    private int pendingSyncCount;
     private string errorMessage = string.Empty;
     private string? reportableErrorContext;
     private bool isOrderSubmitted;
@@ -155,8 +156,25 @@ public sealed class CheckoutViewModel : BaseViewModel
     public bool IsOffline
     {
         get => isOffline;
-        private set => SetProperty(ref isOffline, value);
+        private set
+        {
+            if (SetProperty(ref isOffline, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
     }
+
+    public int PendingSyncCount
+    {
+        get => pendingSyncCount;
+        private set
+        {
+            if (SetProperty(ref pendingSyncCount, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
+    }
+
+    public string OfflineBannerText =>
+        $"Офлайн-режим (у черзі: {PendingSyncCount}) — замовлення збережеться локально та синхронізується автоматично.";
 
     public string ErrorMessage
     {
@@ -193,6 +211,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         try
         {
             IsOffline = !connectivityService.IsConnected;
+            PendingSyncCount = await syncService.GetPendingCountAsync();
 
             var cartItems = await cartRepository.GetAllAsync();
             ItemsCount = cartItems.Sum(i => i.Quantity);
@@ -236,23 +255,43 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     public void StartConnectivityMonitoring()
     {
+        connectivityService.StartMonitoring();
         IsOffline = !connectivityService.IsConnected;
         connectivityService.ConnectivityChanged -= OnConnectivityChanged;
         connectivityService.ConnectivityChanged += OnConnectivityChanged;
-        connectivityService.StartMonitoring();
+        syncService.SyncCompleted -= OnSyncCompleted;
+        syncService.SyncCompleted += OnSyncCompleted;
+        _ = RefreshPendingSyncCountAsync();
     }
 
     public void StopConnectivityMonitoring()
     {
         connectivityService.ConnectivityChanged -= OnConnectivityChanged;
+        syncService.SyncCompleted -= OnSyncCompleted;
     }
 
     private void OnConnectivityChanged(object? sender, bool isConnected)
     {
-        dispatcher.BeginInvokeOnMainThread(() =>
+        dispatcher.BeginInvokeOnMainThread(() => IsOffline = !isConnected);
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private void OnSyncCompleted(object? sender, EventArgs e)
+    {
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private async Task RefreshPendingSyncCountAsync()
+    {
+        try
         {
-            IsOffline = !isConnected;
-        });
+            var count = await syncService.GetPendingCountAsync();
+            dispatcher.BeginInvokeOnMainThread(() => PendingSyncCount = count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to refresh pending sync count on CheckoutPage");
+        }
     }
 
     private void RestoreDraftState()

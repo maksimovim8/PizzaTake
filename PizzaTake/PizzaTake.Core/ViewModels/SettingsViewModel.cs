@@ -79,6 +79,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
         AddAddressCommand = new AsyncRelayCommand(() => EditAddressAsync(null));
         SyncNowCommand = new AsyncRelayCommand(SyncNowAsync);
         ReportBugCommand = new AsyncRelayCommand(ReportBugAsync, () => !isReportingBug);
+        OpenMapCommand = new AsyncRelayCommand(() => navigation.GoToAsync("pizzeriasmap"));
+        OpenQualityReportCommand = new AsyncRelayCommand(() => navigation.GoToAsync("qualityreport"));
         OpenLogsCommand = new AsyncRelayCommand(OpenLogsAsync);
         LockSessionCommand = new AsyncRelayCommand(LockSessionAsync, () => IsPhoneVerified);
         UnlockSessionCommand = new AsyncRelayCommand(() => navigation.GoToAsync("auth?locked=true"), () => IsSessionLocked);
@@ -195,6 +197,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
     public IAsyncRelayCommand AddAddressCommand { get; }
     public IAsyncRelayCommand SyncNowCommand { get; }
     public IAsyncRelayCommand ReportBugCommand { get; }
+    public IAsyncRelayCommand OpenMapCommand { get; }
+    public IAsyncRelayCommand OpenQualityReportCommand { get; }
     public IAsyncRelayCommand OpenLogsCommand { get; }
     public IAsyncRelayCommand LockSessionCommand { get; }
     public IAsyncRelayCommand UnlockSessionCommand { get; }

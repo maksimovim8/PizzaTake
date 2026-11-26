@@ -20,6 +20,8 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnCreate(savedInstanceState);
         SyncStatusBarForCurrentTheme();
+        if (Microsoft.Maui.Controls.Application.Current is not null)
+            Microsoft.Maui.Controls.Application.Current.RequestedThemeChanged += OnAppThemeChanged;
         HandleDeepLink(Intent);
     }
 
@@ -27,6 +29,18 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnResume();
         SyncStatusBarForCurrentTheme();
+    }
+
+    protected override void OnDestroy()
+    {
+        if (Microsoft.Maui.Controls.Application.Current is not null)
+            Microsoft.Maui.Controls.Application.Current.RequestedThemeChanged -= OnAppThemeChanged;
+        base.OnDestroy();
+    }
+
+    private void OnAppThemeChanged(object? sender, AppThemeChangedEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(SyncStatusBarForCurrentTheme);
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -43,13 +57,18 @@ public class MainActivity : MauiAppCompatActivity
             return;
 
         var isDark = Microsoft.Maui.Controls.Application.Current?.RequestedTheme == AppTheme.Dark;
-        var statusBarColor = Android.Graphics.Color.ParseColor(isDark ? "#181411" : "#F9F7F2");
+        var themeColor = Android.Graphics.Color.ParseColor(isDark ? "#181411" : "#F9F7F2");
+        Window.SetBackgroundDrawable(new Android.Graphics.Drawables.ColorDrawable(themeColor));
 #pragma warning disable CA1422
-        Window.SetStatusBarColor(statusBarColor);
+        Window.SetStatusBarColor(themeColor);
+        Window.SetNavigationBarColor(themeColor);
 #pragma warning restore CA1422
         var controller = WindowCompat.GetInsetsController(Window, Window.DecorView);
         if (controller is not null)
+        {
             controller.AppearanceLightStatusBars = !isDark;
+            controller.AppearanceLightNavigationBars = !isDark;
+        }
     }
 
     private static void HandleDeepLink(Intent? intent)

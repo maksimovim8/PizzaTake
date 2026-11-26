@@ -19,12 +19,17 @@ public sealed class CartViewModel : BaseViewModel
     private readonly IAppStateService appState;
     private readonly INavigationService navigation;
     private readonly IDialogService dialogService;
+    private readonly IMainThreadDispatcher? dispatcher;
+    private readonly IConnectivityService? connectivityService;
+    private readonly ISyncService? syncService;
     private readonly IBugReportService? bugReportService;
     private readonly ILogger<CartViewModel> logger;
 
     private decimal subtotal;
     private decimal deliveryFee;
     private decimal total;
+    private bool isOffline;
+    private int pendingSyncCount;
 
     public CartViewModel(
         ICartRepository cartRepository,
@@ -33,6 +38,9 @@ public sealed class CartViewModel : BaseViewModel
         IAppStateService appState,
         INavigationService navigation,
         IDialogService dialogService,
+        IMainThreadDispatcher? dispatcher = null,
+        IConnectivityService? connectivityService = null,
+        ISyncService? syncService = null,
         IBugReportService? bugReportService = null,
         ILogger<CartViewModel>? logger = null)
     {
@@ -42,6 +50,9 @@ public sealed class CartViewModel : BaseViewModel
         this.appState = appState;
         this.navigation = navigation;
         this.dialogService = dialogService;
+        this.dispatcher = dispatcher;
+        this.connectivityService = connectivityService;
+        this.syncService = syncService;
         this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<CartViewModel>.Instance;
         Title = "Кошик";
@@ -57,6 +68,28 @@ public sealed class CartViewModel : BaseViewModel
 
     public ObservableCollection<CartItem> Items { get; } = new();
     public ObservableCollection<Product> UpsellItems { get; } = new();
+
+    public bool IsOffline
+    {
+        get => isOffline;
+        private set
+        {
+            if (SetProperty(ref isOffline, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
+    }
+
+    public int PendingSyncCount
+    {
+        get => pendingSyncCount;
+        private set
+        {
+            if (SetProperty(ref pendingSyncCount, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
+    }
+
+    public string OfflineBannerText => $"Офлайн-режим (у черзі: {PendingSyncCount})";
 
     public decimal Subtotal
     {
@@ -86,6 +119,67 @@ public sealed class CartViewModel : BaseViewModel
     public IAsyncRelayCommand ClearCartCommand { get; }
     public IAsyncRelayCommand<Product?> AddUpsellCommand { get; }
     public IAsyncRelayCommand ProceedCheckoutCommand { get; }
+
+    public void StartConnectivityMonitoring()
+    {
+        if (connectivityService is not null)
+        {
+            connectivityService.StartMonitoring();
+            IsOffline = !connectivityService.IsConnected;
+            connectivityService.ConnectivityChanged -= OnConnectivityChanged;
+            connectivityService.ConnectivityChanged += OnConnectivityChanged;
+        }
+
+        if (syncService is not null)
+        {
+            syncService.SyncCompleted -= OnSyncCompleted;
+            syncService.SyncCompleted += OnSyncCompleted;
+        }
+
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    public void StopConnectivityMonitoring()
+    {
+        if (connectivityService is not null)
+            connectivityService.ConnectivityChanged -= OnConnectivityChanged;
+
+        if (syncService is not null)
+            syncService.SyncCompleted -= OnSyncCompleted;
+    }
+
+    private void OnConnectivityChanged(object? sender, bool isConnected)
+    {
+        if (dispatcher is not null)
+            dispatcher.BeginInvokeOnMainThread(() => IsOffline = !isConnected);
+        else
+            IsOffline = !isConnected;
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private void OnSyncCompleted(object? sender, EventArgs e)
+    {
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private async Task RefreshPendingSyncCountAsync()
+    {
+        if (syncService is null)
+            return;
+
+        try
+        {
+            var count = await syncService.GetPendingCountAsync();
+            if (dispatcher is not null)
+                dispatcher.BeginInvokeOnMainThread(() => PendingSyncCount = count);
+            else
+                PendingSyncCount = count;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to refresh pending sync count on CartPage");
+        }
+    }
 
     public async Task LoadCartAsync()
     {

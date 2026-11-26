@@ -55,6 +55,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
         RepeatFullOrderCommand = new AsyncRelayCommand(RepeatFullOrderAsync, () => Items.Count > 0 && !IsBusy);
         AdvanceOrderStatusCommand = new AsyncRelayCommand(AdvanceOrderStatusAsync);
         DeleteOrderCommand = new AsyncRelayCommand(DeleteOrderAsync);
+        OpenQualityReportCommand = new AsyncRelayCommand(OpenQualityReportAsync);
         GoBackCommand = new AsyncRelayCommand(() => navigation.GoBackAsync());
     }
 
@@ -77,6 +78,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
     public IAsyncRelayCommand RepeatFullOrderCommand { get; }
     public IAsyncRelayCommand AdvanceOrderStatusCommand { get; }
     public IAsyncRelayCommand DeleteOrderCommand { get; }
+    public IAsyncRelayCommand OpenQualityReportCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
     public void StartSessionMonitoring()
@@ -90,6 +92,19 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
     public void StopSessionMonitoring()
     {
         sessionService.SessionChanged -= OnSessionChanged;
+    }
+
+    public Task OpenQualityReportAsync()
+    {
+        if (CurrentOrder is not null)
+        {
+            return navigation.GoToAsync("qualityreport", new Dictionary<string, object>
+            {
+                ["Order"] = CurrentOrder
+            });
+        }
+
+        return navigation.GoToAsync("qualityreport");
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)

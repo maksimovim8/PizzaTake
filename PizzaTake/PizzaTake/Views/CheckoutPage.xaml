@@ -34,7 +34,7 @@
                     Stroke="#F59E0B"
                     BackgroundColor="#FEF3C7"
                     Padding="12">
-                <Label Text="Офлайн-режим: немає інтернету. Замовлення збережеться локально та синхронізується автоматично."
+                <Label Text="{Binding OfflineBannerText}"
                        FontSize="13"
                        FontAttributes="Bold"
                        TextColor="#92400E" />
