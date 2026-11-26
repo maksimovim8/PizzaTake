@@ -103,6 +103,7 @@
                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
                             Padding="14,6">
                         <Entry Text="{Binding DeliveryAddress, Mode=TwoWay}"
+                               AutomationId="CheckoutDeliveryAddressEntry"
                                Placeholder="Введіть назву вулиці та будинок"
                                TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                     </Border>
@@ -268,6 +269,7 @@
             </Grid>
 
             <Button Text="Підтвердити оплату"
+                    AutomationId="CheckoutConfirmPaymentButton"
                     Command="{Binding ConfirmPaymentCommand}"
                     BackgroundColor="#F7A600"
                     TextColor="#FFFFFF"
