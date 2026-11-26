@@ -20,12 +20,14 @@ public partial class CheckoutPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        viewModel.StartConnectivityMonitoring();
         viewModel.LoadCheckoutCommand.Execute(null);
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        viewModel.StopConnectivityMonitoring();
         viewModel.SaveDraftState();
         logger.LogDebug("Leaving page {PageName} (draft saved)", nameof(CheckoutPage));
     }

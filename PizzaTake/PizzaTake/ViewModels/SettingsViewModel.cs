@@ -54,6 +54,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     }
 
     public ObservableCollection<UserAddress> Addresses { get; } = new();
+    public bool HasNoAddresses => Addresses.Count == 0;
 
     public bool IsDarkTheme
     {
@@ -118,6 +119,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             {
                 Addresses.Insert(0, updated);
             }
+            OnPropertyChanged(nameof(HasNoAddresses));
         }
         else if (query.TryGetValue("DeletedAddressId", out var deletedIdObj) &&
                  int.TryParse(deletedIdObj?.ToString(), out var deletedId))
@@ -125,6 +127,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             var existing = Addresses.FirstOrDefault(a => a.Id == deletedId);
             if (existing is not null)
                 Addresses.Remove(existing);
+            OnPropertyChanged(nameof(HasNoAddresses));
         }
     }
 
@@ -156,6 +159,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             Addresses.Clear();
             foreach (var address in savedAddresses)
                 Addresses.Add(address);
+            OnPropertyChanged(nameof(HasNoAddresses));
 
             logger.LogInformation("Settings loaded with {AddressCount} saved address(es)", Addresses.Count);
         }
@@ -220,14 +224,14 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         {
             await userDataResetService.ResetForLogoutAsync();
             Addresses.Clear();
+            OnPropertyChanged(nameof(HasNoAddresses));
             CurrentCityName = "Не обрано";
             MaskedPhone = "Не вказано";
             IsPhoneVerified = false;
             SyncThemeFlags();
 
             logger.LogInformation("User logged out from SettingsPage");
-            await Shell.Current.GoToAsync("///menu");
-            await Shell.Current.GoToAsync("welcome");
+            await Shell.Current.GoToAsync("///welcome-start");
         }
         catch (Exception exception)
         {

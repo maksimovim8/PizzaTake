@@ -23,6 +23,8 @@ public partial class MenuPage : ContentPage
             return;
 
         viewModel.SelectedCategory = category;
+        UpdateCategoryChipStyles(category);
+
         var target = viewModel.Products.FirstOrDefault(product => product.Category == category)
             ?? (category == "Новинки"
                 ? viewModel.Products.FirstOrDefault(product => product.IsNew)
@@ -33,13 +35,44 @@ public partial class MenuPage : ContentPage
         {
             var index = viewModel.Products.IndexOf(target);
             if (index >= 0 && index < ProductList.Children.Count && ProductList.Children[index] is VisualElement card)
-                await MenuScrollView.ScrollToAsync(0, ProductList.Y + card.Y, true);
+                await MenuScrollView.ScrollToAsync(0, Math.Max(0, ProductList.Y + card.Y - 8), true);
         }
+    }
+
+    private void OnMenuScrolled(object? sender, ScrolledEventArgs e)
+    {
+        if (viewModel.Products.Count == 0 || ProductList.Children.Count == 0)
+            return;
+
+        string? visibleCategory = null;
+        for (var i = 0; i < Math.Min(viewModel.Products.Count, ProductList.Children.Count); i++)
+        {
+            if (ProductList.Children[i] is not VisualElement card)
+                continue;
+
+            var cardTop = ProductList.Y + card.Y;
+            if (cardTop <= e.ScrollY + 120)
+                visibleCategory = viewModel.Products[i].Category;
+        }
+
+        visibleCategory ??= viewModel.Products[0].Category;
+        if (!string.Equals(viewModel.SelectedCategory, visibleCategory, StringComparison.Ordinal))
+        {
+            viewModel.SelectedCategory = visibleCategory;
+            UpdateCategoryChipStyles(visibleCategory);
+        }
+    }
+
+    private void UpdateCategoryChipStyles(string? activeCategory)
+    {
+        var current = activeCategory ?? "Новинки";
+        var appTheme = Application.Current?.UserAppTheme;
+        var isDark = appTheme == AppTheme.Dark
+            || (appTheme != AppTheme.Light && Application.Current?.RequestedTheme == AppTheme.Dark);
 
         foreach (var chip in CategoryChips.Children.OfType<Button>())
         {
-            var selected = Equals(chip.CommandParameter, category);
-            var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            var selected = Equals(chip.CommandParameter, current);
             chip.BackgroundColor = selected
                 ? Color.FromArgb(isDark ? "#3A2D1E" : "#FFF1D3")
                 : Color.FromArgb(isDark ? "#26201B" : "#FFFFFF");
@@ -53,6 +86,7 @@ public partial class MenuPage : ContentPage
     {
         base.OnAppearing();
         viewModel.LoadCommand.Execute(null);
+        UpdateCategoryChipStyles(viewModel.SelectedCategory ?? "Новинки");
     }
 
     protected override void OnDisappearing()

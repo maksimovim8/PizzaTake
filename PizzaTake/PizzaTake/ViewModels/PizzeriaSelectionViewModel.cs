@@ -26,13 +26,18 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
         set
         {
             if (SetProperty(ref selectedPizzeria, value))
+            {
+                foreach (var pizzeria in Pizzerias)
+                    pizzeria.IsSelected = selectedPizzeria is not null && pizzeria.Id == selectedPizzeria.Id;
                 ((Command)ConfirmPizzeriaCommand).ChangeCanExecute();
+            }
         }
     }
 
     public ICommand LoadCommand { get; }
     public ICommand SelectPizzeriaCommand { get; }
     public ICommand ConfirmPizzeriaCommand { get; }
+    public ICommand GoBackCommand { get; }
 
     public PizzeriaSelectionViewModel(
         IPizzeriaRepository pizzerias,
@@ -45,6 +50,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
         LoadCommand = new Command(async () => await LoadAsync());
         SelectPizzeriaCommand = new Command<Pizzeria>(pizzeria => SelectedPizzeria = pizzeria);
         ConfirmPizzeriaCommand = new Command(async () => await ConfirmAsync(), () => SelectedPizzeria is not null);
+        GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -61,8 +67,18 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryAttributab
         try
         {
             Pizzerias.Clear();
-            foreach (var pizzeria in await pizzerias.GetByCityIdAsync(appState.SelectedCity.Id))
+            var list = await pizzerias.GetByCityIdAsync(appState.SelectedCity.Id);
+            foreach (var pizzeria in list)
                 Pizzerias.Add(pizzeria);
+
+            var currentId = appState.SelectedPizzeria?.Id;
+            var preselected = currentId.HasValue
+                ? Pizzerias.FirstOrDefault(p => p.Id == currentId.Value)
+                : null;
+            SelectedPizzeria = preselected;
+            if (preselected is not null)
+                preselected.IsSelected = true;
+
             logger.LogInformation("Loaded {PizzeriaCount} pizzeria(s) for city {CityName}", Pizzerias.Count, appState.SelectedCity.Name);
         }
         catch (Exception ex)

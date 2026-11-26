@@ -72,7 +72,11 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
     public bool IsSmsPopupVisible
     {
         get => isSmsPopupVisible;
-        set => SetProperty(ref isSmsPopupVisible, value);
+        set
+        {
+            if (SetProperty(ref isSmsPopupVisible, value))
+                OnPropertyChanged(nameof(HasMainError));
+        }
     }
 
     public string ErrorMessage
@@ -81,11 +85,15 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         private set
         {
             if (SetProperty(ref errorMessage, value))
+            {
                 OnPropertyChanged(nameof(HasError));
+                OnPropertyChanged(nameof(HasMainError));
+            }
         }
     }
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    public bool HasMainError => HasError && !IsSmsPopupVisible;
 
     public ICommand RequestSmsCommand { get; }
     public ICommand VerifySmsCommand { get; }
@@ -103,12 +111,17 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         if (!IsPolicyAccepted || IsBusy)
             return false;
 
-        var digits = Regex.Replace(PhoneInput ?? string.Empty, @"\D", string.Empty);
-        return digits.Length >= 9;
+        return HttpApiClient.IsValidPhone(PhoneInput ?? string.Empty);
     }
 
-    private bool CanVerifySms() =>
-        !IsBusy && !string.IsNullOrWhiteSpace(SmsOtpCode) && SmsOtpCode.Trim().Length >= 4;
+    private bool CanVerifySms()
+    {
+        if (IsBusy || string.IsNullOrWhiteSpace(SmsOtpCode))
+            return false;
+
+        var trimmed = SmsOtpCode.Trim();
+        return trimmed.Length == 4 && trimmed.All(char.IsDigit);
+    }
 
     private async Task RequestSmsAsync()
     {
@@ -123,7 +136,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
             if (!sent)
             {
                 logger.LogWarning("OTP SMS request failed in AuthViewModel");
-                ErrorMessage = "Не вдалося надіслати код. Перевірте номер телефону.";
+                ErrorMessage = "Не вдалося надіслати код. Введіть номер у форматі +380XXXXXXXXX.";
                 return;
             }
 
@@ -156,7 +169,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
             if (!verified)
             {
                 logger.LogWarning("OTP SMS code verification failed in AuthViewModel");
-                ErrorMessage = "Невірний код підтвердження. Введіть 4 цифри (наприклад, 1234).";
+                ErrorMessage = "Невірний код підтвердження. Введіть коректний 4-значний код.";
                 return;
             }
 

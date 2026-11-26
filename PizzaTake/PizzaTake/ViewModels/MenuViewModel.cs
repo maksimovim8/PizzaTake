@@ -37,7 +37,16 @@ public sealed class MenuViewModel : BaseViewModel
     }
     public bool HasActiveOrder => ActiveOrder is not null;
     public string SelectedPizzeriaText { get => selectedPizzeriaText; private set => SetProperty(ref selectedPizzeriaText, value); }
-    public string StatusMessage { get => statusMessage; private set => SetProperty(ref statusMessage, value); }
+    public string StatusMessage
+    {
+        get => statusMessage;
+        private set
+        {
+            if (SetProperty(ref statusMessage, value))
+                OnPropertyChanged(nameof(HasStatusMessage));
+        }
+    }
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
     public string SearchText
     {
         get => searchText;
@@ -53,6 +62,7 @@ public sealed class MenuViewModel : BaseViewModel
     public ICommand QuickAddCommand { get; }
     public ICommand OpenProductCommand { get; }
     public ICommand OpenPizzeriaSelectorCommand { get; }
+    public ICommand OpenActiveOrderCommand { get; }
 
     public MenuViewModel(
         IProductRepository products,
@@ -74,6 +84,19 @@ public sealed class MenuViewModel : BaseViewModel
                 await Shell.Current.GoToAsync("pizzadetail", new Dictionary<string, object> { ["Product"] = product });
         });
         OpenPizzeriaSelectorCommand = new Command(async () => await OpenPizzeriaSelectorAsync());
+        OpenActiveOrderCommand = new Command(async () => await OpenActiveOrderAsync());
+    }
+
+    private async Task OpenActiveOrderAsync()
+    {
+        if (ActiveOrder is null)
+            return;
+
+        logger.LogInformation("Opening active order {OrderNumber} from MenuPage banner", ActiveOrder.OrderNumber);
+        await Shell.Current.GoToAsync("orderdetail", new Dictionary<string, object>
+        {
+            ["Order"] = ActiveOrder
+        });
     }
 
     private async Task OpenPizzeriaSelectorAsync()

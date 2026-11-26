@@ -196,6 +196,26 @@ public sealed class CheckoutViewModel : BaseViewModel
         Preferences.Default.Set(DraftPreferenceKey, JsonSerializer.Serialize(draft));
     }
 
+    public void StartConnectivityMonitoring()
+    {
+        IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+        Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+    }
+
+    public void StopConnectivityMonitoring()
+    {
+        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+    }
+
+    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsOffline = e.NetworkAccess != NetworkAccess.Internet;
+        });
+    }
+
     private void RestoreDraftState()
     {
         var raw = Preferences.Default.Get(DraftPreferenceKey, string.Empty);

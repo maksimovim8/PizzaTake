@@ -31,6 +31,9 @@ public partial class PizzaDetailPage : ContentPage
 
     private async void OnKbjuClicked(object? sender, EventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(viewModel.KbjuSummary))
+            return;
+
         await DisplayAlertAsync("Харчова цінність", viewModel.KbjuSummary, "Зрозуміло");
     }
 }

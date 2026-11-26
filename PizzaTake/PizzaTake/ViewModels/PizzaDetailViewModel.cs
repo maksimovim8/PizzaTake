@@ -115,6 +115,14 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
             else
             {
                 logger.LogWarning("Product with id {ProductId} was not found", id);
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (Shell.Current is not null)
+                    {
+                        await Shell.Current.DisplayAlertAsync("Товар не знайдено", "Запитану піцу не знайдено в каталозі.", "OK");
+                        await Shell.Current.GoToAsync("..");
+                    }
+                });
             }
         }
         catch (Exception ex)
@@ -159,6 +167,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
         AddOns.Clear(); Exclusions.Clear(); Replacements.Clear();
         foreach (var option in options)
         {
+            option.IsSelected = selectedOptionIds.Contains(option.Id);
             switch (option.Kind)
             {
                 case OptionKind.AddOn: AddOns.Add(option); break;
@@ -172,7 +181,9 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     private void ToggleOption(IngredientOption? option)
     {
         if (option is null) return;
-        if (!selectedOptionIds.Add(option.Id)) selectedOptionIds.Remove(option.Id);
+        var added = selectedOptionIds.Add(option.Id);
+        if (!added) selectedOptionIds.Remove(option.Id);
+        option.IsSelected = added;
         OnPropertyChanged(nameof(SelectedOptionIds));
         OnPropertyChanged(nameof(SelectedOptionsSummary));
         RecalculatePrice();
