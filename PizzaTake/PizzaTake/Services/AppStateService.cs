@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.Storage;
 using PizzaTake.Models;
 
@@ -28,6 +30,13 @@ public sealed class AppStateService : IAppStateService
     private const string ThemeModeKey = "app.theme-mode";
     private const string DraftFormKey = "app.draft-form";
 
+    private readonly ILogger<AppStateService> logger;
+
+    public AppStateService(ILogger<AppStateService>? logger = null)
+    {
+        this.logger = logger ?? NullLogger<AppStateService>.Instance;
+    }
+
     public event EventHandler? StateChanged;
 
     public City? SelectedCity { get; set; }
@@ -45,6 +54,7 @@ public sealed class AppStateService : IAppStateService
         Preferences.Default.Set(ThemeKey, IsDarkTheme);
         Preferences.Default.Set(ThemeModeKey, IsSystemTheme ? "System" : IsDarkTheme ? "Dark" : "Light");
         SaveJson(DraftFormKey, DraftFormState);
+        logger.LogDebug("Application state saved (City={City}, Pizzeria={Pizzeria})", SelectedCity?.Name, SelectedPizzeria?.StoreNumber);
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -58,6 +68,7 @@ public sealed class AppStateService : IAppStateService
             savedTheme = Preferences.Default.Get(ThemeKey, false) ? "Dark" : "Light";
         DraftFormState = ReadJson<Dictionary<string, string>>(DraftFormKey) ?? new(StringComparer.Ordinal);
         ApplyThemeMode(savedTheme);
+        logger.LogDebug("Application state restored (City={City}, Theme={Theme})", SelectedCity?.Name, savedTheme);
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -69,6 +80,7 @@ public sealed class AppStateService : IAppStateService
             Application.Current.UserAppTheme = isDark ? AppTheme.Dark : AppTheme.Light;
         Preferences.Default.Set(ThemeKey, isDark);
         Preferences.Default.Set(ThemeModeKey, isDark ? "Dark" : "Light");
+        ApplyPlatformStatusBar(isDark);
     }
 
     public void ApplySystemTheme()
@@ -79,6 +91,29 @@ public sealed class AppStateService : IAppStateService
             Application.Current.UserAppTheme = AppTheme.Unspecified;
         Preferences.Default.Set(ThemeKey, false);
         Preferences.Default.Set(ThemeModeKey, "System");
+        var effectiveDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        ApplyPlatformStatusBar(effectiveDark);
+    }
+
+    private static void ApplyPlatformStatusBar(bool isDark)
+    {
+#if ANDROID
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+            var window = activity?.Window;
+            if (window is null)
+                return;
+
+            var statusBarColor = Android.Graphics.Color.ParseColor(isDark ? "#181411" : "#F9F7F2");
+#pragma warning disable CA1422
+            window.SetStatusBarColor(statusBarColor);
+#pragma warning restore CA1422
+            var controller = AndroidX.Core.View.WindowCompat.GetInsetsController(window, window.DecorView);
+            if (controller is not null)
+                controller.AppearanceLightStatusBars = !isDark;
+        });
+#endif
     }
 
     private void ApplyThemeMode(string mode)
@@ -92,7 +127,7 @@ public sealed class AppStateService : IAppStateService
     private static void SaveJson<T>(string key, T value) =>
         Preferences.Default.Set(key, JsonSerializer.Serialize(value));
 
-    private static T? ReadJson<T>(string key)
+    private T? ReadJson<T>(string key)
     {
         var json = Preferences.Default.Get(key, string.Empty);
         if (string.IsNullOrWhiteSpace(json))
@@ -102,8 +137,9 @@ public sealed class AppStateService : IAppStateService
         {
             return JsonSerializer.Deserialize<T>(json);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            logger.LogWarning(ex, "Corrupt JSON detected in preference key {Key}; resetting value", key);
             Preferences.Default.Remove(key);
             return default;
         }

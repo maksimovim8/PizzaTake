@@ -16,4 +16,7 @@ public class Order
     public decimal DeliveryFee { get; set; }
     public decimal TotalAmount { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+
+    [Ignore]
+    public DateTime CreatedAtLocal => DateTime.SpecifyKind(CreatedAtUtc, DateTimeKind.Utc).ToLocalTime();
 }

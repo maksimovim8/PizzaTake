@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
@@ -6,11 +7,13 @@ namespace PizzaTake.Views;
 public partial class PizzaDetailPage : ContentPage
 {
     private readonly PizzaDetailViewModel viewModel;
+    private readonly ILogger<PizzaDetailPage> logger;
 
-    public PizzaDetailPage(PizzaDetailViewModel viewModel)
+    public PizzaDetailPage(PizzaDetailViewModel viewModel, ILogger<PizzaDetailPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.logger = logger ?? NullLogger<PizzaDetailPage>.Instance;
         BindingContext = viewModel;
     }
 
@@ -22,12 +25,15 @@ public partial class PizzaDetailPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        Debug.WriteLine("Leaving page: PizzaDetailPage");
+        logger.LogDebug("Leaving page {PageName}", nameof(PizzaDetailPage));
         base.OnDisappearing();
     }
 
     private async void OnKbjuClicked(object? sender, EventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(viewModel.KbjuSummary))
+            return;
+
         await DisplayAlertAsync("Харчова цінність", viewModel.KbjuSummary, "Зрозуміло");
     }
 }

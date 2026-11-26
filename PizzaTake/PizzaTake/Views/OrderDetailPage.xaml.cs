@@ -1,19 +1,23 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
 
 public partial class OrderDetailPage : ContentPage
 {
-    public OrderDetailPage(OrderDetailViewModel viewModel)
+    private readonly ILogger<OrderDetailPage> logger;
+
+    public OrderDetailPage(OrderDetailViewModel viewModel, ILogger<OrderDetailPage>? logger = null)
     {
         InitializeComponent();
         BindingContext = viewModel;
+        this.logger = logger ?? NullLogger<OrderDetailPage>.Instance;
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        Debug.WriteLine("[Navigation] Leaving OrderDetailPage");
+        logger.LogDebug("Leaving page {PageName}", nameof(OrderDetailPage));
     }
 }

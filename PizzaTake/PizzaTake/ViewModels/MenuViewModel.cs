@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices.Sensors;
@@ -15,6 +17,7 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly ICartRepository cart;
     private readonly IOrderRepository orders;
     private readonly IAppStateService appState;
+    private readonly ILogger<MenuViewModel> logger;
     private string searchText = string.Empty;
     private string? selectedCategory;
     private string statusMessage = string.Empty;
@@ -34,7 +37,16 @@ public sealed class MenuViewModel : BaseViewModel
     }
     public bool HasActiveOrder => ActiveOrder is not null;
     public string SelectedPizzeriaText { get => selectedPizzeriaText; private set => SetProperty(ref selectedPizzeriaText, value); }
-    public string StatusMessage { get => statusMessage; private set => SetProperty(ref statusMessage, value); }
+    public string StatusMessage
+    {
+        get => statusMessage;
+        private set
+        {
+            if (SetProperty(ref statusMessage, value))
+                OnPropertyChanged(nameof(HasStatusMessage));
+        }
+    }
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
     public string SearchText
     {
         get => searchText;
@@ -50,13 +62,20 @@ public sealed class MenuViewModel : BaseViewModel
     public ICommand QuickAddCommand { get; }
     public ICommand OpenProductCommand { get; }
     public ICommand OpenPizzeriaSelectorCommand { get; }
+    public ICommand OpenActiveOrderCommand { get; }
 
-    public MenuViewModel(IProductRepository products, ICartRepository cart, IOrderRepository orders, IAppStateService appState)
+    public MenuViewModel(
+        IProductRepository products,
+        ICartRepository cart,
+        IOrderRepository orders,
+        IAppStateService appState,
+        ILogger<MenuViewModel>? logger = null)
     {
         this.products = products;
         this.cart = cart;
         this.orders = orders;
         this.appState = appState;
+        this.logger = logger ?? NullLogger<MenuViewModel>.Instance;
         LoadCommand = new Command(async () => await LoadAsync());
         QuickAddCommand = new Command<Product>(async product => await QuickAddAsync(product));
         OpenProductCommand = new Command<Product>(async product =>
@@ -65,6 +84,19 @@ public sealed class MenuViewModel : BaseViewModel
                 await Shell.Current.GoToAsync("pizzadetail", new Dictionary<string, object> { ["Product"] = product });
         });
         OpenPizzeriaSelectorCommand = new Command(async () => await OpenPizzeriaSelectorAsync());
+        OpenActiveOrderCommand = new Command(async () => await OpenActiveOrderAsync());
+    }
+
+    private async Task OpenActiveOrderAsync()
+    {
+        if (ActiveOrder is null)
+            return;
+
+        logger.LogInformation("Opening active order {OrderNumber} from MenuPage banner", ActiveOrder.OrderNumber);
+        await Shell.Current.GoToAsync("orderdetail", new Dictionary<string, object>
+        {
+            ["Order"] = ActiveOrder
+        });
     }
 
     private async Task OpenPizzeriaSelectorAsync()
@@ -89,6 +121,12 @@ public sealed class MenuViewModel : BaseViewModel
                 Categories.Add(category);
             SelectedCategory ??= "Новинки";
             await ShowProductsAsync(Filter(all));
+            logger.LogInformation("Loaded menu catalog with {ProductCount} product(s)", all.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load menu catalog");
+            StatusMessage = "Не вдалося завантажити меню.";
         }
         finally { IsBusy = false; }
     }
@@ -141,6 +179,7 @@ public sealed class MenuViewModel : BaseViewModel
             Quantity = 1,
             UnitPrice = product.GetEffectivePrice()
         });
+        logger.LogInformation("Quick-added product {ProductName} (Id={ProductId}) to cart", product.Name, product.Id);
         StatusMessage = $"{product.Name} додано до кошика.";
     }
 }

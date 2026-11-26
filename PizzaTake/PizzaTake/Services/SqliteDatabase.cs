@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using SQLite;
 
@@ -7,12 +9,15 @@ public sealed class SqliteDatabase
 {
     private readonly SQLiteAsyncConnection connection;
     private readonly SemaphoreSlim initializationLock = new(1, 1);
+    private readonly ILogger<SqliteDatabase> logger;
     private bool isInitialized;
 
-    public SqliteDatabase()
+    public SqliteDatabase(ILogger<SqliteDatabase>? logger = null)
     {
+        this.logger = logger ?? NullLogger<SqliteDatabase>.Instance;
         var databasePath = Path.Combine(FileSystem.AppDataDirectory, "pizzatake.db3");
         connection = new SQLiteAsyncConnection(databasePath);
+        this.logger.LogDebug("Configured SQLite database at {DatabasePath}", databasePath);
     }
 
     public SQLiteAsyncConnection Connection => connection;
@@ -28,6 +33,7 @@ public sealed class SqliteDatabase
             if (isInitialized)
                 return;
 
+            logger.LogInformation("Initializing SQLite database tables and catalog seed");
             await connection.CreateTableAsync<City>();
             await connection.CreateTableAsync<Pizzeria>();
             await connection.CreateTableAsync<Product>();
@@ -42,6 +48,12 @@ public sealed class SqliteDatabase
 
             await SeedCatalogAsync();
             isInitialized = true;
+            logger.LogInformation("SQLite database initialization completed successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SQLite database initialization failed");
+            throw;
         }
         finally
         {

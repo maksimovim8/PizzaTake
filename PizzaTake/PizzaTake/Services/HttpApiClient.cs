@@ -1,6 +1,7 @@
-using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 
 namespace PizzaTake.Services;
@@ -12,9 +13,11 @@ namespace PizzaTake.Services;
 public sealed class HttpApiClient
 {
     private readonly HttpClient httpClient;
+    private readonly ILogger<HttpApiClient> logger;
 
-    public HttpApiClient()
+    public HttpApiClient(ILogger<HttpApiClient>? logger = null)
     {
+        this.logger = logger ?? NullLogger<HttpApiClient>.Instance;
         httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(10)
@@ -28,18 +31,20 @@ public sealed class HttpApiClient
         if (httpClient.BaseAddress is null)
         {
             await Task.Delay(80);
-            Debug.WriteLine($"[HttpApiClient] Synced {item.EntityType} ({item.Operation}) locally.");
+            logger.LogInformation("Synced {EntityType} ({Operation}) via local simulation", item.EntityType, item.Operation);
             return true;
         }
 
         try
         {
             using var response = await httpClient.PostAsJsonAsync("api/sync", item);
+            if (!response.IsSuccessStatusCode)
+                logger.LogWarning("PushSyncItemAsync returned HTTP {StatusCode} for {EntityType}", (int)response.StatusCode, item.EntityType);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[HttpApiClient] PushSyncItemAsync failed: {ex.Message}");
+            logger.LogError(ex, "PushSyncItemAsync failed for {EntityType} ({Operation})", item.EntityType, item.Operation);
             return false;
         }
     }
@@ -47,12 +52,15 @@ public sealed class HttpApiClient
     public async Task<bool> SendOtpAsync(string phone)
     {
         if (!IsValidPhone(phone))
+        {
+            logger.LogWarning("SendOtpAsync rejected invalid phone format");
             return false;
+        }
 
         if (httpClient.BaseAddress is null)
         {
             await Task.Delay(120);
-            Debug.WriteLine($"[HttpApiClient] OTP sent to {phone}.");
+            logger.LogInformation("Simulated OTP dispatch completed");
             return true;
         }
 
@@ -63,7 +71,7 @@ public sealed class HttpApiClient
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[HttpApiClient] SendOtpAsync failed: {ex.Message}");
+            logger.LogError(ex, "SendOtpAsync request failed");
             return false;
         }
     }
@@ -87,17 +95,22 @@ public sealed class HttpApiClient
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[HttpApiClient] VerifyOtpAsync failed: {ex.Message}");
+            logger.LogError(ex, "VerifyOtpAsync request failed");
             return false;
         }
     }
 
-    private static bool IsValidPhone(string phone)
+    public static bool IsValidPhone(string phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
             return false;
 
-        var digits = Regex.Replace(phone, @"\D", string.Empty);
-        return digits.Length >= 9;
+        var trimmed = phone.Trim();
+        var digits = Regex.Replace(trimmed, @"\D", string.Empty);
+        if (trimmed.StartsWith('+'))
+            return digits.Length == 12 && digits.StartsWith("380", StringComparison.Ordinal);
+
+        return (digits.Length == 12 && digits.StartsWith("380", StringComparison.Ordinal))
+            || (digits.Length == 10 && digits.StartsWith("0", StringComparison.Ordinal));
     }
 }

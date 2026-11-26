@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             x:Class="PizzaTake.Views.AddressEditPage"
+             x:DataType="vm:AddressEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20,16" RowSpacing="16">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Button Grid.Column="0"
+                    Text="‹ Назад"
+                    AutomationId="AddressEditBackButton"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#242424, Dark=#F5F5F4}"
+                    Padding="0"
+                    HorizontalOptions="Start" />
+            <Label Grid.Column="1"
+                   Text="{Binding Title}"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="16">
+                <Border StrokeShape="RoundRectangle 18"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="14">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="НАЗВА АДРЕСИ"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Entry Text="{Binding Label, Mode=TwoWay}"
+                                   AutomationId="AddressLabelEntry"
+                                   Placeholder="Наприклад: Дім, Офіс"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="ВУЛИЦЯ ТА БУДИНОК"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Entry Text="{Binding AddressText, Mode=TwoWay}"
+                                   AutomationId="AddressTextEntry"
+                                   Placeholder="вул. Хрещатик, 22, кв. 10"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}" />
+                        </VerticalStackLayout>
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               FontSize="13"
+                               TextColor="#DC2626" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <VerticalStackLayout Grid.Row="2" Spacing="10">
+            <Button Text="Зберегти адресу"
+                    AutomationId="AddressSaveButton"
+                    Command="{Binding SaveCommand}"
+                    BackgroundColor="#F7A600"
+                    TextColor="#FFFFFF"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    CornerRadius="24"
+                    HeightRequest="50" />
+
+            <Button Text="Видалити адресу"
+                    AutomationId="AddressDeleteButton"
+                    Command="{Binding DeleteCommand}"
+                    IsVisible="{Binding IsEditMode}"
+                    BackgroundColor="Transparent"
+                    BorderColor="#DC2626"
+                    BorderWidth="1"
+                    TextColor="#DC2626"
+                    CornerRadius="22"
+                    HeightRequest="46" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
@@ -6,11 +7,13 @@ namespace PizzaTake.Views;
 public partial class CitySelectionPage : ContentPage
 {
     private readonly CitySelectionViewModel viewModel;
+    private readonly ILogger<CitySelectionPage> logger;
 
-    public CitySelectionPage(CitySelectionViewModel viewModel)
+    public CitySelectionPage(CitySelectionViewModel viewModel, ILogger<CitySelectionPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.logger = logger ?? NullLogger<CitySelectionPage>.Instance;
         BindingContext = viewModel;
     }
 
@@ -22,7 +25,7 @@ public partial class CitySelectionPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        Debug.WriteLine("Leaving page: CitySelectionPage");
+        logger.LogDebug("Leaving page {PageName}", nameof(CitySelectionPage));
         base.OnDisappearing();
     }
 }
