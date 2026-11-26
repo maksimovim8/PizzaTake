@@ -13,6 +13,7 @@ public sealed class SyncService : ISyncService
 {
     private readonly ISyncQueueRepository syncQueueRepository;
     private readonly HttpApiClient httpApiClient;
+    private readonly IConnectivityService connectivityService;
     private readonly ILogger<SyncService> logger;
     private readonly SemaphoreSlim syncLock = new(1, 1);
     private bool isListening;
@@ -20,10 +21,12 @@ public sealed class SyncService : ISyncService
     public SyncService(
         ISyncQueueRepository syncQueueRepository,
         HttpApiClient httpApiClient,
+        IConnectivityService? connectivityService = null,
         ILogger<SyncService>? logger = null)
     {
         this.syncQueueRepository = syncQueueRepository;
         this.httpApiClient = httpApiClient;
+        this.connectivityService = connectivityService ?? new MauiConnectivityService();
         this.logger = logger ?? NullLogger<SyncService>.Instance;
     }
 
@@ -53,7 +56,7 @@ public sealed class SyncService : ISyncService
         await syncQueueRepository.EnqueueAsync(item);
         logger.LogInformation("Enqueued sync item {EntityType}/{Operation} (Id={SyncItemId})", entityType, operation, item.Id);
 
-        if (Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+        if (connectivityService.IsConnected)
             await SyncPendingAsync();
         else
             logger.LogWarning("Device is offline; sync item {EntityType}/{Operation} deferred in queue", entityType, operation);
@@ -61,16 +64,16 @@ public sealed class SyncService : ISyncService
 
     public async Task SyncPendingAsync()
     {
-        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+        if (!connectivityService.IsConnected)
         {
-            logger.LogWarning("Skipping pending sync because network access is {NetworkAccess}", Connectivity.Current.NetworkAccess);
+            logger.LogWarning("Skipping pending sync because connectivity is offline ({Description})", connectivityService.ConnectionDescription);
             return;
         }
 
         await syncLock.WaitAsync();
         try
         {
-            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+            if (!connectivityService.IsConnected)
                 return;
 
             var pendingItems = await syncQueueRepository.GetAllPendingAsync();
@@ -128,7 +131,8 @@ public sealed class SyncService : ISyncService
         if (isListening)
             return;
 
-        Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        connectivityService.StartMonitoring();
+        connectivityService.ConnectivityChanged += OnConnectivityChanged;
         isListening = true;
         logger.LogDebug("SyncService connectivity listener started");
     }
@@ -138,7 +142,8 @@ public sealed class SyncService : ISyncService
         if (!isListening)
             return;
 
-        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+        connectivityService.ConnectivityChanged -= OnConnectivityChanged;
+        connectivityService.StopMonitoring();
         isListening = false;
         logger.LogDebug("SyncService connectivity listener stopped");
     }
@@ -146,15 +151,16 @@ public sealed class SyncService : ISyncService
     internal static bool ShouldLocalWinLastWriteWins(DateTime localUpdatedAt, DateTime? remoteUpdatedAt) =>
         !remoteUpdatedAt.HasValue || localUpdatedAt >= remoteUpdatedAt.Value;
 
-    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    private void OnConnectivityChanged(object? sender, bool isConnected)
     {
-        if (e.NetworkAccess != NetworkAccess.Internet)
+        if (!isConnected)
         {
-            logger.LogWarning("Connectivity changed to offline ({NetworkAccess})", e.NetworkAccess);
+            logger.LogWarning("Connectivity changed to offline ({Description})", connectivityService.ConnectionDescription);
             return;
         }
 
-        logger.LogInformation("Internet connectivity restored; triggering background sync");
+        logger.LogInformation("Internet connectivity restored ({Description}); triggering background sync",
+            connectivityService.ConnectionDescription);
         _ = SyncPendingSafeAsync();
     }
 

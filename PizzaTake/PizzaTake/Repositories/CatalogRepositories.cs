@@ -15,6 +15,7 @@ public interface ICityRepository
 
 public interface IPizzeriaRepository
 {
+    Task<List<Pizzeria>> GetAllAsync();
     Task<List<Pizzeria>> GetByCityIdAsync(int cityId);
     Task<Pizzeria?> GetByIdAsync(int id);
     Task SaveAsync(Pizzeria pizzeria);
@@ -77,6 +78,14 @@ public sealed class CityRepository(SqliteDatabase database, ILogger<CityReposito
 public sealed class PizzeriaRepository(SqliteDatabase database, ILogger<PizzeriaRepository>? logger = null) : IPizzeriaRepository
 {
     private readonly ILogger<PizzeriaRepository> log = logger ?? NullLogger<PizzeriaRepository>.Instance;
+
+    public async Task<List<Pizzeria>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<Pizzeria>()
+            .OrderBy(pizzeria => pizzeria.StoreNumber)
+            .ToListAsync();
+    }
 
     public async Task<List<Pizzeria>> GetByCityIdAsync(int cityId)
     {

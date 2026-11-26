@@ -18,6 +18,8 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly IAppStateService appState;
     private readonly IAuthService authService;
     private readonly ISessionService sessionService;
+    private readonly IConnectivityService? connectivityService;
+    private readonly ISyncService? syncService;
     private readonly IBugReportService? bugReportService;
     private readonly ILogger<MenuViewModel> logger;
     private string searchText = string.Empty;
@@ -25,10 +27,31 @@ public sealed class MenuViewModel : BaseViewModel
     private string statusMessage = string.Empty;
     private string selectedPizzeriaText = "Оберіть піцерію";
     private Order? activeOrder;
+    private bool isOffline;
+    private int pendingSyncCount;
 
     public ObservableCollection<Product> Products { get; } = [];
     public ObservableCollection<string> Categories { get; } = [];
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
+    public bool IsOffline
+    {
+        get => isOffline;
+        private set
+        {
+            if (SetProperty(ref isOffline, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
+    }
+    public int PendingSyncCount
+    {
+        get => pendingSyncCount;
+        private set
+        {
+            if (SetProperty(ref pendingSyncCount, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
+    }
+    public string OfflineBannerText => $"Офлайн-режим (у черзі: {PendingSyncCount})";
     public Order? ActiveOrder
     {
         get => activeOrder;
@@ -72,6 +95,8 @@ public sealed class MenuViewModel : BaseViewModel
     public ICommand OpenPizzeriaSelectorCommand { get; }
     public ICommand OpenAdminProductCommand { get; }
     public ICommand OpenActiveOrderCommand { get; }
+    public ICommand OpenMapCommand { get; }
+    public ICommand OpenQualityReportCommand { get; }
 
     public MenuViewModel(
         IProductRepository products,
@@ -80,6 +105,8 @@ public sealed class MenuViewModel : BaseViewModel
         IAppStateService appState,
         IAuthService authService,
         ISessionService sessionService,
+        IConnectivityService? connectivityService = null,
+        ISyncService? syncService = null,
         IBugReportService? bugReportService = null,
         ILogger<MenuViewModel>? logger = null)
     {
@@ -89,6 +116,8 @@ public sealed class MenuViewModel : BaseViewModel
         this.appState = appState;
         this.authService = authService;
         this.sessionService = sessionService;
+        this.connectivityService = connectivityService;
+        this.syncService = syncService;
         this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<MenuViewModel>.Instance;
 
@@ -110,6 +139,63 @@ public sealed class MenuViewModel : BaseViewModel
         OpenPizzeriaSelectorCommand = new Command(async () => await OpenPizzeriaSelectorAsync());
         OpenAdminProductCommand = new Command<Product?>(async product => await OpenAdminProductAsync(product));
         OpenActiveOrderCommand = new Command(async () => await OpenActiveOrderAsync());
+        OpenMapCommand = new Command(async () => await Shell.Current.GoToAsync("pizzeriasmap"));
+        OpenQualityReportCommand = new Command(async () => await Shell.Current.GoToAsync("qualityreport"));
+    }
+
+    public void StartConnectivityMonitoring()
+    {
+        if (connectivityService is not null)
+        {
+            connectivityService.StartMonitoring();
+            IsOffline = !connectivityService.IsConnected;
+            connectivityService.ConnectivityChanged -= OnConnectivityChanged;
+            connectivityService.ConnectivityChanged += OnConnectivityChanged;
+        }
+
+        if (syncService is not null)
+        {
+            syncService.SyncCompleted -= OnSyncCompleted;
+            syncService.SyncCompleted += OnSyncCompleted;
+        }
+
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    public void StopConnectivityMonitoring()
+    {
+        if (connectivityService is not null)
+            connectivityService.ConnectivityChanged -= OnConnectivityChanged;
+
+        if (syncService is not null)
+            syncService.SyncCompleted -= OnSyncCompleted;
+    }
+
+    private void OnConnectivityChanged(object? sender, bool isConnected)
+    {
+        MainThread.BeginInvokeOnMainThread(() => IsOffline = !isConnected);
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private void OnSyncCompleted(object? sender, EventArgs e)
+    {
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private async Task RefreshPendingSyncCountAsync()
+    {
+        if (syncService is null)
+            return;
+
+        try
+        {
+            var count = await syncService.GetPendingCountAsync();
+            MainThread.BeginInvokeOnMainThread(() => PendingSyncCount = count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to refresh pending sync count on MenuPage");
+        }
     }
 
     private async Task OpenAdminProductAsync(Product? product)
@@ -162,10 +248,8 @@ public sealed class MenuViewModel : BaseViewModel
             foreach (var category in all.Select(product => product.Category).Where(category => !string.IsNullOrWhiteSpace(category)).Distinct().OrderBy(category => category))
                 Categories.Add(category);
             if (string.IsNullOrWhiteSpace(selectedCategory))
-            {
                 selectedCategory = "Усі категорії";
-                OnPropertyChanged(nameof(SelectedCategory));
-            }
+            OnPropertyChanged(nameof(SelectedCategory));
             await ShowProductsAsync(Filter(all));
             logger.LogInformation("Loaded menu catalog with {ProductCount} product(s)", all.Count);
         }

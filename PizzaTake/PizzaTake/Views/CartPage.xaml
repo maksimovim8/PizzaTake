@@ -9,27 +9,41 @@
              BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
-        <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-            <VerticalStackLayout Spacing="2">
-                <Label Text="Ваше замовлення"
-                       FontSize="26"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                <Label Text="Перевірте склад замовлення"
-                       FontSize="14"
-                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-            </VerticalStackLayout>
+        <!-- Header & Offline Banner -->
+        <VerticalStackLayout Grid.Row="0" Spacing="8" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Ваше замовлення"
+                           FontSize="26"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                    <Label Text="Перевірте склад замовлення"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                </VerticalStackLayout>
 
-            <Button Grid.Column="1"
-                    Text="Очистити"
-                    Command="{Binding ClearCartCommand}"
-                    IsVisible="{Binding HasItems}"
-                    BackgroundColor="Transparent"
-                    TextColor="#EB5E28"
-                    FontAttributes="Bold"
-                    VerticalOptions="Center" />
-        </Grid>
+                <Button Grid.Column="1"
+                        Text="Очистити"
+                        Command="{Binding ClearCartCommand}"
+                        IsVisible="{Binding HasItems}"
+                        BackgroundColor="Transparent"
+                        TextColor="#EB5E28"
+                        FontAttributes="Bold"
+                        VerticalOptions="Center" />
+            </Grid>
+
+            <Border IsVisible="{Binding IsOffline}"
+                    AutomationId="CartOfflineBanner"
+                    StrokeShape="RoundRectangle 14"
+                    Stroke="#F59E0B"
+                    BackgroundColor="#FEF3C7"
+                    Padding="12,8">
+                <Label Text="{Binding OfflineBannerText}"
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       TextColor="#92400E" />
+            </Border>
+        </VerticalStackLayout>
 
         <!-- Main content -->
         <ScrollView Grid.Row="1">
