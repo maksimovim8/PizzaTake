@@ -4,16 +4,21 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
+using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
 
 /// <summary>
-/// ViewModel for inspecting an order's line items and repeating single items or full orders into the cart.
+/// ViewModel for inspecting an order's line items, repeating items into the cart,
+/// and administrator-only order status updates and deletion with two-level RBAC.
 /// </summary>
 public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IOrderRepository orderRepository;
     private readonly ICartRepository cartRepository;
+    private readonly IAuthService authService;
+    private readonly ISessionService sessionService;
+    private readonly ISyncService syncService;
     private readonly ILogger<OrderDetailViewModel> logger;
 
     private Order? currentOrder;
@@ -21,32 +26,57 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     public OrderDetailViewModel(
         IOrderRepository orderRepository,
         ICartRepository cartRepository,
+        IAuthService authService,
+        ISessionService sessionService,
+        ISyncService syncService,
         ILogger<OrderDetailViewModel>? logger = null)
     {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
+        this.authService = authService;
+        this.sessionService = sessionService;
+        this.syncService = syncService;
         this.logger = logger ?? NullLogger<OrderDetailViewModel>.Instance;
         Title = "Деталі замовлення";
 
+        this.sessionService.SessionChanged += (_, _) =>
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                OnPropertyChanged(nameof(IsAdmin));
+                OnPropertyChanged(nameof(CanShowAdminPanel));
+            });
+
         RepeatSingleItemCommand = new Command<OrderItem?>(async item => await RepeatSingleItemAsync(item));
         RepeatFullOrderCommand = new Command(async () => await RepeatFullOrderAsync(), () => Items.Count > 0 && !IsBusy);
+        AdvanceOrderStatusCommand = new Command(async () => await AdvanceOrderStatusAsync());
+        DeleteOrderCommand = new Command(async () => await DeleteOrderAsync());
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
+
+    public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
+    public bool CanShowAdminPanel => IsAdmin && CurrentOrder is not null;
 
     public Order? CurrentOrder
     {
         get => currentOrder;
-        private set => SetProperty(ref currentOrder, value);
+        private set
+        {
+            if (SetProperty(ref currentOrder, value))
+                OnPropertyChanged(nameof(CanShowAdminPanel));
+        }
     }
 
     public ObservableCollection<OrderItem> Items { get; } = new();
 
     public ICommand RepeatSingleItemCommand { get; }
     public ICommand RepeatFullOrderCommand { get; }
+    public ICommand AdvanceOrderStatusCommand { get; }
+    public ICommand DeleteOrderCommand { get; }
     public ICommand GoBackCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        OnPropertyChanged(nameof(IsAdmin));
         if (query.TryGetValue("Order", out var orderObj) && orderObj is Order order)
         {
             _ = LoadOrderAsync(order);
@@ -71,6 +101,13 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         IsBusy = true;
         try
         {
+            if (await authService.HasSavedCredentialsAsync() && !sessionService.IsAuthenticated)
+            {
+                CurrentOrder = null;
+                Items.Clear();
+                return;
+            }
+
             CurrentOrder = order;
             var items = await orderRepository.GetItemsByOrderIdAsync(order.Id);
             Items.Clear();
@@ -87,6 +124,103 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         {
             IsBusy = false;
             ((Command)RepeatFullOrderCommand).ChangeCanExecute();
+        }
+    }
+
+    private async Task AdvanceOrderStatusAsync()
+    {
+        if (!sessionService.IsInRole(UserRole.Administrator))
+        {
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(AdvanceOrderStatusCommand));
+            await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
+            return;
+        }
+
+        if (CurrentOrder is null || IsBusy)
+            return;
+
+        var nextStatus = GetNextOrderStatus(CurrentOrder.Status, CurrentOrder.DeliveryType);
+        if (nextStatus is null)
+        {
+            await Shell.Current.DisplayAlertAsync("Статус замовлення", "Замовлення вже має фінальний статус.", "OK");
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await orderRepository.UpdateStatusAsync(CurrentOrder.Id, nextStatus.Value);
+            CurrentOrder.Status = nextStatus.Value;
+            OnPropertyChanged(nameof(CurrentOrder));
+
+            await syncService.EnqueueAsync("Order", "UpdateStatus", new
+            {
+                CurrentOrder.Id,
+                CurrentOrder.OrderNumber,
+                Status = nextStatus.Value.ToString(),
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            logger.LogInformation("Administrator advanced order {OrderNumber} status to {Status}.",
+                CurrentOrder.OrderNumber, nextStatus.Value);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update order status for OrderId={OrderId}.", CurrentOrder.Id);
+            await Shell.Current.DisplayAlertAsync("Помилка", "Не вдалося оновити статус замовлення.", "OK");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task DeleteOrderAsync()
+    {
+        if (!sessionService.IsInRole(UserRole.Administrator))
+        {
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(DeleteOrderCommand));
+            await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
+            return;
+        }
+
+        if (CurrentOrder is null || IsBusy)
+            return;
+
+        var confirmed = await Shell.Current.DisplayAlertAsync(
+            "Видалення замовлення",
+            $"Видалити замовлення №{CurrentOrder.OrderNumber}?",
+            "Видалити",
+            "Скасувати");
+
+        if (!confirmed)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            var deletedId = CurrentOrder.Id;
+            var deletedNumber = CurrentOrder.OrderNumber;
+
+            await orderRepository.DeleteOrderAsync(deletedId);
+            await syncService.EnqueueAsync("Order", "Delete", new
+            {
+                Id = deletedId,
+                OrderNumber = deletedNumber,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            logger.LogInformation("Administrator deleted order {OrderNumber} (Id={OrderId}).", deletedNumber, deletedId);
+            await Shell.Current.GoToAsync("..");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete order Id={OrderId}.", CurrentOrder.Id);
+            await Shell.Current.DisplayAlertAsync("Помилка", "Не вдалося видалити замовлення.", "OK");
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -152,4 +286,14 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
 
         return cartRepository.SaveAsync(cartItem);
     }
+
+    private static OrderStatus? GetNextOrderStatus(OrderStatus current, DeliveryType deliveryType) => current switch
+    {
+        OrderStatus.Pending => OrderStatus.Accepted,
+        OrderStatus.Accepted => OrderStatus.Preparing,
+        OrderStatus.Preparing => OrderStatus.Ready,
+        OrderStatus.Ready => deliveryType == DeliveryType.Pickup ? OrderStatus.Completed : OrderStatus.Delivering,
+        OrderStatus.Delivering => OrderStatus.Completed,
+        _ => null
+    };
 }

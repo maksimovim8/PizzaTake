@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
@@ -6,42 +7,40 @@ using PizzaTake.Repositories;
 namespace PizzaTake.Services;
 
 /// <summary>
-/// OTP authentication service persisting session tokens in SecureStorage and verified profiles in SQLite.
+/// OTP authentication service assigning user roles, persisting tokens/roles exclusively in SecureStorage,
+/// and synchronizing active session state via ISessionService.
 /// </summary>
 public sealed class AuthService : IAuthService
 {
-    private const string AuthTokenStorageKey = "pizzatake_auth_token";
-    private const string AuthFlagPreferenceKey = "pizzatake_is_authenticated";
+    public const string AdminPhone = "+380990000001";
+    private const string AdminPhoneDigits = "380990000001";
 
     private readonly HttpApiClient httpApiClient;
     private readonly IUserProfileRepository userProfileRepository;
+    private readonly ISecureStoreService secureStore;
+    private readonly ISessionService sessionService;
     private readonly ILogger<AuthService> logger;
     private readonly ICrashReportingService? crashReporting;
-    private bool? isAuthenticatedCache;
 
     public AuthService(
         HttpApiClient httpApiClient,
         IUserProfileRepository userProfileRepository,
+        ISecureStoreService secureStore,
+        ISessionService sessionService,
         ILogger<AuthService>? logger = null,
         ICrashReportingService? crashReporting = null)
     {
         this.httpApiClient = httpApiClient;
         this.userProfileRepository = userProfileRepository;
+        this.secureStore = secureStore;
+        this.sessionService = sessionService;
         this.logger = logger ?? NullLogger<AuthService>.Instance;
         this.crashReporting = crashReporting;
     }
 
-    public bool IsAuthenticated
-    {
-        get
-        {
-            if (isAuthenticatedCache.HasValue)
-                return isAuthenticatedCache.Value;
+    public bool IsAuthenticated => sessionService.IsAuthenticated;
 
-            isAuthenticatedCache = CheckPersistedAuthState();
-            return isAuthenticatedCache.Value;
-        }
-    }
+    public UserRole? CurrentRole => sessionService.CurrentRole;
 
     public async Task<bool> SendOtpAsync(string phone)
     {
@@ -63,62 +62,94 @@ public sealed class AuthService : IAuthService
             return false;
         }
 
+        var normalizedPhone = phone.Trim();
+        var role = ResolveRoleForPhone(normalizedPhone);
+
         var profile = await userProfileRepository.GetCurrentAsync() ?? new UserProfile();
-        profile.Phone = phone.Trim();
+        profile.Phone = normalizedPhone;
         profile.IsPhoneVerified = true;
+        profile.Role = role;
         profile.UpdatedAt = DateTime.UtcNow;
         await userProfileRepository.SaveAsync(profile);
 
         var sessionToken = Guid.NewGuid().ToString("N");
-        try
-        {
-            await SecureStorage.Default.SetAsync(AuthTokenStorageKey, sessionToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "SecureStorage write failed while persisting auth session token");
-        }
+        await secureStore.SetAsync(AuthStorageKeys.AuthToken, sessionToken);
+        await secureStore.SetAsync(AuthStorageKeys.UserRole, role.ToString());
+        await secureStore.SetAsync(AuthStorageKeys.UserPhone, normalizedPhone);
 
-        Preferences.Default.Set(AuthFlagPreferenceKey, true);
-        isAuthenticatedCache = true;
-        logger.LogInformation("User authenticated successfully");
+        sessionService.SetSession(normalizedPhone, role);
+        logger.LogInformation("User authenticated via OTP with role {Role}", role);
         crashReporting?.TrackEvent(CrashEventNames.LoginSuccess, new Dictionary<string, string>
         {
-            ["method"] = "otp"
+            ["method"] = "otp",
+            ["role"] = role.ToString()
         });
         return true;
     }
 
-    public Task LogoutAsync()
+    public async Task<bool> HasSavedCredentialsAsync()
     {
-        try
+        var token = await secureStore.GetAsync(AuthStorageKeys.AuthToken);
+        return !string.IsNullOrWhiteSpace(token);
+    }
+
+    public async Task<bool> RestoreSavedSessionAsync()
+    {
+        var token = await secureStore.GetAsync(AuthStorageKeys.AuthToken);
+        if (string.IsNullOrWhiteSpace(token))
         {
-            SecureStorage.Default.Remove(AuthTokenStorageKey);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "SecureStorage remove failed while clearing auth session token");
+            logger.LogWarning("Cannot restore session: no saved token in SecureStorage");
+            return false;
         }
 
-        Preferences.Default.Remove(AuthFlagPreferenceKey);
-        isAuthenticatedCache = false;
-        logger.LogInformation("User logged out and session cleared");
+        var roleRaw = await secureStore.GetAsync(AuthStorageKeys.UserRole);
+        var phone = await secureStore.GetAsync(AuthStorageKeys.UserPhone);
+
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            var profile = await userProfileRepository.GetCurrentAsync();
+            phone = profile?.Phone ?? string.Empty;
+        }
+
+        var role = Enum.TryParse<UserRole>(roleRaw, ignoreCase: true, out var parsedRole)
+            ? parsedRole
+            : ResolveRoleForPhone(phone);
+
+        sessionService.SetSession(phone, role);
+        logger.LogInformation("Session restored from SecureStorage with role {Role}", role);
+        crashReporting?.TrackEvent(CrashEventNames.LoginSuccess, new Dictionary<string, string>
+        {
+            ["method"] = "biometric",
+            ["role"] = role.ToString()
+        });
+        return true;
+    }
+
+    public Task LockSessionAsync()
+    {
+        sessionService.LockSession();
         return Task.CompletedTask;
     }
 
-    private bool CheckPersistedAuthState()
+    public Task LogoutAsync()
     {
-        try
-        {
-            var token = Task.Run(() => SecureStorage.Default.GetAsync(AuthTokenStorageKey)).GetAwaiter().GetResult();
-            if (!string.IsNullOrEmpty(token))
-                return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "SecureStorage read failed while checking persisted auth state");
-        }
+        secureStore.Remove(AuthStorageKeys.AuthToken);
+        secureStore.Remove(AuthStorageKeys.UserRole);
+        secureStore.Remove(AuthStorageKeys.UserPhone);
+        sessionService.ClearSession();
+        logger.LogInformation("User logged out and SecureStorage credentials removed");
+        return Task.CompletedTask;
+    }
 
-        return Preferences.Default.Get(AuthFlagPreferenceKey, false);
+    public static UserRole ResolveRoleForPhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return UserRole.Customer;
+
+        var digits = Regex.Replace(phone, @"\D", string.Empty);
+        if (digits == AdminPhoneDigits || digits == "0990000001")
+            return UserRole.Administrator;
+
+        return UserRole.Customer;
     }
 }

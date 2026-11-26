@@ -27,7 +27,7 @@
                     Padding="24,36">
                 <VerticalStackLayout Spacing="22">
                     <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-                        <Label Text="Приєднуйся до"
+                        <Label Text="{Binding HeaderTitle}"
                                FontSize="26"
                                FontAttributes="Bold"
                                HorizontalTextAlignment="Center"
@@ -39,7 +39,7 @@
                                TextColor="#F7A600" />
                     </VerticalStackLayout>
 
-                    <Label Text="Введіть номер телефону, щоб увійти у додаток"
+                    <Label Text="{Binding SubtitleText}"
                            FontSize="14"
                            HorizontalTextAlignment="Center"
                            TextColor="#E7DCD2" />
@@ -62,6 +62,24 @@
                            IsVisible="{Binding HasMainError}"
                            TextColor="#FCA5A5"
                            FontSize="13"
+                           HorizontalTextAlignment="Center" />
+
+                    <Button Text="Увійти за біометрією"
+                            Command="{Binding BiometricLoginCommand}"
+                            IsVisible="{Binding IsBiometricLoginVisible}"
+                            BackgroundColor="#3B2616"
+                            BorderColor="#F7A600"
+                            BorderWidth="1.5"
+                            TextColor="#FDF1D6"
+                            FontSize="15"
+                            FontAttributes="Bold"
+                            CornerRadius="22"
+                            HeightRequest="46" />
+
+                    <Label Text="{Binding BiometricStatusMessage}"
+                           IsVisible="{Binding HasBiometricStatusMessage}"
+                           TextColor="#E7DCD2"
+                           FontSize="12"
                            HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>
             </Border>

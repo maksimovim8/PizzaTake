@@ -65,6 +65,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("checkout", typeof(CheckoutPage));
         Routing.RegisterRoute("orderdetail", typeof(OrderDetailPage));
         Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
+        Routing.RegisterRoute("adminproductedit", typeof(AdminProductEditPage));
         Routing.RegisterRoute("logs", typeof(LogsPage));
 
         this.appState.StateChanged += (_, _) => MainThread.BeginInvokeOnMainThread(UpdateTabAvailability);

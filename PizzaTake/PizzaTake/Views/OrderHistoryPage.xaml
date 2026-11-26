@@ -26,6 +26,31 @@
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="12">
+                <Border IsVisible="{Binding IsSessionLocked}"
+                        StrokeShape="RoundRectangle 20"
+                        Stroke="#F7A600"
+                        BackgroundColor="{AppThemeBinding Light=#FFFDF7, Dark=#2B2219}"
+                        Padding="20">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="🔒 Сесію заблоковано"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                        <Label Text="Розблокуйте сесію за біометрією або SMS, щоб переглядати історію замовлень."
+                               FontSize="14"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                        <Button Text="Розблокувати сесію"
+                                Command="{Binding UnlockSessionCommand}"
+                                BackgroundColor="#EB5E28"
+                                TextColor="#FFFFFF"
+                                FontAttributes="Bold"
+                                CornerRadius="20"
+                                HeightRequest="44" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <Border IsVisible="{Binding IsEmpty}"
                         StrokeShape="RoundRectangle 20"
                         Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"

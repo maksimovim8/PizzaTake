@@ -82,6 +82,20 @@ public sealed class SqliteDatabase
             await connection.ExecuteAsync("PRAGMA user_version = 2;");
             logger.LogInformation("Applied SQLite migration to schema v2 (UserAddresses Notes & coordinates).");
         }
+
+        await EnsureUserProfileRoleColumnAsync();
+    }
+
+    private async Task EnsureUserProfileRoleColumnAsync()
+    {
+        var columns = await connection.QueryAsync<TableColumnInfo>("PRAGMA table_info(UserProfiles);");
+        var existingNames = new HashSet<string>(columns.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+
+        if (!existingNames.Contains(nameof(UserProfile.Role)))
+        {
+            await connection.ExecuteAsync("ALTER TABLE UserProfiles ADD COLUMN Role INTEGER NOT NULL DEFAULT 0;");
+            logger?.LogInformation("Added missing Role column to UserProfiles table.");
+        }
     }
 
     private async Task CreateBaseTablesAsync()
