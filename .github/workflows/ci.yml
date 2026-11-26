@@ -72,7 +72,7 @@ jobs:
             -p:AcceptAndroidSdkLicenses=true
 
       - name: Restore MAUI Android project
-        run: dotnet restore PizzaTake/PizzaTake/PizzaTake.csproj --force
+        run: dotnet restore PizzaTake/PizzaTake/PizzaTake.csproj -p:Configuration=Release --force
 
       - name: Build Android Release APK
         run: |
