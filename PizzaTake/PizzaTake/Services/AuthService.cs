@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 
@@ -14,12 +15,20 @@ public sealed class AuthService : IAuthService
 
     private readonly HttpApiClient httpApiClient;
     private readonly IUserProfileRepository userProfileRepository;
+    private readonly ILogger<AuthService> logger;
+    private readonly ICrashReportingService? crashReporting;
     private bool? isAuthenticatedCache;
 
-    public AuthService(HttpApiClient httpApiClient, IUserProfileRepository userProfileRepository)
+    public AuthService(
+        HttpApiClient httpApiClient,
+        IUserProfileRepository userProfileRepository,
+        ILogger<AuthService>? logger = null,
+        ICrashReportingService? crashReporting = null)
     {
         this.httpApiClient = httpApiClient;
         this.userProfileRepository = userProfileRepository;
+        this.logger = logger ?? NullLogger<AuthService>.Instance;
+        this.crashReporting = crashReporting;
     }
 
     public bool IsAuthenticated
@@ -34,13 +43,25 @@ public sealed class AuthService : IAuthService
         }
     }
 
-    public Task<bool> SendOtpAsync(string phone) => httpApiClient.SendOtpAsync(phone);
+    public async Task<bool> SendOtpAsync(string phone)
+    {
+        var sent = await httpApiClient.SendOtpAsync(phone);
+        if (sent)
+            logger.LogInformation("OTP verification code requested successfully");
+        else
+            logger.LogWarning("OTP verification code request was rejected");
+
+        return sent;
+    }
 
     public async Task<bool> VerifyOtpAsync(string phone, string code)
     {
         var verified = await httpApiClient.VerifyOtpAsync(phone, code);
         if (!verified)
+        {
+            logger.LogWarning("OTP verification failed for submitted code");
             return false;
+        }
 
         var profile = await userProfileRepository.GetCurrentAsync() ?? new UserProfile();
         profile.Phone = phone.Trim();
@@ -55,11 +76,16 @@ public sealed class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[AuthService] SecureStorage write failed: {ex.Message}");
+            logger.LogError(ex, "SecureStorage write failed while persisting auth session token");
         }
 
         Preferences.Default.Set(AuthFlagPreferenceKey, true);
         isAuthenticatedCache = true;
+        logger.LogInformation("User authenticated successfully");
+        crashReporting?.TrackEvent(CrashEventNames.LoginSuccess, new Dictionary<string, string>
+        {
+            ["method"] = "otp"
+        });
         return true;
     }
 
@@ -71,15 +97,16 @@ public sealed class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[AuthService] SecureStorage remove failed: {ex.Message}");
+            logger.LogError(ex, "SecureStorage remove failed while clearing auth session token");
         }
 
         Preferences.Default.Remove(AuthFlagPreferenceKey);
         isAuthenticatedCache = false;
+        logger.LogInformation("User logged out and session cleared");
         return Task.CompletedTask;
     }
 
-    private static bool CheckPersistedAuthState()
+    private bool CheckPersistedAuthState()
     {
         try
         {
@@ -89,7 +116,7 @@ public sealed class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[AuthService] SecureStorage read failed: {ex.Message}");
+            logger.LogError(ex, "SecureStorage read failed while checking persisted auth state");
         }
 
         return Preferences.Default.Get(AuthFlagPreferenceKey, false);

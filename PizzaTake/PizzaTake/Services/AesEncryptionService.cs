@@ -1,6 +1,7 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PizzaTake.Services;
 
@@ -14,7 +15,13 @@ public sealed class AesEncryptionService : IEncryptionService
     private const int IvSizeBytes = 16;
 
     private readonly SemaphoreSlim keyLock = new(1, 1);
+    private readonly ILogger<AesEncryptionService> logger;
     private byte[]? cachedKey;
+
+    public AesEncryptionService(ILogger<AesEncryptionService>? logger = null)
+    {
+        this.logger = logger ?? NullLogger<AesEncryptionService>.Instance;
+    }
 
     public string Encrypt(string plainText)
     {
@@ -67,7 +74,7 @@ public sealed class AesEncryptionService : IEncryptionService
         }
         catch (Exception ex) when (ex is FormatException or CryptographicException)
         {
-            Debug.WriteLine($"[AesEncryptionService] Decryption failed: {ex.Message}");
+            logger.LogError(ex, "AES decryption failed for stored payload");
             return string.Empty;
         }
     }
@@ -99,7 +106,7 @@ public sealed class AesEncryptionService : IEncryptionService
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AesEncryptionService] SecureStorage read failed: {ex.Message}");
+                logger.LogError(ex, "SecureStorage read failed while loading AES key");
             }
 
             if (!string.IsNullOrEmpty(storedKey))
@@ -120,7 +127,7 @@ public sealed class AesEncryptionService : IEncryptionService
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AesEncryptionService] SecureStorage write failed: {ex.Message}");
+                logger.LogError(ex, "SecureStorage write failed while persisting new AES key");
             }
 
             cachedKey = generated;

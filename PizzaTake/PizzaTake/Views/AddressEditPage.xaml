@@ -7,91 +7,99 @@
              Title="{Binding Title}"
              BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
 
-    <ScrollView Padding="20,16">
-        <VerticalStackLayout Spacing="18">
-            <Button Text="‹ Назад"
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20,16" RowSpacing="16">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Button Grid.Column="0"
+                    Text="‹ Назад"
+                    AutomationId="AddressEditBackButton"
                     Command="{Binding GoBackCommand}"
-                    HorizontalOptions="Start"
                     BackgroundColor="Transparent"
                     TextColor="#EB5E28"
                     FontSize="16"
                     FontAttributes="Bold"
-                    Padding="0" />
+                    Padding="0"
+                    HorizontalOptions="Start" />
+            <Label Grid.Column="1"
+                   Text="{Binding Title}"
+                   FontSize="24"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+        </Grid>
 
-            <VerticalStackLayout Spacing="4">
-                <Label Text="{Binding Title}"
-                       FontSize="26"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                <Label Text="Збережіть адресу для швидкого оформлення замовлення"
-                       FontSize="14"
-                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="16">
+                <Border StrokeShape="RoundRectangle 18"
+                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="14">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="НАЗВА АДРЕСИ"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding Label, Mode=TwoWay}"
+                                       AutomationId="AddressLabelEntry"
+                                       Placeholder="Наприклад: Дім, Офіс"
+                                       PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="ВУЛИЦЯ ТА БУДИНОК *"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding AddressText, Mode=TwoWay}"
+                                       AutomationId="AddressTextEntry"
+                                       Placeholder="вул. Хрещатик, 22, кв. 10"
+                                       PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="ПРИМІТКА ДЛЯ КУР'ЄРА"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Border StrokeShape="RoundRectangle 12"
+                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
+                                    Padding="12,4">
+                                <Entry Text="{Binding Notes, Mode=TwoWay}"
+                                       AutomationId="AddressNotesEntry"
+                                       Placeholder="Під'їзд, поверх, код домофона"
+                                       PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
+                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                                       FontSize="15" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               FontSize="13"
+                               TextColor="#DC2626" />
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
+        </ScrollView>
 
-            <Border StrokeShape="RoundRectangle 18"
-                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                    Padding="16">
-                <VerticalStackLayout Spacing="14">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="НАЗВА АДРЕСИ"
-                               FontSize="11"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                        <Border StrokeShape="RoundRectangle 12"
-                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                Padding="12,4">
-                            <Entry Text="{Binding Label, Mode=TwoWay}"
-                                   Placeholder="Наприклад: Дім, Робота"
-                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
-                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                   FontSize="15" />
-                        </Border>
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="АДРЕСА ДОСТАВКИ *"
-                               FontSize="11"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                        <Border StrokeShape="RoundRectangle 12"
-                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                Padding="12,4">
-                            <Entry Text="{Binding AddressText, Mode=TwoWay}"
-                                   Placeholder="вул. Хрещатик, 22, кв. 15"
-                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
-                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                   FontSize="15" />
-                        </Border>
-                    </VerticalStackLayout>
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="ПРИМІТКА ДЛЯ КУР'ЄРА"
-                               FontSize="11"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                        <Border StrokeShape="RoundRectangle 12"
-                                Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                Padding="12,4">
-                            <Entry Text="{Binding Notes, Mode=TwoWay}"
-                                   Placeholder="Під'їзд, поверх, код домофона"
-                                   PlaceholderColor="{AppThemeBinding Light=#A8A29E, Dark=#78716C}"
-                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                   FontSize="15" />
-                        </Border>
-                    </VerticalStackLayout>
-
-                    <Label Text="{Binding ErrorMessage}"
-                           IsVisible="{Binding HasError}"
-                           TextColor="#DC2626"
-                           FontSize="13" />
-                </VerticalStackLayout>
-            </Border>
-
+        <VerticalStackLayout Grid.Row="2" Spacing="10">
             <Button Text="Зберегти адресу"
+                    AutomationId="AddressSaveButton"
                     Command="{Binding SaveCommand}"
                     BackgroundColor="#EB5E28"
                     TextColor="#FFFFFF"
@@ -101,6 +109,7 @@
                     HeightRequest="50" />
 
             <Button Text="Видалити адресу"
+                    AutomationId="AddressDeleteButton"
                     Command="{Binding DeleteCommand}"
                     IsVisible="{Binding IsEditMode}"
                     BackgroundColor="Transparent"
@@ -112,5 +121,5 @@
                     CornerRadius="24"
                     HeightRequest="46" />
         </VerticalStackLayout>
-    </ScrollView>
+    </Grid>
 </ContentPage>

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 
@@ -13,13 +14,18 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IOrderRepository orderRepository;
     private readonly ICartRepository cartRepository;
+    private readonly ILogger<OrderDetailViewModel> logger;
 
     private Order? currentOrder;
 
-    public OrderDetailViewModel(IOrderRepository orderRepository, ICartRepository cartRepository)
+    public OrderDetailViewModel(
+        IOrderRepository orderRepository,
+        ICartRepository cartRepository,
+        ILogger<OrderDetailViewModel>? logger = null)
     {
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
+        this.logger = logger ?? NullLogger<OrderDetailViewModel>.Instance;
         Title = "Деталі замовлення";
 
         RepeatSingleItemCommand = new Command<OrderItem?>(async item => await RepeatSingleItemAsync(item));
@@ -56,6 +62,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         var order = await orderRepository.GetByIdAsync(orderId);
         if (order is not null)
             await LoadOrderAsync(order);
+        else
+            logger.LogWarning("Order with id {OrderId} was not found", orderId);
     }
 
     private async Task LoadOrderAsync(Order order)
@@ -69,6 +77,11 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
             foreach (var item in items)
                 Items.Add(item);
 
+            logger.LogInformation("Loaded order details for {OrderNumber} ({ItemCount} item(s))", order.OrderNumber, Items.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load items for order {OrderId}", order.Id);
         }
         finally
         {
@@ -85,11 +98,12 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         try
         {
             await AddOrderItemToCartAsync(item);
+            logger.LogInformation("Repeated single order item {ProductName} into cart", item.ProductName);
             await Shell.Current.DisplayAlertAsync("Кошик", $"Додано «{item.ProductName}» до кошика.", "OK");
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[OrderDetail] Could not repeat order item: {exception}");
+            logger.LogError(exception, "Could not repeat order item {ProductName}", item.ProductName);
             await Shell.Current.DisplayAlertAsync("Не вдалося додати товар", "Спробуйте ще раз.", "OK");
         }
     }
@@ -106,6 +120,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
             foreach (var item in Items.ToList())
                 await AddOrderItemToCartAsync(item);
 
+            logger.LogInformation("Repeated full order {OrderNumber} ({ItemCount} item(s))", CurrentOrder?.OrderNumber, Items.Count);
+
             // Clear the detail route, then select Cart and clear any stale checkout route there.
             await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync("///cart");
@@ -113,7 +129,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[OrderDetail] Could not repeat full order: {exception}");
+            logger.LogError(exception, "Could not repeat full order {OrderNumber}", CurrentOrder?.OrderNumber);
             await Shell.Current.DisplayAlertAsync("Не вдалося повторити замовлення", "Спробуйте ще раз.", "OK");
         }
         finally

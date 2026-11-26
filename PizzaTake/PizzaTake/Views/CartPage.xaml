@@ -130,57 +130,60 @@
                 </VerticalStackLayout>
 
                 <!-- Upsell Section -->
-                <VerticalStackLayout Spacing="10" Margin="0,6,0,8">
+                <VerticalStackLayout Spacing="10" Margin="0,6,0,16">
                     <Label Text="До цього замовлення часто беруть"
                            FontSize="18"
                            FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
 
-                    <CollectionView ItemsSource="{Binding UpsellItems}"
-                                    HeightRequest="155"
-                                    ItemsLayout="HorizontalList">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="models:Product">
-                                <Border Margin="0,0,10,0"
-                                        WidthRequest="140"
-                                        StrokeShape="RoundRectangle 18"
-                                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                                        Padding="12">
-                                    <Grid RowDefinitions="Auto,*,Auto">
-                                        <Button Grid.Row="0"
-                                                Text="+"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=AddUpsellCommand}"
-                                                CommandParameter="{Binding .}"
-                                                HorizontalOptions="End"
-                                                BackgroundColor="#F7A600"
-                                                TextColor="#FFFFFF"
-                                                FontAttributes="Bold"
-                                                CornerRadius="14"
-                                                WidthRequest="28"
-                                                HeightRequest="28"
-                                                Padding="0" />
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                        <HorizontalStackLayout Spacing="10"
+                                               Padding="0,2,0,4"
+                                               BindableLayout.ItemsSource="{Binding UpsellItems}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:Product">
+                                    <Border WidthRequest="142"
+                                            HeightRequest="146"
+                                            StrokeShape="RoundRectangle 18"
+                                            Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                            Padding="12">
+                                        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="4">
+                                            <Button Grid.Row="0"
+                                                    Text="+"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=AddUpsellCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    HorizontalOptions="End"
+                                                    BackgroundColor="#F7A600"
+                                                    TextColor="#FFFFFF"
+                                                    FontAttributes="Bold"
+                                                    CornerRadius="14"
+                                                    WidthRequest="28"
+                                                    HeightRequest="28"
+                                                    Padding="0" />
 
-                                        <Label Grid.Row="1"
-                                               Text="{Binding Name}"
-                                               FontSize="14"
-                                               FontAttributes="Bold"
-                                               MaxLines="2"
-                                               VerticalOptions="Center"
-                                               HorizontalTextAlignment="Center"
-                                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                            <Label Grid.Row="1"
+                                                   Text="{Binding Name}"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   MaxLines="2"
+                                                   LineBreakMode="TailTruncation"
+                                                   VerticalOptions="Center"
+                                                   HorizontalTextAlignment="Center"
+                                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
 
-                                        <Label Grid.Row="2"
-                                               Text="{Binding EffectivePrice, StringFormat='{0:0.##} ₴'}"
-                                               FontSize="15"
-                                               FontAttributes="Bold"
-                                               HorizontalTextAlignment="Center"
-                                               TextColor="#EB5E28" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
+                                            <Label Grid.Row="2"
+                                                   Text="{Binding EffectivePrice, StringFormat='{0:0.##} ₴'}"
+                                                   FontSize="15"
+                                                   FontAttributes="Bold"
+                                                   HorizontalTextAlignment="Center"
+                                                   TextColor="#EB5E28" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
                 </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>

@@ -1,5 +1,6 @@
-﻿using Android.App;
+using Android.App;
 using Android.Runtime;
+using PizzaTake.Services;
 
 namespace PizzaTake
 {
@@ -11,6 +12,19 @@ namespace PizzaTake
         {
         }
 
+        public override void OnCreate()
+        {
+            base.OnCreate();
+            AndroidEnvironment.UnhandledExceptionRaiser += OnAndroidUnhandledException;
+        }
+
         protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+
+        private static void OnAndroidUnhandledException(object? sender, RaiseThrowableEventArgs args)
+        {
+            GlobalExceptionHandler.HandlePlatformUnhandledException(
+                args.Exception,
+                "AndroidEnvironment.UnhandledExceptionRaiser");
+        }
     }
 }

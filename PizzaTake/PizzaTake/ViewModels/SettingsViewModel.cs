@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -8,7 +9,7 @@ using PizzaTake.Services;
 namespace PizzaTake.ViewModels;
 
 /// <summary>
-/// ViewModel for user account settings, theme selection, decrypted profile display, and address management.
+/// ViewModel for user account settings, theme selection, decrypted profile display, sync status, and address management.
 /// </summary>
 public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
 {
@@ -18,6 +19,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private readonly IUserDataResetService userDataResetService;
     private readonly IAppStateService appState;
     private readonly ISyncService syncService;
+    private readonly ILogger<SettingsViewModel> logger;
 
     private bool isDarkTheme;
     private bool isLightTheme = true;
@@ -33,7 +35,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         IAuthService authService,
         IAppStateService appState,
         IUserDataResetService userDataResetService,
-        ISyncService syncService)
+        ISyncService syncService,
+        ILogger<SettingsViewModel>? logger = null)
     {
         this.userProfileRepository = userProfileRepository;
         this.addressRepository = addressRepository;
@@ -41,6 +44,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         this.appState = appState;
         this.userDataResetService = userDataResetService;
         this.syncService = syncService;
+        this.logger = logger ?? NullLogger<SettingsViewModel>.Instance;
         Title = "Налаштування";
 
         LoadSettingsCommand = new Command(async () => await LoadSettingsAsync());
@@ -50,6 +54,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
         SyncNowCommand = new Command(async () => await SyncNowAsync());
+        OpenLogsCommand = new Command(async () => await OpenLogsAsync());
         LogoutCommand = new Command(async () => await LogoutAsync(), () => IsPhoneVerified);
 
         this.syncService.SyncCompleted += async (_, _) => await RefreshSyncStatusAsync();
@@ -126,6 +131,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ICommand EditAddressCommand { get; }
     public ICommand AddAddressCommand { get; }
     public ICommand SyncNowCommand { get; }
+    public ICommand OpenLogsCommand { get; }
     public ICommand LogoutCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -142,6 +148,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             {
                 Addresses.Insert(0, updated);
             }
+            OnPropertyChanged(nameof(HasNoAddresses));
         }
         else if (query.TryGetValue("DeletedAddressId", out var deletedIdObj) &&
                  int.TryParse(deletedIdObj?.ToString(), out var deletedId))
@@ -149,6 +156,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             var existing = Addresses.FirstOrDefault(a => a.Id == deletedId);
             if (existing is not null)
                 Addresses.Remove(existing);
+            OnPropertyChanged(nameof(HasNoAddresses));
         }
     }
 
@@ -180,8 +188,14 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
             Addresses.Clear();
             foreach (var address in savedAddresses)
                 Addresses.Add(address);
+            OnPropertyChanged(nameof(HasNoAddresses));
 
             PendingSyncCount = await syncService.GetPendingCountAsync();
+            logger.LogInformation("Settings loaded with {AddressCount} saved address(es)", Addresses.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load user settings");
         }
         finally
         {
@@ -221,6 +235,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         }
 
         SyncThemeFlags();
+        logger.LogInformation("Application theme changed to {ThemeMode}", selectedMode);
     }
 
     private void SyncThemeFlags()
@@ -239,23 +254,30 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         await Shell.Current.GoToAsync("addressedit", parameters);
     }
 
+    private async Task OpenLogsAsync()
+    {
+        logger.LogInformation("Opening local logs diagnostics screen");
+        await Shell.Current.GoToAsync("logs");
+    }
+
     private async Task LogoutAsync()
     {
         try
         {
             await userDataResetService.ResetForLogoutAsync();
             Addresses.Clear();
+            OnPropertyChanged(nameof(HasNoAddresses));
             CurrentCityName = "Не обрано";
             MaskedPhone = "Не вказано";
             IsPhoneVerified = false;
             SyncThemeFlags();
 
-            await Shell.Current.GoToAsync("///menu");
-            await Shell.Current.GoToAsync("welcome");
+            logger.LogInformation("User logged out from SettingsPage");
+            await Shell.Current.GoToAsync("///welcome-start");
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[Settings] Logout cleanup failed: {exception}");
+            logger.LogError(exception, "Logout cleanup failed");
             await Shell.Current.DisplayAlertAsync("Не вдалося вийти", "Не вдалося очистити дані облікового запису. Спробуйте ще раз.", "OK");
         }
     }

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
@@ -18,6 +17,5 @@ public partial class AddressEditPage : ContentPage
     {
         base.OnDisappearing();
         viewModel.SaveDraftState();
-        Debug.WriteLine("[Navigation] Leaving AddressEditPage (draft saved)");
     }
 }

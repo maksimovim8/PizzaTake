@@ -7,6 +7,7 @@ namespace PizzaTake.Repositories;
 /// </summary>
 public interface ICartRepository
 {
+    event EventHandler? CartChanged;
     Task<List<CartItem>> GetAllAsync();
     Task<int> SaveAsync(CartItem item);
     Task<int> DeleteAsync(CartItem item);

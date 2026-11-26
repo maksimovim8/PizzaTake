@@ -9,30 +9,40 @@
              BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
-        <!-- Header -->
-        <VerticalStackLayout Grid.Row="0" Spacing="4" Margin="0,0,0,12">
-            <Label Text="Оплата замовлення"
-                   FontSize="26"
-                   FontAttributes="Bold"
-                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-            <Label Text="Оберіть зручний спосіб отримання та оплати"
-                   FontSize="14"
-                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+        <!-- Header & Live Offline Notice -->
+        <VerticalStackLayout Grid.Row="0" Spacing="8" Margin="0,0,0,12">
+            <Button Text="‹ Назад"
+                    AutomationId="CheckoutBackButton"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#242424, Dark=#F5F5F4}"
+                    HorizontalOptions="Start"
+                    Padding="0" />
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Оплата замовлення"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Text="Оберіть зручний спосіб отримання та оплати"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+            </VerticalStackLayout>
+
+            <Border IsVisible="{Binding IsOffline}"
+                    AutomationId="CheckoutOfflineBanner"
+                    StrokeShape="RoundRectangle 14"
+                    Stroke="#F59E0B"
+                    BackgroundColor="#FEF3C7"
+                    Padding="12">
+                <Label Text="Офлайн-режим: немає інтернету. Замовлення збережеться локально та синхронізується автоматично."
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       TextColor="#92400E" />
+            </Border>
         </VerticalStackLayout>
 
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Spacing="18">
-                <!-- Offline Notice -->
-                <Border IsVisible="{Binding IsOffline}"
-                        StrokeShape="RoundRectangle 14"
-                        Stroke="#F59E0B"
-                        BackgroundColor="#FEF3C7"
-                        Padding="12">
-                    <Label Text="Немає інтернету. Замовлення збережеться локально та синхронізується автоматично."
-                           FontSize="13"
-                           TextColor="#92400E" />
-                </Border>
-
+            <VerticalStackLayout Spacing="18" Padding="0,0,0,12">
                 <!-- Delivery Type -->
                 <VerticalStackLayout Spacing="8">
                     <Label Text="СПОСІБ ОТРИМАННЯ"
@@ -194,12 +204,11 @@
                     </Border>
                 </VerticalStackLayout>
 
-                <!-- Order Summary -->
+                <!-- Order Breakdown -->
                 <Border StrokeShape="RoundRectangle 18"
                         Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
                         BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        Padding="16"
-                        Margin="0,0,0,8">
+                        Padding="16">
                     <VerticalStackLayout Spacing="8">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="{Binding ItemsCount, StringFormat='Товари · {0} шт.'}"
@@ -217,32 +226,40 @@
                                    TextColor="#16A34A"
                                    FontAttributes="Bold" />
                         </Grid>
-                        <BoxView HeightRequest="1" Color="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="До сплати"
-                                   FontSize="18"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                            <Label Grid.Column="1"
-                                   Text="{Binding TotalAmount, StringFormat='{0:0.##} ₴'}"
-                                   FontSize="20"
-                                   FontAttributes="Bold"
-                                   TextColor="#EB5E28" />
-                        </Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
         </ScrollView>
 
-        <Button Grid.Row="2"
-                Margin="0,12,0,0"
-                Text="Підтвердити оплату"
-                Command="{Binding ConfirmPaymentCommand}"
-                BackgroundColor="#F7A600"
-                TextColor="#FFFFFF"
-                FontSize="17"
-                FontAttributes="Bold"
-                CornerRadius="26"
-                HeightRequest="52" />
+        <!-- Pinned Total & Pay CTA -->
+        <VerticalStackLayout Grid.Row="2" Spacing="10" Padding="0,12,0,0">
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center"
+                   TextColor="#DC2626" />
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="До сплати"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       VerticalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Grid.Column="1"
+                       Text="{Binding TotalAmount, StringFormat='{0:0.##} ₴'}"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="#EB5E28" />
+            </Grid>
+
+            <Button Text="Підтвердити оплату"
+                    Command="{Binding ConfirmPaymentCommand}"
+                    BackgroundColor="#F7A600"
+                    TextColor="#FFFFFF"
+                    FontSize="17"
+                    FontAttributes="Bold"
+                    CornerRadius="26"
+                    HeightRequest="52" />
+        </VerticalStackLayout>
     </Grid>
 </ContentPage>

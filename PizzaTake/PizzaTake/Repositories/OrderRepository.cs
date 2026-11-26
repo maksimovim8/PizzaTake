@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Services;
 
@@ -8,8 +10,11 @@ namespace PizzaTake.Repositories;
 /// </summary>
 public sealed class OrderRepository : SqliteRepositoryBase, IOrderRepository
 {
-    public OrderRepository(SqliteDatabase database) : base(database)
+    private readonly ILogger<OrderRepository> logger;
+
+    public OrderRepository(SqliteDatabase database, ILogger<OrderRepository>? logger = null) : base(database)
     {
+        this.logger = logger ?? NullLogger<OrderRepository>.Instance;
     }
 
     public async Task<Order?> GetActiveAsync()
@@ -24,9 +29,11 @@ public sealed class OrderRepository : SqliteRepositoryBase, IOrderRepository
     public async Task<List<Order>> GetHistoryAsync()
     {
         var connection = await GetConnectionAsync();
-        return await connection.Table<Order>()
+        var orders = await connection.Table<Order>()
             .OrderByDescending(o => o.CreatedAtUtc)
             .ToListAsync();
+        logger.LogDebug("Loaded {OrderCount} order(s) from SQLite history", orders.Count);
+        return orders;
     }
 
     public async Task<Order?> GetByIdAsync(int id)
@@ -51,21 +58,36 @@ public sealed class OrderRepository : SqliteRepositoryBase, IOrderRepository
         var itemList = items.ToList();
         var connection = await GetConnectionAsync();
 
-        await connection.RunInTransactionAsync(tran =>
+        try
         {
-            if (order.Id != 0)
-                tran.Update(order);
-            else
-                tran.Insert(order);
-
-            foreach (var item in itemList)
+            await connection.RunInTransactionAsync(tran =>
             {
-                item.OrderId = order.Id;
-                if (item.Id != 0)
-                    tran.Update(item);
+                if (order.Id != 0)
+                    tran.Update(order);
                 else
-                    tran.Insert(item);
-            }
-        });
+                    tran.Insert(order);
+
+                foreach (var item in itemList)
+                {
+                    item.OrderId = order.Id;
+                    if (item.Id != 0)
+                        tran.Update(item);
+                    else
+                        tran.Insert(item);
+                }
+            });
+
+            logger.LogInformation(
+                "Saved order {OrderNumber} (Id={OrderId}) with {ItemCount} item(s), Total={TotalAmount}",
+                order.OrderNumber,
+                order.Id,
+                itemList.Count,
+                order.TotalAmount);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to save order {OrderNumber} transactionally", order.OrderNumber);
+            throw;
+        }
     }
 }

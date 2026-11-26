@@ -2,10 +2,11 @@ using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
+using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.ApplicationModel;
 using PizzaTake.Services;
-using System.Diagnostics;
+using Serilog;
 using System.Globalization;
 
 namespace PizzaTake;
@@ -18,7 +19,14 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+        SyncStatusBarForCurrentTheme();
         HandleDeepLink(Intent);
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+        SyncStatusBarForCurrentTheme();
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -29,11 +37,39 @@ public class MainActivity : MauiAppCompatActivity
         HandleDeepLink(intent);
     }
 
+    private void SyncStatusBarForCurrentTheme()
+    {
+        if (Window is null)
+            return;
+
+        var isDark = Microsoft.Maui.Controls.Application.Current?.RequestedTheme == AppTheme.Dark;
+        var statusBarColor = Android.Graphics.Color.ParseColor(isDark ? "#181411" : "#F9F7F2");
+#pragma warning disable CA1422
+        Window.SetStatusBarColor(statusBarColor);
+#pragma warning restore CA1422
+        var controller = WindowCompat.GetInsetsController(Window, Window.DecorView);
+        if (controller is not null)
+            controller.AppearanceLightStatusBars = !isDark;
+    }
+
     private static void HandleDeepLink(Intent? intent)
     {
-        var route = ParseDeepLinkRoute(intent?.Data);
-        if (string.IsNullOrWhiteSpace(route))
+        var data = intent?.Data;
+        if (data is null || !string.Equals(data.Scheme, "pizzaapp", StringComparison.OrdinalIgnoreCase))
             return;
+
+        var route = ParseDeepLinkRoute(data);
+        if (string.IsNullOrWhiteSpace(route))
+        {
+            var rawId = data.GetQueryParameter("id");
+            Log.ForContext<MainActivity>().Warning("Ignored deep link '{Uri}' with invalid id '{RawId}'", data.ToString(), rawId);
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                if (Shell.Current is not null)
+                    await Shell.Current.DisplayAlertAsync("Посилання недійсне", "Некоректне посилання на товар або замовлення.", "OK");
+            });
+            return;
+        }
 
         var appState = IPlatformApplication.Current?.Services?.GetService<IAppStateService>();
         if (appState is not null)
@@ -46,11 +82,14 @@ public class MainActivity : MauiAppCompatActivity
             try
             {
                 if (Shell.Current is AppShell appShell)
+                {
+                    Log.ForContext<MainActivity>().Information("Navigating via deep link to route {Route}", route);
                     await appShell.TryNavigatePendingDeepLinkAsync();
+                }
             }
             catch (Exception exception)
             {
-                System.Diagnostics.Debug.WriteLine($"Deep link navigation failed: {exception}");
+                Log.ForContext<MainActivity>().Error(exception, "Deep link navigation failed for route {Route}", route);
             }
         });
     }
