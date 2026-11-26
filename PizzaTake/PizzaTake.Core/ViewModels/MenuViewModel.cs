@@ -309,7 +309,17 @@ public sealed class MenuViewModel : BaseViewModel
         if (!string.IsNullOrWhiteSpace(SelectedCategory) &&
             !string.Equals(SelectedCategory, "Усі категорії", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(product => string.Equals(product.Category, SelectedCategory, StringComparison.OrdinalIgnoreCase));
+            if (string.Equals(SelectedCategory, "Новинки", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(product =>
+                    product.IsNew ||
+                    string.Equals(product.Category, "Новинки", StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                query = query.Where(product =>
+                    string.Equals(product.Category, SelectedCategory, StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(SearchText))

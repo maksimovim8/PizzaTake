@@ -55,7 +55,7 @@ public partial class AppShell : Shell
         tabs.Items.Add(settingsTab);
         Items.Add(tabs);
 
-        CurrentItem = !authService.IsAuthenticated ? welcomeTab : tabs;
+        CurrentItem = !authService.IsAuthenticated && !HasSelectedLocation() ? welcomeTab : tabs;
 
         Routing.RegisterRoute("welcome", typeof(WelcomePage));
         Routing.RegisterRoute("cities", typeof(CitySelectionPage));

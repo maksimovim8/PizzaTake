@@ -76,6 +76,7 @@ public sealed class AuthService : IAuthService
         await secureStore.SetAsync(AuthStorageKeys.AuthToken, sessionToken);
         await secureStore.SetAsync(AuthStorageKeys.UserRole, role.ToString());
         await secureStore.SetAsync(AuthStorageKeys.UserPhone, normalizedPhone);
+        secureStore.Remove(AuthStorageKeys.SessionLocked);
 
         sessionService.SetSession(normalizedPhone, role);
         logger.LogInformation("User authenticated via OTP with role {Role}", role);
@@ -115,6 +116,7 @@ public sealed class AuthService : IAuthService
             ? parsedRole
             : ResolveRoleForPhone(phone);
 
+        secureStore.Remove(AuthStorageKeys.SessionLocked);
         sessionService.SetSession(phone, role);
         logger.LogInformation("Session restored from SecureStorage with role {Role}", role);
         crashReporting?.TrackEvent(CrashEventNames.LoginSuccess, new Dictionary<string, string>
@@ -125,10 +127,10 @@ public sealed class AuthService : IAuthService
         return true;
     }
 
-    public Task LockSessionAsync()
+    public async Task LockSessionAsync()
     {
+        await secureStore.SetAsync(AuthStorageKeys.SessionLocked, "true");
         sessionService.LockSession();
-        return Task.CompletedTask;
     }
 
     public Task LogoutAsync()
@@ -136,6 +138,7 @@ public sealed class AuthService : IAuthService
         secureStore.Remove(AuthStorageKeys.AuthToken);
         secureStore.Remove(AuthStorageKeys.UserRole);
         secureStore.Remove(AuthStorageKeys.UserPhone);
+        secureStore.Remove(AuthStorageKeys.SessionLocked);
         sessionService.ClearSession();
         logger.LogInformation("User logged out and SecureStorage credentials removed");
         return Task.CompletedTask;

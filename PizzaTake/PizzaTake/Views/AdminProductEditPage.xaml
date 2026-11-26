@@ -158,16 +158,6 @@
                         </VerticalStackLayout>
                     </Grid>
 
-                    <Grid ColumnDefinitions="*,Auto" VerticalOptions="Center">
-                        <Label Text="Позначити як новинку"
-                               FontSize="15"
-                               VerticalTextAlignment="Center"
-                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                        <Switch Grid.Column="1"
-                                IsToggled="{Binding IsNew, Mode=TwoWay}"
-                                OnColor="#EB5E28" />
-                    </Grid>
-
                     <Label Text="{Binding ErrorMessage}"
                            IsVisible="{Binding HasError}"
                            TextColor="#DC2626"
@@ -191,6 +181,7 @@
             </Border>
 
             <Button Text="Зберегти піцу"
+                    AutomationId="AdminProductSaveButton"
                     Command="{Binding SaveProductCommand}"
                     IsVisible="{Binding IsAdmin}"
                     BackgroundColor="#EB5E28"
