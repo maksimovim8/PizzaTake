@@ -70,6 +70,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
         SyncNowCommand = new Command(async () => await SyncNowAsync());
         ReportBugCommand = new Command(async () => await ReportBugAsync(), () => !isReportingBug);
+        OpenMapCommand = new Command(async () => await Shell.Current.GoToAsync("pizzeriasmap"));
+        OpenQualityReportCommand = new Command(async () => await Shell.Current.GoToAsync("qualityreport"));
         OpenLogsCommand = new Command(async () => await OpenLogsAsync());
         LockSessionCommand = new Command(async () => await LockSessionAsync(), () => IsPhoneVerified);
         UnlockSessionCommand = new Command(async () => await Shell.Current.GoToAsync("auth?locked=true"), () => IsSessionLocked);
@@ -186,6 +188,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ICommand AddAddressCommand { get; }
     public ICommand SyncNowCommand { get; }
     public ICommand ReportBugCommand { get; }
+    public ICommand OpenMapCommand { get; }
+    public ICommand OpenQualityReportCommand { get; }
     public ICommand OpenLogsCommand { get; }
     public ICommand LockSessionCommand { get; }
     public ICommand UnlockSessionCommand { get; }

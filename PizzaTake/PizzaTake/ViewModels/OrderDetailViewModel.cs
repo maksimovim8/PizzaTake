@@ -46,6 +46,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         RepeatFullOrderCommand = new Command(async () => await RepeatFullOrderAsync(), () => Items.Count > 0 && !IsBusy);
         AdvanceOrderStatusCommand = new Command(async () => await AdvanceOrderStatusAsync());
         DeleteOrderCommand = new Command(async () => await DeleteOrderAsync());
+        OpenQualityReportCommand = new Command(async () => await OpenQualityReportAsync());
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
 
@@ -90,7 +91,21 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     public ICommand RepeatFullOrderCommand { get; }
     public ICommand AdvanceOrderStatusCommand { get; }
     public ICommand DeleteOrderCommand { get; }
+    public ICommand OpenQualityReportCommand { get; }
     public ICommand GoBackCommand { get; }
+
+    public Task OpenQualityReportAsync()
+    {
+        if (CurrentOrder is not null)
+        {
+            return Shell.Current.GoToAsync("qualityreport", new Dictionary<string, object>
+            {
+                ["Order"] = CurrentOrder
+            });
+        }
+
+        return Shell.Current.GoToAsync("qualityreport");
+    }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {

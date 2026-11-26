@@ -26,6 +26,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private readonly IUserProfileRepository userProfileRepository;
     private readonly ISyncService syncService;
     private readonly IAppStateService appState;
+    private readonly IConnectivityService? connectivityService;
     private readonly ILogger<CheckoutViewModel> logger;
     private readonly ICrashReportingService? crashReporting;
     private readonly IBugReportService? bugReportService;
@@ -36,6 +37,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private decimal totalAmount;
     private int itemsCount;
     private bool isOffline;
+    private int pendingSyncCount;
     private string errorMessage = string.Empty;
     private string? reportableErrorContext;
     private bool isOrderSubmitted;
@@ -47,6 +49,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         IUserProfileRepository userProfileRepository,
         ISyncService syncService,
         IAppStateService appState,
+        IConnectivityService? connectivityService = null,
         ILogger<CheckoutViewModel>? logger = null,
         ICrashReportingService? crashReporting = null,
         IBugReportService? bugReportService = null)
@@ -57,6 +60,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         this.userProfileRepository = userProfileRepository;
         this.syncService = syncService;
         this.appState = appState;
+        this.connectivityService = connectivityService;
         this.logger = logger ?? NullLogger<CheckoutViewModel>.Instance;
         this.crashReporting = crashReporting;
         this.bugReportService = bugReportService;
@@ -143,8 +147,25 @@ public sealed class CheckoutViewModel : BaseViewModel
     public bool IsOffline
     {
         get => isOffline;
-        private set => SetProperty(ref isOffline, value);
+        private set
+        {
+            if (SetProperty(ref isOffline, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
     }
+
+    public int PendingSyncCount
+    {
+        get => pendingSyncCount;
+        private set
+        {
+            if (SetProperty(ref pendingSyncCount, value))
+                OnPropertyChanged(nameof(OfflineBannerText));
+        }
+    }
+
+    public string OfflineBannerText =>
+        $"Офлайн-режим (у черзі: {PendingSyncCount}) — замовлення збережеться локально та синхронізується автоматично.";
 
     public string ErrorMessage
     {
@@ -180,7 +201,10 @@ public sealed class CheckoutViewModel : BaseViewModel
         IsBusy = true;
         try
         {
-            IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+            IsOffline = connectivityService is not null
+                ? !connectivityService.IsConnected
+                : Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+            PendingSyncCount = await syncService.GetPendingCountAsync();
 
             var cartItems = await cartRepository.GetAllAsync();
             ItemsCount = cartItems.Sum(i => i.Quantity);
@@ -224,22 +248,63 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     public void StartConnectivityMonitoring()
     {
-        IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
-        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
-        Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        if (connectivityService is not null)
+        {
+            connectivityService.StartMonitoring();
+            IsOffline = !connectivityService.IsConnected;
+            connectivityService.ConnectivityChanged -= OnServiceConnectivityChanged;
+            connectivityService.ConnectivityChanged += OnServiceConnectivityChanged;
+        }
+        else
+        {
+            IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+            Connectivity.Current.ConnectivityChanged -= OnLegacyConnectivityChanged;
+            Connectivity.Current.ConnectivityChanged += OnLegacyConnectivityChanged;
+        }
+
+        syncService.SyncCompleted -= OnSyncCompleted;
+        syncService.SyncCompleted += OnSyncCompleted;
+        _ = RefreshPendingSyncCountAsync();
     }
 
     public void StopConnectivityMonitoring()
     {
-        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+        if (connectivityService is not null)
+            connectivityService.ConnectivityChanged -= OnServiceConnectivityChanged;
+        else
+            Connectivity.Current.ConnectivityChanged -= OnLegacyConnectivityChanged;
+
+        syncService.SyncCompleted -= OnSyncCompleted;
     }
 
-    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    private void OnServiceConnectivityChanged(object? sender, bool isConnected)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        MainThread.BeginInvokeOnMainThread(() => IsOffline = !isConnected);
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private void OnLegacyConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() => IsOffline = e.NetworkAccess != NetworkAccess.Internet);
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private void OnSyncCompleted(object? sender, EventArgs e)
+    {
+        _ = RefreshPendingSyncCountAsync();
+    }
+
+    private async Task RefreshPendingSyncCountAsync()
+    {
+        try
         {
-            IsOffline = e.NetworkAccess != NetworkAccess.Internet;
-        });
+            var count = await syncService.GetPendingCountAsync();
+            MainThread.BeginInvokeOnMainThread(() => PendingSyncCount = count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to refresh pending sync count on CheckoutPage");
+        }
     }
 
     private void RestoreDraftState()
@@ -367,7 +432,9 @@ public sealed class CheckoutViewModel : BaseViewModel
             appState.SaveState();
             Preferences.Default.Remove(LegacyDraftPreferenceKey);
 
-            IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+            IsOffline = connectivityService is not null
+                ? !connectivityService.IsConnected
+                : Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
             await syncService.EnqueueAsync("Order", "Insert", new
             {
                 order.Id,
