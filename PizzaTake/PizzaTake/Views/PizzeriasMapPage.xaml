@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
+             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             xmlns:svc="clr-namespace:PizzaTake.Services"
+             x:Class="PizzaTake.Views.PizzeriasMapPage"
+             x:DataType="vm:PizzeriasMapViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="16,12" RowSpacing="10">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Button Grid.Column="0"
+                    Text="‹ Назад"
+                    AutomationId="MapBackButton"
+                    Command="{Binding GoBackCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="#EB5E28"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    Padding="0"
+                    HorizontalOptions="Start" />
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="Карта OpenStreetMap"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                <Label Text="{Binding HeaderSubtitle}"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+            </VerticalStackLayout>
+            <Button Grid.Column="2"
+                    Text="📍 Я"
+                    AutomationId="MapMyLocationButton"
+                    Command="{Binding CenterOnMyLocationCommand}"
+                    BackgroundColor="#FDF1D6"
+                    TextColor="#B45309"
+                    FontSize="13"
+                    FontAttributes="Bold"
+                    CornerRadius="16"
+                    HeightRequest="36"
+                    Padding="12,0"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <!-- OpenStreetMap Mapsui Control -->
+        <Border Grid.Row="1"
+                StrokeShape="RoundRectangle 18"
+                Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                Padding="0">
+            <mapsui:MapControl x:Name="OsmMapControl"
+                               AutomationId="OsmMapControl" />
+        </Border>
+
+        <!-- Pin selector + Selected pin details + External map launcher -->
+        <VerticalStackLayout Grid.Row="2" Spacing="10">
+            <Label Text="{Binding StatusMessage}"
+                   IsVisible="{Binding HasStatusMessage}"
+                   FontSize="12"
+                   FontAttributes="Bold"
+                   TextColor="#B45309" />
+
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Pins}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="svc:MapPinItem">
+                            <Border StrokeShape="RoundRectangle 14"
+                                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                    Padding="12,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PizzeriasMapViewModel}}, Path=SelectPinCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding Title}"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="#EB5E28" />
+                                    <Label Text="{Binding Category}"
+                                           FontSize="11"
+                                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
+            <Border IsVisible="{Binding HasSelectedPin}"
+                    StrokeShape="RoundRectangle 16"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="14">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{Binding SelectedPin.Title}"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                    <Label Text="{Binding SelectedPin.Subtitle}"
+                           FontSize="13"
+                           MaxLines="2"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    <Label Text="{Binding SelectedPinCoordinatesText}"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    <Button Text="Відкрити на зовнішній карті"
+                            AutomationId="OpenExternalMapButton"
+                            Command="{Binding OpenExternalMapCommand}"
+                            BackgroundColor="#EB5E28"
+                            TextColor="#FFFFFF"
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            CornerRadius="20"
+                            HeightRequest="42" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
