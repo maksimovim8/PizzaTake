@@ -25,7 +25,12 @@ public sealed class OrderProgressConverter : IValueConverter
         {
             "Color" => GetStatusColor(status),
             "Progress" => GetProgressFraction(status),
-            "Step1Color" => status is OrderStatus.Cancelled ? DangerRed : ActiveOrange,
+            "Step1Color" => status switch
+            {
+                OrderStatus.Cancelled => DangerRed,
+                OrderStatus.Pending => TrackGray,
+                _ => ActiveOrange
+            },
             "Step2Color" => status is OrderStatus.Preparing or OrderStatus.Ready or OrderStatus.Delivering or OrderStatus.Completed
                 ? ActiveAmber
                 : TrackGray,
