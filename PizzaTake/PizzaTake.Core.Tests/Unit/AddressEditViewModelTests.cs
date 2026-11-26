@@ -78,4 +78,46 @@ public sealed class AddressEditViewModelTests
         navigation.Verify(n => n.GoBackAsync(It.Is<IDictionary<string, object>>(p =>
             p.ContainsKey("DeletedAddressId") && (int)p["DeletedAddressId"] == 15)), Times.Once);
     }
+
+    [Fact]
+    public async Task GetMyCoordinatesCommand_WhenGrantedAndGpsSucceeds_ShouldPopulateCoordinates()
+    {
+        var locationService = new Mock<ILocationService>();
+        var permissionService = new Mock<IPermissionService>();
+        permissionService
+            .Setup(p => p.EnsureGrantedAsync(AppPermission.LocationWhenInUse, It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+        locationService
+            .Setup(l => l.GetCurrentLocationAsync(It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LocationResult(new GeoPoint(50.4477, 30.5228)));
+
+        var sut = new AddressEditViewModel(
+            addressRepo.Object,
+            profileRepo.Object,
+            appState.Object,
+            syncService.Object,
+            navigation.Object,
+            locationService.Object,
+            permissionService.Object);
+
+        await sut.GetMyCoordinatesCommand.ExecuteAsync(null);
+
+        sut.HasCoordinates.Should().BeTrue();
+        sut.Latitude.Should().BeApproximately(50.4477, 0.0001);
+        sut.Longitude.Should().BeApproximately(30.5228, 0.0001);
+        sut.CoordinatesText.Should().Contain("50.44770");
+        sut.HasStatusMessage.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveCommand_WithTooShortAddress_ShouldSetValidationErrorAndNotPersist()
+    {
+        var sut = CreateSut();
+        sut.AddressText = "вул";
+
+        await sut.SaveCommand.ExecuteAsync(null);
+
+        sut.HasError.Should().BeTrue();
+        addressRepo.Verify(r => r.SaveAsync(It.IsAny<UserAddress>()), Times.Never);
+    }
 }

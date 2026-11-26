@@ -74,4 +74,117 @@ public sealed class CartAndSettingsViewModelTests
         dialog.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
         nav.Verify(n => n.GoToAsync("logs", It.IsAny<IDictionary<string, object>?>()), Times.Never);
     }
+
+    [Fact]
+    public async Task CartViewModel_QtyUpsellClearAndOfflineMonitoring_ShouldUpdateTotalsAndBanner()
+    {
+        var cartRepo = new Mock<ICartRepository>();
+        var productRepo = new Mock<IProductRepository>();
+        var auth = new Mock<IAuthService>();
+        var appState = new Mock<IAppStateService>();
+        var nav = new Mock<INavigationService>();
+        var dialog = new Mock<IDialogService>();
+        var dispatcher = new ImmediateMainThreadDispatcher();
+        var connectivity = new Mock<IConnectivityService>();
+        var sync = new Mock<ISyncService>();
+
+        var item = new CartItem { Id = 1, ProductId = 1, ProductName = "Маргарита", Quantity = 1, UnitPrice = 259m };
+        cartRepo.Setup(r => r.GetAllAsync()).ReturnsAsync([item]);
+        productRepo.Setup(r => r.GetAllAsync()).ReturnsAsync([]);
+        connectivity.Setup(c => c.IsConnected).Returns(false);
+        sync.Setup(s => s.GetPendingCountAsync()).ReturnsAsync(2);
+
+        var sut = new CartViewModel(
+            cartRepo.Object,
+            productRepo.Object,
+            auth.Object,
+            appState.Object,
+            nav.Object,
+            dialog.Object,
+            dispatcher,
+            connectivity.Object,
+            sync.Object);
+
+        sut.StartConnectivityMonitoring();
+        sut.IsOffline.Should().BeTrue();
+        sut.OfflineBannerText.Should().Contain("2");
+
+        await sut.LoadCartCommand.ExecuteAsync(null);
+        sut.UpsellItems.Should().NotBeEmpty();
+
+        await sut.UpdateQtyCommand.ExecuteAsync(sut.Items[0]);
+        sut.Total.Should().Be(518m);
+
+        await sut.AddUpsellCommand.ExecuteAsync(sut.UpsellItems[0]);
+        sut.Items.Should().HaveCount(2);
+
+        await sut.ClearCartCommand.ExecuteAsync(null);
+        sut.IsEmpty.Should().BeTrue();
+        sut.Total.Should().Be(0m);
+        sut.StopConnectivityMonitoring();
+    }
+
+    [Fact]
+    public async Task SettingsViewModel_LoadThemeSyncLockAndLab7Routes_ShouldWorkCorrectly()
+    {
+        var profileRepo = new Mock<IUserProfileRepository>();
+        var addressRepo = new Mock<IAddressRepository>();
+        var auth = new Mock<IAuthService>();
+        var session = new Mock<ISessionService>();
+        var appState = new Mock<IAppStateService>();
+        var reset = new Mock<IUserDataResetService>();
+        var sync = new Mock<ISyncService>();
+        var nav = new Mock<INavigationService>();
+        var dialog = new Mock<IDialogService>();
+        var dispatcher = new ImmediateMainThreadDispatcher();
+
+        auth.Setup(a => a.HasSavedCredentialsAsync()).ReturnsAsync(true);
+        auth.Setup(a => a.IsAuthenticated).Returns(true);
+        session.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+        profileRepo.Setup(r => r.GetCurrentAsync()).ReturnsAsync(new UserProfile
+        {
+            Id = 1,
+            CityName = "Київ",
+            Phone = "+380671234567",
+            IsPhoneVerified = true
+        });
+        addressRepo.Setup(r => r.GetAllAsync()).ReturnsAsync([new UserAddress { Id = 1, Label = "Дім", Text = "вул. Хрещатик, 22" }]);
+        sync.Setup(s => s.GetPendingCountAsync()).ReturnsAsync(1);
+
+        var sut = new SettingsViewModel(
+            profileRepo.Object,
+            addressRepo.Object,
+            auth.Object,
+            session.Object,
+            appState.Object,
+            reset.Object,
+            sync.Object,
+            nav.Object,
+            dialog.Object,
+            dispatcher);
+
+        await sut.LoadSettingsCommand.ExecuteAsync(null);
+
+        sut.CurrentCityName.Should().Be("Київ");
+        sut.MaskedPhone.Should().Be("+380 *** **67");
+        sut.HasAddresses.Should().BeTrue();
+        sut.SyncStatusText.Should().Contain("1");
+
+        sut.ToggleThemeCommand.Execute("Dark");
+        appState.Verify(s => s.ApplyTheme(true), Times.Once);
+
+        await sut.OpenMapCommand.ExecuteAsync(null);
+        await sut.OpenQualityReportCommand.ExecuteAsync(null);
+        nav.Verify(n => n.GoToAsync("pizzeriasmap", null), Times.Once);
+        nav.Verify(n => n.GoToAsync("qualityreport", null), Times.Once);
+
+        await sut.LockSessionCommand.ExecuteAsync(null);
+        auth.Verify(a => a.LockSessionAsync(), Times.Once);
+        sut.IsSessionLocked.Should().BeTrue();
+        nav.Verify(n => n.GoToAsync("auth?locked=true", null), Times.Once);
+
+        await sut.LogoutCommand.ExecuteAsync(null);
+        reset.Verify(r => r.ResetForLogoutAsync(), Times.Once);
+        nav.Verify(n => n.GoToAsync("///welcome-start", null), Times.Once);
+    }
 }

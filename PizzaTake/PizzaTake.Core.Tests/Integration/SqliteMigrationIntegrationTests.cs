@@ -27,12 +27,13 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task InitializeAsync_ShouldApplyMigrationsSetSchemaVersionAndSeedCatalog()
+    public async Task InitializeAsync_ShouldApplyMigrationsToV3CreateQualityReportsAndSeedCatalog()
     {
         await database.InitializeAsync();
 
+        SqliteDatabase.LatestSchemaVersion.Should().Be(3);
         var schemaVersion = await database.GetSchemaVersionAsync();
-        schemaVersion.Should().Be(SqliteDatabase.LatestSchemaVersion);
+        schemaVersion.Should().Be(3);
 
         var addressColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(UserAddresses);");
         addressColumns.Select(c => c.Name).Should().Contain(["Notes", "Latitude", "Longitude"]);
@@ -40,10 +41,37 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
         var profileColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(UserProfiles);");
         profileColumns.Select(c => c.Name).Should().Contain("Role");
 
+        var qualityReportColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(QualityReports);");
+        qualityReportColumns.Select(c => c.Name).Should().Contain(
+            ["Id", "OrderId", "OrderNumber", "Description", "PhotoPath", "Latitude", "Longitude", "CreatedAtUtc"]);
+
         var cities = await database.Connection.Table<City>().ToListAsync();
         var products = await database.Connection.Table<Product>().ToListAsync();
         cities.Should().HaveCountGreaterOrEqualTo(3);
         products.Should().HaveCountGreaterOrEqualTo(3);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_FromPreExistingV2Database_ShouldMigrateCleanlyToV3()
+    {
+        await database.Connection.CreateTableAsync<UserProfile>();
+        await database.Connection.CreateTableAsync<UserAddress>();
+        await database.Connection.CreateTableAsync<City>();
+        await database.Connection.CreateTableAsync<Pizzeria>();
+        await database.Connection.CreateTableAsync<Product>();
+        await database.Connection.CreateTableAsync<IngredientOption>();
+        await database.Connection.CreateTableAsync<FavoriteProduct>();
+        await database.Connection.CreateTableAsync<CartItem>();
+        await database.Connection.CreateTableAsync<Order>();
+        await database.Connection.CreateTableAsync<OrderItem>();
+        await database.Connection.CreateTableAsync<SyncQueueItem>();
+        await database.Connection.ExecuteAsync("PRAGMA user_version = 2;");
+
+        await database.InitializeAsync();
+
+        (await database.GetSchemaVersionAsync()).Should().Be(3);
+        var qualityReportColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(QualityReports);");
+        qualityReportColumns.Should().NotBeEmpty();
     }
 
     private sealed class ColumnRow

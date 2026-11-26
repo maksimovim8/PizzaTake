@@ -97,4 +97,38 @@ public sealed class RepositoryCrudIntegrationTests : IAsyncLifetime
         (await repo.GetByIdAsync(order.Id)).Should().BeNull();
         (await repo.GetItemsByOrderIdAsync(order.Id)).Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task QualityReportRepository_FullCrudCycle_ShouldPersistQueryByOrderAndDelete()
+    {
+        var repo = new QualityReportRepository(database);
+        var report = new QualityReport
+        {
+            OrderId = 42,
+            OrderNumber = "PD-4242",
+            Description = "Коробка була відкрита при доставці",
+            PhotoPath = "/app/photos/report_42.jpg",
+            Latitude = 50.4501,
+            Longitude = 30.5234,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        await repo.SaveAsync(report);
+        report.Id.Should().BeGreaterThan(0);
+
+        var byId = await repo.GetByIdAsync(report.Id);
+        byId.Should().NotBeNull();
+        byId!.Description.Should().Be("Коробка була відкрита при доставці");
+        byId.HasPhoto.Should().BeTrue();
+        byId.HasCoordinates.Should().BeTrue();
+
+        var byOrder = await repo.GetByOrderIdAsync(42);
+        byOrder.Should().ContainSingle(r => r.Id == report.Id);
+
+        var all = await repo.GetAllAsync();
+        all.Should().Contain(r => r.Id == report.Id);
+
+        await repo.DeleteAsync(byId);
+        (await repo.GetByIdAsync(report.Id)).Should().BeNull();
+    }
 }

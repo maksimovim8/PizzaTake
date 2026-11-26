@@ -88,4 +88,45 @@ public sealed class MenuViewModelTests
         dialogService.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
         navigation.Verify(n => n.GoToAsync("adminproductedit", It.IsAny<IDictionary<string, object>?>()), Times.Never);
     }
+
+    [Fact]
+    public async Task ConnectivityMonitoringAndLab7NavigationCommands_ShouldUpdateOfflineBannerAndRoute()
+    {
+        var connectivity = new Mock<IConnectivityService>();
+        var sync = new Mock<ISyncService>();
+        connectivity.Setup(c => c.IsConnected).Returns(false);
+        sync.Setup(s => s.GetPendingCountAsync()).ReturnsAsync(3);
+
+        var sut = new MenuViewModel(
+            productRepo.Object,
+            cartRepo.Object,
+            orderRepo.Object,
+            appState.Object,
+            authService.Object,
+            sessionService.Object,
+            navigation.Object,
+            dialogService.Object,
+            dispatcher,
+            connectivity.Object,
+            sync.Object);
+
+        sut.StartConnectivityMonitoring();
+        sut.IsOffline.Should().BeTrue();
+        sut.OfflineBannerText.Should().Contain("3");
+
+        connectivity.Raise(c => c.ConnectivityChanged += null, connectivity.Object, true);
+        sut.IsOffline.Should().BeFalse();
+
+        await sut.OpenMapCommand.ExecuteAsync(null);
+        await sut.OpenQualityReportCommand.ExecuteAsync(null);
+        navigation.Verify(n => n.GoToAsync("pizzeriasmap", null), Times.Once);
+        navigation.Verify(n => n.GoToAsync("qualityreport", null), Times.Once);
+
+        var pizza = new Product { Id = 1, Name = "Чеддерман", BasePrice = 219m };
+        await sut.QuickAddCommand.ExecuteAsync(pizza);
+        cartRepo.Verify(c => c.SaveAsync(It.Is<CartItem>(i => i.ProductId == 1)), Times.Once);
+        sut.HasStatusMessage.Should().BeTrue();
+
+        sut.StopConnectivityMonitoring();
+    }
 }
