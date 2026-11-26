@@ -1,0 +1,76 @@
+name: PizzaTake CI
+
+on:
+  push:
+    branches: [ master, lab*, feature/* ]
+  pull_request:
+    branches: [ master, lab* ]
+
+jobs:
+  test-core:
+    name: Build & Test PizzaTake.Core
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Restore Core and Tests
+        run: dotnet restore PizzaTake/PizzaTake.Core.Tests/PizzaTake.Core.Tests.csproj
+
+      - name: Run Unit & Integration Tests with Code Coverage
+        run: |
+          dotnet test PizzaTake/PizzaTake.Core.Tests/PizzaTake.Core.Tests.csproj \
+            --no-restore \
+            --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-coverage-report
+          path: |
+            ./TestResults/**/coverage.cobertura.xml
+            ./TestResults/**/*.trx
+
+  build-android:
+    name: Build Release Android APK
+    needs: test-core
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Restore MAUI Android project
+        run: dotnet restore PizzaTake/PizzaTake/PizzaTake.csproj -p:TargetFramework=net11.0-android
+
+      - name: Build Android Release APK
+        run: |
+          dotnet build PizzaTake/PizzaTake/PizzaTake.csproj \
+            --no-restore \
+            -f net11.0-android \
+            -c Release \
+            -p:AndroidPackageFormat=apk
+
+      - name: Upload Android Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pizzatake-android-apk
+          path: PizzaTake/PizzaTake/bin/Release/net11.0-android/**/*.apk
