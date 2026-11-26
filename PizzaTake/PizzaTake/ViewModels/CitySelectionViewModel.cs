@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Devices.Sensors;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -17,6 +16,8 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     private readonly IAppStateService appState;
     private readonly IUserProfileRepository? userProfile;
     private readonly ISyncService? syncService;
+    private readonly ILocationService? locationService;
+    private readonly IPermissionService? permissionService;
     private readonly ILogger<CitySelectionViewModel> logger;
     public ObservableCollection<City> Cities { get; } = [];
     private string searchText = string.Empty;
@@ -49,12 +50,16 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
         IAppStateService appState,
         IUserProfileRepository? userProfile = null,
         ISyncService? syncService = null,
+        ILocationService? locationService = null,
+        IPermissionService? permissionService = null,
         ILogger<CitySelectionViewModel>? logger = null)
     {
         this.cities = cities;
         this.appState = appState;
         this.userProfile = userProfile;
         this.syncService = syncService;
+        this.locationService = locationService;
+        this.permissionService = permissionService;
         this.logger = logger ?? NullLogger<CitySelectionViewModel>.Instance;
         LoadCommand = new Command(async () => await LoadAsync());
         SelectCityCommand = new Command<City>(async city => await SelectCityAsync(city));
@@ -152,34 +157,44 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     {
         try
         {
-            var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(10)));
-            if (location is null)
+            if (permissionService is not null)
             {
-                logger.LogWarning("Geolocation returned null while searching for nearby city");
-                StatusMessage = "Не вдалося визначити місце розташування.";
+                var granted = await permissionService.EnsureGrantedAsync(
+                    AppPermission.LocationWhenInUse,
+                    "Дозвіл на геолокацію",
+                    "Геолокація потрібна для автоматичного визначення найближчого міста з піцеріями PizzaTake.");
+                if (!granted)
+                {
+                    logger.LogWarning("Location permission denied while searching for nearby city");
+                    StatusMessage = "Надайте застосунку дозвіл на геолокацію.";
+                    return;
+                }
+            }
+
+            if (locationService is null)
+            {
+                StatusMessage = "Сервіс геолокації недоступний.";
+                return;
+            }
+
+            var result = await locationService.GetCurrentLocationAsync(TimeSpan.FromSeconds(10));
+            if (!result.IsSuccess || result.Location is null)
+            {
+                logger.LogWarning("Geolocation failed while searching for nearby city: {Reason}", result.FailureReason);
+                StatusMessage = result.ErrorMessage ?? "Не вдалося визначити місце розташування.";
                 return;
             }
 
             var allCities = await cities.GetAllAsync();
             var nearest = allCities
                 .Where(city => city.Latitude != 0 || city.Longitude != 0)
-                .OrderBy(city => DistanceKm(location.Latitude, location.Longitude, city.Latitude, city.Longitude))
+                .OrderBy(city => DistanceKm(result.Location.Latitude, result.Location.Longitude, city.Latitude, city.Longitude))
                 .FirstOrDefault();
 
             if (nearest is null)
                 StatusMessage = "Немає міст із координатами для пошуку поруч.";
             else
                 await SelectCityAsync(nearest);
-        }
-        catch (FeatureNotEnabledException ex)
-        {
-            logger.LogWarning(ex, "GPS/Location service is disabled on device");
-            StatusMessage = "Увімкніть геолокацію на пристрої.";
-        }
-        catch (PermissionException ex)
-        {
-            logger.LogWarning(ex, "Location permission denied by user");
-            StatusMessage = "Надайте застосунку дозвіл на геолокацію.";
         }
         catch (Exception ex)
         {
