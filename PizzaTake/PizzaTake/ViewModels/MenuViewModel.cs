@@ -248,10 +248,8 @@ public sealed class MenuViewModel : BaseViewModel
             foreach (var category in all.Select(product => product.Category).Where(category => !string.IsNullOrWhiteSpace(category)).Distinct().OrderBy(category => category))
                 Categories.Add(category);
             if (string.IsNullOrWhiteSpace(selectedCategory))
-            {
                 selectedCategory = "Усі категорії";
-                OnPropertyChanged(nameof(SelectedCategory));
-            }
+            OnPropertyChanged(nameof(SelectedCategory));
             await ShowProductsAsync(Filter(all));
             logger.LogInformation("Loaded menu catalog with {ProductCount} product(s)", all.Count);
         }

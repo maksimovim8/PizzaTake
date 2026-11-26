@@ -130,10 +130,10 @@
                                            AutomationId="QualityReportPhotoPreview"
                                            Aspect="AspectFill"
                                            HeightRequest="170" />
-                                    <Label Text="{Binding PhotoPath}"
-                                           FontSize="11"
-                                           LineBreakMode="MiddleTruncation"
-                                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                    <Label Text="✓ Фото прикріплено"
+                                           FontSize="12"
+                                           FontAttributes="Bold"
+                                           TextColor="#16A34A" />
                                 </VerticalStackLayout>
                             </Border>
                         </VerticalStackLayout>

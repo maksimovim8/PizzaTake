@@ -15,11 +15,15 @@ public partial class PizzeriasMapPage : ContentPage
 {
     private const double DefaultLatitude = 50.4501;
     private const double DefaultLongitude = 30.5234;
+    private const double CityResolutionMetersPerPixel = 25;
+    private const double PinFocusResolutionMetersPerPixel = 10;
+    private const double UserLocationResolutionMetersPerPixel = 8;
 
     private readonly PizzeriasMapViewModel viewModel;
     private readonly ILogger<PizzeriasMapPage> logger;
     private readonly MemoryLayer pinsLayer;
     private bool isMapInitialized;
+    private bool? isLandscapeLayout;
 
     public PizzeriasMapPage(PizzeriasMapViewModel viewModel, ILogger<PizzeriasMapPage>? logger = null)
     {
@@ -39,8 +43,21 @@ public partial class PizzeriasMapPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        viewModel.PinsUpdated -= OnPinsUpdated;
         viewModel.PinsUpdated += OnPinsUpdated;
+        viewModel.FocusRequested -= OnFocusRequested;
         viewModel.FocusRequested += OnFocusRequested;
+        if (Shell.Current is not null)
+        {
+            Shell.Current.Navigated -= OnShellNavigated;
+            Shell.Current.Navigated += OnShellNavigated;
+        }
+        viewModel.LoadPinsCommand.Execute(null);
+    }
+
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
         viewModel.LoadPinsCommand.Execute(null);
     }
 
@@ -48,8 +65,60 @@ public partial class PizzeriasMapPage : ContentPage
     {
         viewModel.PinsUpdated -= OnPinsUpdated;
         viewModel.FocusRequested -= OnFocusRequested;
+        if (Shell.Current is not null)
+            Shell.Current.Navigated -= OnShellNavigated;
         logger.LogDebug("Leaving page {PageName}", nameof(PizzeriasMapPage));
         base.OnDisappearing();
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        if (width <= 0 || height <= 0)
+            return;
+
+        var landscape = width > height;
+        if (isLandscapeLayout == landscape)
+            return;
+
+        isLandscapeLayout = landscape;
+        ApplyAdaptiveLayout(landscape);
+    }
+
+    private void ApplyAdaptiveLayout(bool landscape)
+    {
+        if (landscape)
+        {
+            AdaptiveContentGrid.RowDefinitions = [new RowDefinition(GridLength.Star)];
+            AdaptiveContentGrid.ColumnDefinitions =
+            [
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(new GridLength(310))
+            ];
+            Grid.SetRow(MapContainer, 0);
+            Grid.SetColumn(MapContainer, 0);
+            Grid.SetRow(DetailsPanel, 0);
+            Grid.SetColumn(DetailsPanel, 1);
+        }
+        else
+        {
+            AdaptiveContentGrid.RowDefinitions =
+            [
+                new RowDefinition(GridLength.Star),
+                new RowDefinition(GridLength.Auto)
+            ];
+            AdaptiveContentGrid.ColumnDefinitions = [new ColumnDefinition(GridLength.Star)];
+            Grid.SetRow(MapContainer, 0);
+            Grid.SetColumn(MapContainer, 0);
+            Grid.SetRow(DetailsPanel, 1);
+            Grid.SetColumn(DetailsPanel, 0);
+        }
+    }
+
+    private void OnShellNavigated(object? sender, ShellNavigatedEventArgs e)
+    {
+        if (ReferenceEquals(Shell.Current?.CurrentPage, this))
+            viewModel.LoadPinsCommand.Execute(null);
     }
 
     private void InitializeMap()
@@ -63,7 +132,7 @@ public partial class PizzeriasMapPage : ContentPage
             map.Layers.Add(OpenStreetMap.CreateTileLayer("PizzaTake/1.0"));
             map.Layers.Add(pinsLayer);
             OsmMapControl.Map = map;
-            CenterOn(DefaultLatitude, DefaultLongitude, 12000);
+            CenterOn(DefaultLatitude, DefaultLongitude, CityResolutionMetersPerPixel);
             isMapInitialized = true;
         }
         catch (Exception ex)
@@ -79,7 +148,12 @@ public partial class PizzeriasMapPage : ContentPage
 
     private void OnFocusRequested(object? sender, GeoPoint point)
     {
-        MainThread.BeginInvokeOnMainThread(() => CenterOn(point.Latitude, point.Longitude, 4000));
+        var resolution = viewModel.UserLocation is not null &&
+            Math.Abs(viewModel.UserLocation.Latitude - point.Latitude) < 0.00001 &&
+            Math.Abs(viewModel.UserLocation.Longitude - point.Longitude) < 0.00001
+            ? UserLocationResolutionMetersPerPixel
+            : PinFocusResolutionMetersPerPixel;
+        MainThread.BeginInvokeOnMainThread(() => CenterOn(point.Latitude, point.Longitude, resolution));
     }
 
     private void RenderPins()
@@ -131,7 +205,7 @@ public partial class PizzeriasMapPage : ContentPage
         OsmMapControl.Refresh();
 
         if (viewModel.SelectedPin is not null)
-            CenterOn(viewModel.SelectedPin.Latitude, viewModel.SelectedPin.Longitude, 5000);
+            CenterOn(viewModel.SelectedPin.Latitude, viewModel.SelectedPin.Longitude, CityResolutionMetersPerPixel);
     }
 
     private void CenterOn(double latitude, double longitude, double resolution)

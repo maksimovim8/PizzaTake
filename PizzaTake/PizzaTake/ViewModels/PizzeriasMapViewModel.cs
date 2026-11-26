@@ -165,8 +165,8 @@ public sealed class PizzeriasMapViewModel : BaseViewModel
                     Pins.Add(pin);
 
                 HeaderSubtitle = selectedCity is not null
-                    ? $"Місто {selectedCity.Name}: {Pins.Count} маркер(ів)"
-                    : $"Усі локації: {Pins.Count} маркер(ів)";
+                    ? $"Місто {selectedCity.Name}: {FormatMarkersCount(Pins.Count)}"
+                    : $"Усі локації: {FormatMarkersCount(Pins.Count)}";
 
                 SelectedPin = Pins.FirstOrDefault(p =>
                     appState.SelectedPizzeria is not null &&
@@ -263,5 +263,20 @@ public sealed class PizzeriasMapViewModel : BaseViewModel
             IsBusy = false;
             ((Command)CenterOnMyLocationCommand).ChangeCanExecute();
         }
+    }
+
+    private static string FormatMarkersCount(int count)
+    {
+        var mod100 = Math.Abs(count) % 100;
+        var mod10 = Math.Abs(count) % 10;
+        if (mod100 is >= 11 and <= 14)
+            return $"{count} маркерів";
+
+        return mod10 switch
+        {
+            1 => $"{count} маркер",
+            2 or 3 or 4 => $"{count} маркери",
+            _ => $"{count} маркерів"
+        };
     }
 }

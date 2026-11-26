@@ -14,6 +14,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly ICityRepository cities;
     private readonly IAppStateService appState;
+    private readonly IPizzeriaRepository? pizzerias;
     private readonly IUserProfileRepository? userProfile;
     private readonly ISyncService? syncService;
     private readonly ILocationService? locationService;
@@ -48,6 +49,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     public CitySelectionViewModel(
         ICityRepository cities,
         IAppStateService appState,
+        IPizzeriaRepository? pizzerias = null,
         IUserProfileRepository? userProfile = null,
         ISyncService? syncService = null,
         ILocationService? locationService = null,
@@ -56,6 +58,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     {
         this.cities = cities;
         this.appState = appState;
+        this.pizzerias = pizzerias;
         this.userProfile = userProfile;
         this.syncService = syncService;
         this.locationService = locationService;
@@ -192,9 +195,52 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
                 .FirstOrDefault();
 
             if (nearest is null)
+            {
                 StatusMessage = "Немає міст із координатами для пошуку поруч.";
-            else
-                await SelectCityAsync(nearest);
+                return;
+            }
+
+            if (pizzerias is not null)
+            {
+                var cityPizzerias = await pizzerias.GetByCityIdAsync(nearest.Id);
+                var nearestPizzeria = cityPizzerias
+                    .Where(p => p.Latitude != 0 || p.Longitude != 0)
+                    .OrderBy(p => DistanceKm(result.Location.Latitude, result.Location.Longitude, p.Latitude, p.Longitude))
+                    .FirstOrDefault() ?? cityPizzerias.FirstOrDefault();
+
+                if (nearestPizzeria is not null)
+                {
+                    appState.SelectedCity = nearest;
+                    appState.SelectedPizzeria = nearestPizzeria;
+                    appState.SaveState();
+                    logger.LogInformation(
+                        "Auto-selected nearest city {CityName} and pizzeria {StoreNumber} via GPS",
+                        nearest.Name,
+                        nearestPizzeria.StoreNumber);
+
+                    if (userProfile is not null)
+                    {
+                        var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
+                        profile.CityName = nearest.Name;
+                        profile.UpdatedAt = DateTime.UtcNow;
+                        await userProfile.SaveAsync(profile);
+                        if (syncService is not null)
+                        {
+                            await syncService.EnqueueAsync("UserProfile", "Update", new
+                            {
+                                profile.Id,
+                                profile.CityName,
+                                UpdatedAt = profile.UpdatedAt
+                            });
+                        }
+                    }
+
+                    await Shell.Current.GoToAsync($"///{returnTo ?? "menu"}");
+                    return;
+                }
+            }
+
+            await SelectCityAsync(nearest);
         }
         catch (Exception ex)
         {

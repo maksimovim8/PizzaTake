@@ -370,7 +370,8 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryAttributable
         }
     }
 
-    private bool CanSaveReport() => !IsBusy && !string.IsNullOrWhiteSpace(Description);
+    private bool CanSaveReport() =>
+        !IsBusy && !string.IsNullOrWhiteSpace(Description) && Description.Trim().Length >= 3;
 
     public async Task SaveReportAsync()
     {
@@ -448,6 +449,17 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryAttributable
     {
         if (report is null || IsBusy)
             return;
+
+        if (Shell.Current is not null)
+        {
+            var confirmed = await Shell.Current.DisplayAlertAsync(
+                "Видалення звернення",
+                "Видалити це звернення щодо якості?",
+                "Видалити",
+                "Скасувати");
+            if (!confirmed)
+                return;
+        }
 
         try
         {
