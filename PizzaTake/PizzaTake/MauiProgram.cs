@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging;
-using PizzaTake.Repositories;
-using PizzaTake.Services;
-using PizzaTake.ViewModels;
+using PizzaTake.Core.Repositories;
+using PizzaTake.Core.Services;
+using PizzaTake.Core.ViewModels;
+using PizzaTake.Services.Platform;
 using PizzaTake.Views;
 using Sentry;
 using Serilog;
@@ -44,7 +45,18 @@ namespace PizzaTake
             builder.Logging.AddSerilog(Log.Logger, dispose: false);
 
             SQLitePCL.Batteries_V2.Init();
-            builder.Services.AddSingleton(sp => new SqliteDatabase(sp.GetService<ILogger<SqliteDatabase>>()));
+            builder.Services.AddSingleton<IAppPathsService, MauiAppPathsService>();
+            builder.Services.AddSingleton<ISettingsService, MauiSettingsService>();
+            builder.Services.AddSingleton<IThemeService, MauiThemeService>();
+            builder.Services.AddSingleton<INavigationService, MauiNavigationService>();
+            builder.Services.AddSingleton<IDialogService, MauiDialogService>();
+            builder.Services.AddSingleton<IMainThreadDispatcher, MauiMainThreadDispatcher>();
+            builder.Services.AddSingleton<IConnectivityService, MauiConnectivityService>();
+            builder.Services.AddSingleton<ILocationService, MauiLocationService>();
+
+            builder.Services.AddSingleton(sp => new SqliteDatabase(
+                sp.GetRequiredService<IAppPathsService>(),
+                sp.GetService<ILogger<SqliteDatabase>>()));
             builder.Services.AddSingleton<IAppStateService, AppStateService>();
             builder.Services.AddSingleton<ICityRepository, CityRepository>();
             builder.Services.AddSingleton<IPizzeriaRepository, PizzeriaRepository>();

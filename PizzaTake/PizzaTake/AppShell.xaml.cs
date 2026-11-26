@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using PizzaTake.Repositories;
-using PizzaTake.Services;
+using PizzaTake.Core.Repositories;
+using PizzaTake.Core.Services;
 using PizzaTake.Views;
 
 namespace PizzaTake;

@@ -1,8 +1,8 @@
-using PizzaTake.ViewModels;
+using PizzaTake.Core.ViewModels;
 
 namespace PizzaTake.Views;
 
-public partial class AddressEditPage : ContentPage
+public partial class AddressEditPage : ContentPage, IQueryAttributable
 {
     private readonly AddressEditViewModel viewModel;
 
@@ -12,6 +12,9 @@ public partial class AddressEditPage : ContentPage
         this.viewModel = viewModel;
         BindingContext = viewModel;
     }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query) =>
+        viewModel.ApplyQueryAttributes(query);
 
     protected override void OnDisappearing()
     {

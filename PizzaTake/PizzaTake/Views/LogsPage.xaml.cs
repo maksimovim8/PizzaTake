@@ -1,4 +1,4 @@
-using PizzaTake.ViewModels;
+using PizzaTake.Core.ViewModels;
 
 namespace PizzaTake.Views;
 

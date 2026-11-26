@@ -1,6 +1,6 @@
 using Android.App;
 using Android.Runtime;
-using PizzaTake.Services;
+using PizzaTake.Services.Platform;
 
 namespace PizzaTake
 {

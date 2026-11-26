@@ -5,7 +5,7 @@ using Android.OS;
 using AndroidX.Core.View;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.ApplicationModel;
-using PizzaTake.Services;
+using PizzaTake.Core.Services;
 using Serilog;
 using System.Globalization;
 

@@ -1,0 +1,12 @@
+# Build & test outputs
+bin/
+obj/
+TestResults/
+CoverageReport/
+
+# IDE & user files
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store

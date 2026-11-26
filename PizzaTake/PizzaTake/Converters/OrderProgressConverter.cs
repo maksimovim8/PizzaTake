@@ -1,5 +1,5 @@
 using System.Globalization;
-using PizzaTake.Models;
+using PizzaTake.Core.Models;
 
 namespace PizzaTake.Converters;
 
