@@ -1,10 +1,15 @@
+using System.ComponentModel;
 using SQLite;
 
 namespace PizzaTake.Models;
 
 [Table("Pizzerias")]
-public class Pizzeria
+public class Pizzeria : INotifyPropertyChanged
 {
+    private bool isSelected;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     [PrimaryKey, AutoIncrement] public int Id { get; set; }
     public int CityId { get; set; }
     public string StoreNumber { get; set; } = string.Empty;
@@ -13,6 +18,25 @@ public class Pizzeria
     public TimeSpan OpenTo { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+
+    [Ignore]
+    public bool IsSelected
+    {
+        get => isSelected;
+        set
+        {
+            if (isSelected == value) return;
+            isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectButtonText)));
+        }
+    }
+
+    [Ignore]
+    public string SelectButtonText => IsSelected ? "Обрано ✓" : "Обрати";
+
+    [Ignore]
+    public string WorkingHoursText => $"{OpenFrom:hh\\:mm} – {OpenTo:hh\\:mm}";
 
     public bool IsOpenNow(DateTime now)
     {

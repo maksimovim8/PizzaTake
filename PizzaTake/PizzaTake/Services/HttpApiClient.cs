@@ -100,12 +100,17 @@ public sealed class HttpApiClient
         }
     }
 
-    private static bool IsValidPhone(string phone)
+    public static bool IsValidPhone(string phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
             return false;
 
-        var digits = Regex.Replace(phone, @"\D", string.Empty);
-        return digits.Length >= 9;
+        var trimmed = phone.Trim();
+        var digits = Regex.Replace(trimmed, @"\D", string.Empty);
+        if (trimmed.StartsWith('+'))
+            return digits.Length == 12 && digits.StartsWith("380", StringComparison.Ordinal);
+
+        return (digits.Length == 12 && digits.StartsWith("380", StringComparison.Ordinal))
+            || (digits.Length == 10 && digits.StartsWith("0", StringComparison.Ordinal));
     }
 }

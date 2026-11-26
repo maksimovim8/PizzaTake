@@ -80,6 +80,7 @@ public sealed class AppStateService : IAppStateService
             Application.Current.UserAppTheme = isDark ? AppTheme.Dark : AppTheme.Light;
         Preferences.Default.Set(ThemeKey, isDark);
         Preferences.Default.Set(ThemeModeKey, isDark ? "Dark" : "Light");
+        ApplyPlatformStatusBar(isDark);
     }
 
     public void ApplySystemTheme()
@@ -90,6 +91,29 @@ public sealed class AppStateService : IAppStateService
             Application.Current.UserAppTheme = AppTheme.Unspecified;
         Preferences.Default.Set(ThemeKey, false);
         Preferences.Default.Set(ThemeModeKey, "System");
+        var effectiveDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        ApplyPlatformStatusBar(effectiveDark);
+    }
+
+    private static void ApplyPlatformStatusBar(bool isDark)
+    {
+#if ANDROID
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+            var window = activity?.Window;
+            if (window is null)
+                return;
+
+            var statusBarColor = Android.Graphics.Color.ParseColor(isDark ? "#181411" : "#F9F7F2");
+#pragma warning disable CA1422
+            window.SetStatusBarColor(statusBarColor);
+#pragma warning restore CA1422
+            var controller = AndroidX.Core.View.WindowCompat.GetInsetsController(window, window.DecorView);
+            if (controller is not null)
+                controller.AppearanceLightStatusBars = !isDark;
+        });
+#endif
     }
 
     private void ApplyThemeMode(string mode)
