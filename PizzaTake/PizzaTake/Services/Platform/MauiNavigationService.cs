@@ -10,7 +10,7 @@ public sealed class MauiNavigationService : INavigationService
             if (Shell.Current is null)
                 return;
 
-            if (parameters is not null && parameters.Count > 0)
+            if (parameters is not null)
                 await Shell.Current.GoToAsync(route, new Dictionary<string, object>(parameters));
             else
                 await Shell.Current.GoToAsync(route);

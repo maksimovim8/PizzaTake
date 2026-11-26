@@ -84,7 +84,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
         UnlockSessionCommand = new AsyncRelayCommand(() => navigation.GoToAsync("auth?locked=true"), () => IsSessionLocked);
         LogoutCommand = new AsyncRelayCommand(LogoutAsync, () => HasAccountSession);
 
-        this.syncService.SyncCompleted += async (_, _) => await RefreshSyncStatusAsync();
+        this.syncService.SyncCompleted += (_, _) => _ = RefreshSyncStatusSafeAsync();
 
         Addresses.CollectionChanged += (_, _) =>
         {
@@ -343,6 +343,18 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
                     "Settings: SyncNowAsync");
             else
                 await dialogService.AlertAsync("Помилка синхронізації", "Не вдалося синхронізувати дані. Спробуйте ще раз.");
+        }
+    }
+
+    private async Task RefreshSyncStatusSafeAsync()
+    {
+        try
+        {
+            await RefreshSyncStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to refresh pending sync count after SyncCompleted");
         }
     }
 
