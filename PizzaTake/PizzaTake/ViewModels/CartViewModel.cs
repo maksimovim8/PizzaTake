@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -15,6 +17,7 @@ public sealed class CartViewModel : BaseViewModel
     private readonly IProductRepository productRepository;
     private readonly IAuthService authService;
     private readonly IAppStateService appState;
+    private readonly ILogger<CartViewModel> logger;
 
     private decimal subtotal;
     private decimal deliveryFee;
@@ -24,12 +27,14 @@ public sealed class CartViewModel : BaseViewModel
         ICartRepository cartRepository,
         IProductRepository productRepository,
         IAuthService authService,
-        IAppStateService appState)
+        IAppStateService appState,
+        ILogger<CartViewModel>? logger = null)
     {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
         this.authService = authService;
         this.appState = appState;
+        this.logger = logger ?? NullLogger<CartViewModel>.Instance;
         Title = "Кошик";
 
         LoadCartCommand = new Command(async () => await LoadCartAsync());
@@ -88,6 +93,11 @@ public sealed class CartViewModel : BaseViewModel
 
             await LoadUpsellItemsAsync();
             RecalculateTotals();
+            logger.LogInformation("Cart loaded with {ItemCount} line(s), Total={Total}", Items.Count, Total);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load shopping cart");
         }
         finally
         {

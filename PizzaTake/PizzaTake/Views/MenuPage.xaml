@@ -12,126 +12,149 @@
         <converters:OrderProgressConverter x:Key="OrderProgressConverter" />
         <converters:CategoryChipConverter x:Key="CategoryChipConverter" />
     </ContentPage.Resources>
-    <ScrollView x:Name="MenuScrollView" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
-        <VerticalStackLayout Spacing="0" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
+    <Grid RowDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
+        <ScrollView Grid.Row="0" x:Name="MenuScrollView" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
+            <VerticalStackLayout Spacing="0" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
                 <VerticalStackLayout Padding="18,8,18,2" Spacing="12">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" HeightRequest="42">
-                    <Label Text="PIZZA.TAKE!" FontSize="23" FontAttributes="Bold" TextColor="#F4511E" VerticalOptions="Center" />
-                    <Border Grid.Column="1" BackgroundColor="#FFF1D3" StrokeThickness="0" StrokeShape="RoundRectangle 24" Padding="18,7" VerticalOptions="Center">
-                        <HorizontalStackLayout Spacing="5">
-                            <Label Text="✦" TextColor="#F4511E" FontSize="13" />
-                            <Label Text="{Binding SelectedPizzeriaText}" TextColor="#F4511E" FontSize="13" FontAttributes="Bold" />
-                        </HorizontalStackLayout>
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenPizzeriaSelectorCommand}" />
-                        </Border.GestureRecognizers>
-                    </Border>
-                </Grid>
-
-                <Border BackgroundColor="#2460A0" StrokeThickness="0" StrokeShape="RoundRectangle 24" Padding="18,12" HeightRequest="174">
-                    <Grid ColumnDefinitions="*,132">
-                        <VerticalStackLayout Spacing="5" VerticalOptions="Center">
-                            <Label Text="НОВИНКА · 01–30.11.2026" FontSize="11" TextColor="White" FontAttributes="Bold" />
-                            <Label Text="Чеддерман" FontSize="28" FontAttributes="Bold" TextColor="#FFD166" Margin="0,12,0,0" />
-                            <Label Text="Більше сиру. Більше смаку." FontSize="13" TextColor="White" />
-                            <Border BackgroundColor="#F4511E" StrokeThickness="0" StrokeShape="RoundRectangle 20" Padding="18,4" HorizontalOptions="Start" Margin="0,10,0,0">
-                                <Label Text="199 грн" FontSize="14" FontAttributes="Bold" TextColor="White" />
-                            </Border>
-                        </VerticalStackLayout>
-                        <Image Grid.Column="1" Source="pizza.svg" WidthRequest="126" HeightRequest="126" VerticalOptions="Center" HorizontalOptions="Center" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" HeightRequest="42">
+                        <Label Text="PIZZA.TAKE!" FontSize="23" FontAttributes="Bold" TextColor="#F4511E" VerticalOptions="Center" />
+                        <Border Grid.Column="1" BackgroundColor="#FFF1D3" StrokeThickness="0" StrokeShape="RoundRectangle 24" Padding="18,7" VerticalOptions="Center">
+                            <HorizontalStackLayout Spacing="5">
+                                <Label Text="✦" TextColor="#F4511E" FontSize="13" />
+                                <Label Text="{Binding SelectedPizzeriaText}" TextColor="#F4511E" FontSize="13" FontAttributes="Bold" />
+                            </HorizontalStackLayout>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenPizzeriaSelectorCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
                     </Grid>
-                </Border>
 
-                <Border IsVisible="{Binding HasActiveOrder}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" Stroke="{AppThemeBinding Light=#EBE8E2, Dark=#3D342C}" StrokeThickness="1" StrokeShape="RoundRectangle 19" Padding="15,10">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="{Binding ActiveOrder.OrderNumber, StringFormat='ЗАМОВЛЕННЯ №{0}'}" FontSize="10" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
-                        <Label Text="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}}" FontSize="16" FontAttributes="Bold" TextColor="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Color}" />
-                        <Grid ColumnDefinitions="*,10,*,10,*" RowDefinitions="6,Auto" ColumnSpacing="0" Margin="0,2,0,0">
-                            <BoxView Color="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Step1Color}" CornerRadius="3" />
-                            <BoxView Grid.Column="1" Color="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" />
-                            <BoxView Grid.Column="2" Color="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Step2Color}" CornerRadius="3" />
-                            <BoxView Grid.Column="3" Color="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" />
-                            <BoxView Grid.Column="4" Color="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Step3Color}" CornerRadius="3" />
-                            <Label Grid.Row="1" Text="Прийняли" FontSize="9" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
-                            <Label Grid.Row="1" Grid.Column="2" Text="Готуємо" FontSize="9" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
-                            <Label Grid.Row="1" Grid.Column="4" Text="Готове" FontSize="9" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
+                    <Border BackgroundColor="#2460A0" StrokeThickness="0" StrokeShape="RoundRectangle 24" Padding="18,12" HeightRequest="174">
+                        <Grid ColumnDefinitions="*,132">
+                            <VerticalStackLayout Spacing="5" VerticalOptions="Center">
+                                <Label Text="НОВИНКА · 01–30.11.2026" FontSize="11" TextColor="White" FontAttributes="Bold" />
+                                <Label Text="Чеддерман" FontSize="28" FontAttributes="Bold" TextColor="#FFD166" Margin="0,12,0,0" />
+                                <Label Text="Більше сиру. Більше смаку." FontSize="13" TextColor="White" />
+                                <Border BackgroundColor="#F4511E" StrokeThickness="0" StrokeShape="RoundRectangle 20" Padding="18,4" HorizontalOptions="Start" Margin="0,10,0,0">
+                                    <Label Text="219 ₴" FontSize="14" FontAttributes="Bold" TextColor="White" />
+                                </Border>
+                            </VerticalStackLayout>
+                            <Image Grid.Column="1" Source="pizza.svg" WidthRequest="126" HeightRequest="126" VerticalOptions="Center" HorizontalOptions="Center" />
                         </Grid>
-                    </VerticalStackLayout>
-                </Border>
+                    </Border>
 
-                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" StrokeThickness="0" StrokeShape="RoundRectangle 28" Padding="12,0" HeightRequest="50">
-                    <SearchBar Placeholder="Введіть назву піци або товару" Text="{Binding SearchText, Mode=TwoWay}" FontSize="14" BackgroundColor="Transparent" />
-                </Border>
-                <Button Text="+ Додати піцу"
-                        IsVisible="{Binding IsAdmin}"
-                        Command="{Binding OpenAdminProductCommand}"
-                        BackgroundColor="#EB5E28"
-                        TextColor="#FFFFFF"
-                        FontSize="14"
-                        FontAttributes="Bold"
-                        CornerRadius="20"
-                        HeightRequest="42"
-                        HorizontalOptions="Start"
-                        Padding="18,0" />
-                <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-                    <HorizontalStackLayout x:Name="CategoryChips" Spacing="8">
-                        <Button Text="Усі" FontSize="13" Padding="18,8" CornerRadius="24"
-                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Background'}"
-                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Text'}"
-                                Command="{Binding SelectCategoryCommand}" CommandParameter="Усі категорії" />
-                        <Button Text="Новинки" FontSize="13" Padding="20,8" CornerRadius="24"
-                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Background'}"
-                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Text'}"
-                                Command="{Binding SelectCategoryCommand}" CommandParameter="Новинки" />
-                        <Button Text="WOW піци" FontSize="13" Padding="20,8" CornerRadius="24"
-                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Background'}"
-                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Text'}"
-                                Command="{Binding SelectCategoryCommand}" CommandParameter="WOW піци" />
-                        <Button Text="Standard" FontSize="13" Padding="20,8" CornerRadius="24"
-                                BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Background'}"
-                                TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Text'}"
-                                Command="{Binding SelectCategoryCommand}" CommandParameter="Standard" />
-                    </HorizontalStackLayout>
-                </ScrollView>
-                <Label Text="{Binding StatusMessage}" FontSize="12" TextColor="#F4511E" />
-            </VerticalStackLayout>
-        <VerticalStackLayout x:Name="ProductList" BindableLayout.ItemsSource="{Binding Products}">
-        <BindableLayout.ItemTemplate>
-            <DataTemplate x:DataType="models:Product">
-                <VerticalStackLayout Spacing="4">
-                <Label Text="{Binding Category}" IsVisible="{Binding ShowCategoryHeader}" FontSize="23" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#191919, Dark=#F5F5F4}" Margin="18,12,18,4" />
-                <Border Margin="18,3" Padding="13,12" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" StrokeShape="RoundRectangle 20">
-                    <Grid ColumnDefinitions="100,*,Auto" ColumnSpacing="12" HeightRequest="100">
-                        <Image Source="pizza.svg" WidthRequest="88" HeightRequest="88" VerticalOptions="Center" HorizontalOptions="Center" />
-                        <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#202020, Dark=#F5F5F4}" />
-                            <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light=#8B8986, Dark=#A8A29E}" LineBreakMode="TailTruncation" MaxLines="2" />
-                            <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F4511E" Margin="0,5,0,0" />
+                    <Border IsVisible="{Binding HasActiveOrder}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" Stroke="{AppThemeBinding Light=#EBE8E2, Dark=#3D342C}" StrokeThickness="1" StrokeShape="RoundRectangle 19" Padding="15,10">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenActiveOrderCommand}" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding ActiveOrder.OrderNumber, StringFormat='ЗАМОВЛЕННЯ №{0}'}" FontSize="10" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
+                                <Label Grid.Column="1" Text="Деталі ›" FontSize="11" FontAttributes="Bold" TextColor="#F4511E" />
+                            </Grid>
+                            <Label Text="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}}" FontSize="16" FontAttributes="Bold" TextColor="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Color}" />
+                            <Grid ColumnDefinitions="*,10,*,10,*" RowDefinitions="6,Auto" ColumnSpacing="0" Margin="0,2,0,0">
+                                <BoxView Color="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Step1Color}" CornerRadius="3" />
+                                <BoxView Grid.Column="1" Color="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" />
+                                <BoxView Grid.Column="2" Color="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Step2Color}" CornerRadius="3" />
+                                <BoxView Grid.Column="3" Color="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" />
+                                <BoxView Grid.Column="4" Color="{Binding ActiveOrder.Status, Converter={StaticResource OrderProgressConverter}, ConverterParameter=Step3Color}" CornerRadius="3" />
+                                <Label Grid.Row="1" Text="Прийняли" FontSize="9" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
+                                <Label Grid.Row="1" Grid.Column="2" Text="Готуємо" FontSize="9" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
+                                <Label Grid.Row="1" Grid.Column="4" Text="Готове" FontSize="9" TextColor="{AppThemeBinding Light=#92908D, Dark=#A8A29E}" />
+                            </Grid>
                         </VerticalStackLayout>
-                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="End" Margin="0,0,2,0">
-                            <Button Text="✎"
-                                    IsVisible="{Binding Source={x:Reference Page}, Path=BindingContext.IsAdmin}"
-                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenAdminProductCommand}"
-                                    CommandParameter="{Binding .}"
-                                    FontSize="16"
-                                    TextColor="#B45309"
-                                    BackgroundColor="#FDF1D6"
-                                    CornerRadius="20"
-                                    WidthRequest="40"
-                                    HeightRequest="40"
-                                    Padding="0" />
-                            <Button Text="+" FontSize="26" TextColor="White" BackgroundColor="#FFB400" CornerRadius="24" WidthRequest="44" HeightRequest="44" Padding="0"
-                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.QuickAddCommand}" CommandParameter="{Binding .}" />
+                    </Border>
+
+                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" StrokeThickness="0" StrokeShape="RoundRectangle 28" Padding="12,0" HeightRequest="50">
+                        <SearchBar Placeholder="Введіть назву піци або товару" Text="{Binding SearchText, Mode=TwoWay}" FontSize="14" BackgroundColor="Transparent" />
+                    </Border>
+
+                    <Button Text="+ Додати піцу"
+                            IsVisible="{Binding IsAdmin}"
+                            Command="{Binding OpenAdminProductCommand}"
+                            BackgroundColor="#EB5E28"
+                            TextColor="#FFFFFF"
+                            FontSize="14"
+                            FontAttributes="Bold"
+                            CornerRadius="20"
+                            HeightRequest="42"
+                            HorizontalOptions="Start"
+                            Padding="18,0" />
+
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                        <HorizontalStackLayout x:Name="CategoryChips" Spacing="8">
+                            <Button Text="Усі" FontSize="13" Padding="18,8" CornerRadius="24"
+                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Background'}"
+                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Text'}"
+                                    Command="{Binding SelectCategoryCommand}" CommandParameter="Усі категорії" />
+                            <Button Text="Новинки" FontSize="13" Padding="20,8" CornerRadius="24"
+                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Background'}"
+                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Text'}"
+                                    Command="{Binding SelectCategoryCommand}" CommandParameter="Новинки" />
+                            <Button Text="WOW піци" FontSize="13" Padding="20,8" CornerRadius="24"
+                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Background'}"
+                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Text'}"
+                                    Command="{Binding SelectCategoryCommand}" CommandParameter="WOW піци" />
+                            <Button Text="Standard" FontSize="13" Padding="20,8" CornerRadius="24"
+                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Background'}"
+                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Text'}"
+                                    Command="{Binding SelectCategoryCommand}" CommandParameter="Standard" />
                         </HorizontalStackLayout>
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenProductCommand}" CommandParameter="{Binding .}" />
-                        </Grid.GestureRecognizers>
-                    </Grid>
-                </Border>
+                    </ScrollView>
                 </VerticalStackLayout>
-            </DataTemplate>
-        </BindableLayout.ItemTemplate>
-        </VerticalStackLayout>
-        </VerticalStackLayout>
-    </ScrollView>
+                <VerticalStackLayout x:Name="ProductList" BindableLayout.ItemsSource="{Binding Products}" Padding="0,0,0,24">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:Product">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="{Binding Category}" IsVisible="{Binding ShowCategoryHeader}" FontSize="23" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#191919, Dark=#F5F5F4}" Margin="18,12,18,4" />
+                                <Border Margin="18,3" Padding="13,12" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" StrokeShape="RoundRectangle 20">
+                                    <Grid ColumnDefinitions="100,*,Auto" ColumnSpacing="12" HeightRequest="100">
+                                        <Image Source="pizza.svg" WidthRequest="88" HeightRequest="88" VerticalOptions="Center" HorizontalOptions="Center" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#202020, Dark=#F5F5F4}" />
+                                            <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light=#8B8986, Dark=#A8A29E}" LineBreakMode="TailTruncation" MaxLines="2" />
+                                            <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F4511E" Margin="0,5,0,0" />
+                                        </VerticalStackLayout>
+                                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="End" Margin="0,0,2,0">
+                                            <Button Text="✎"
+                                                    IsVisible="{Binding Source={x:Reference Page}, Path=BindingContext.IsAdmin}"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenAdminProductCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    FontSize="16"
+                                                    TextColor="#B45309"
+                                                    BackgroundColor="#FDF1D6"
+                                                    CornerRadius="20"
+                                                    WidthRequest="40"
+                                                    HeightRequest="40"
+                                                    Padding="0" />
+                                            <Button Text="+" FontSize="26" TextColor="White" BackgroundColor="#FFB400" CornerRadius="24" WidthRequest="44" HeightRequest="44" Padding="0"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.QuickAddCommand}" CommandParameter="{Binding .}" />
+                                        </HorizontalStackLayout>
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenProductCommand}" CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
+                                </Border>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border Grid.Row="1"
+                IsVisible="{Binding HasStatusMessage}"
+                Margin="16,6,16,10"
+                Padding="14,10"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 14"
+                BackgroundColor="{AppThemeBinding Light=#1C1917, Dark=#3A2D1E}">
+            <Label Text="{Binding StatusMessage}"
+                   FontSize="13"
+                   FontAttributes="Bold"
+                   HorizontalTextAlignment="Center"
+                   TextColor="#FFFFFF" />
+        </Border>
+    </Grid>
 </ContentPage>

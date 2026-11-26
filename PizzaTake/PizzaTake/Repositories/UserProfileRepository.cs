@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Services;
 
@@ -9,11 +11,16 @@ namespace PizzaTake.Repositories;
 public sealed class UserProfileRepository : SqliteRepositoryBase, IUserProfileRepository
 {
     private readonly IEncryptionService encryptionService;
+    private readonly ILogger<UserProfileRepository> logger;
 
-    public UserProfileRepository(SqliteDatabase database, IEncryptionService encryptionService)
+    public UserProfileRepository(
+        SqliteDatabase database,
+        IEncryptionService encryptionService,
+        ILogger<UserProfileRepository>? logger = null)
         : base(database)
     {
         this.encryptionService = encryptionService;
+        this.logger = logger ?? NullLogger<UserProfileRepository>.Instance;
     }
 
     public async Task<UserProfile?> GetCurrentAsync()
@@ -66,6 +73,7 @@ public sealed class UserProfileRepository : SqliteRepositoryBase, IUserProfileRe
         var rows = await InsertOrUpdateAsync(connection, entity, entity.Id);
         profile.Id = entity.Id;
         profile.UpdatedAt = updatedAt;
+        logger.LogInformation("Saved encrypted user profile (Id={ProfileId}, Verified={IsVerified})", profile.Id, profile.IsPhoneVerified);
         return rows;
     }
 

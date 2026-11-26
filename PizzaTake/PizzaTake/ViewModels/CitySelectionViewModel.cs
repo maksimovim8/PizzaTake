@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Devices.Sensors;
@@ -15,6 +17,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
     private readonly IAppStateService appState;
     private readonly IUserProfileRepository? userProfile;
     private readonly ISyncService? syncService;
+    private readonly ILogger<CitySelectionViewModel> logger;
     public ObservableCollection<City> Cities { get; } = [];
     private string searchText = string.Empty;
     private string statusMessage = string.Empty;
@@ -45,12 +48,14 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
         ICityRepository cities,
         IAppStateService appState,
         IUserProfileRepository? userProfile = null,
-        ISyncService? syncService = null)
+        ISyncService? syncService = null,
+        ILogger<CitySelectionViewModel>? logger = null)
     {
         this.cities = cities;
         this.appState = appState;
         this.userProfile = userProfile;
         this.syncService = syncService;
+        this.logger = logger ?? NullLogger<CitySelectionViewModel>.Instance;
         LoadCommand = new Command(async () => await LoadAsync());
         SelectCityCommand = new Command<City>(async city => await SelectCityAsync(city));
         FindNearbyCommand = new Command(async () => await FindNearbyAsync());
@@ -69,13 +74,21 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
         {
             await ReplaceCitiesAsync(await cities.GetPopularAsync());
             StatusMessage = Cities.Count == 0 ? "Поки немає доступних міст." : string.Empty;
+            logger.LogInformation("Loaded {CityCount} popular city(ies)", Cities.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load cities");
+            StatusMessage = "Не вдалося завантажити список міст.";
         }
         finally { IsBusy = false; }
     }
 
     private async Task SearchAsync()
     {
-        await ReplaceCitiesAsync(await cities.SearchAsync(SearchText));
+        var results = await cities.SearchAsync(SearchText);
+        await ReplaceCitiesAsync(results);
+        StatusMessage = results.Count == 0 ? "Нічого не знайдено." : string.Empty;
     }
 
     private Task ReplaceCitiesAsync(IEnumerable<City> values)
@@ -95,6 +108,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
             appState.SelectedPizzeria = null;
         appState.SelectedCity = city;
         appState.SaveState();
+        logger.LogInformation("Selected delivery city {CityName} (Id={CityId})", city.Name, city.Id);
         if (userProfile is not null)
         {
             var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
@@ -133,6 +147,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
             var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(10)));
             if (location is null)
             {
+                logger.LogWarning("Geolocation returned null while searching for nearby city");
                 StatusMessage = "Не вдалося визначити місце розташування.";
                 return;
             }
@@ -148,16 +163,19 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
             else
                 await SelectCityAsync(nearest);
         }
-        catch (FeatureNotEnabledException)
+        catch (FeatureNotEnabledException ex)
         {
+            logger.LogWarning(ex, "GPS/Location service is disabled on device");
             StatusMessage = "Увімкніть геолокацію на пристрої.";
         }
-        catch (PermissionException)
+        catch (PermissionException ex)
         {
+            logger.LogWarning(ex, "Location permission denied by user");
             StatusMessage = "Надайте застосунку дозвіл на геолокацію.";
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Unexpected error while detecting nearest city");
             StatusMessage = "Не вдалося визначити найближче місто.";
         }
     }

@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 
 namespace PizzaTake.Services;
@@ -25,7 +26,7 @@ public sealed class HttpApiClient : IDisposable
     ];
 
     private readonly HttpClient httpClient;
-    private readonly ILogger<HttpApiClient>? logger;
+    private readonly ILogger<HttpApiClient> logger;
     private readonly HashSet<string> allowedSha256Pins;
     private readonly bool allowPinnedSelfSigned;
     private readonly ConcurrentDictionary<string, DateTime> simulatedRemoteTimestamps = new(StringComparer.Ordinal);
@@ -36,7 +37,7 @@ public sealed class HttpApiClient : IDisposable
         Uri? baseAddress = null,
         bool allowPinnedSelfSigned = false)
     {
-        this.logger = logger;
+        this.logger = logger ?? NullLogger<HttpApiClient>.Instance;
         this.allowPinnedSelfSigned = allowPinnedSelfSigned;
 
         var pinsSource = pinnedSha256Thumbprints ?? DefaultPinnedSha256Thumbprints;
@@ -67,7 +68,7 @@ public sealed class HttpApiClient : IDisposable
     {
         if (certificate is null)
         {
-            logger?.LogError("SSL certificate pinning validation failed: server certificate is null.");
+            logger.LogError("SSL certificate pinning validation failed: server certificate is null.");
             return false;
         }
 
@@ -76,7 +77,7 @@ public sealed class HttpApiClient : IDisposable
 
         if (!isPinMatched)
         {
-            logger?.LogError(
+            logger.LogError(
                 "SSL certificate pinning validation failed. Presented SHA-256 thumbprint {Thumbprint} is not in allowed pins (PolicyErrors={PolicyErrors}).",
                 thumbprint, sslPolicyErrors);
             return false;
@@ -84,13 +85,13 @@ public sealed class HttpApiClient : IDisposable
 
         if (sslPolicyErrors != SslPolicyErrors.None && !allowPinnedSelfSigned)
         {
-            logger?.LogError(
+            logger.LogError(
                 "SSL certificate pinning validation failed due to TLS policy errors {PolicyErrors} for thumbprint {Thumbprint}.",
                 sslPolicyErrors, thumbprint);
             return false;
         }
 
-        logger?.LogInformation("SSL certificate pinning validation succeeded for SHA-256 {Thumbprint}.", thumbprint);
+        logger.LogInformation("SSL certificate pinning validation succeeded for SHA-256 {Thumbprint}.", thumbprint);
         return true;
     }
 
@@ -128,7 +129,7 @@ public sealed class HttpApiClient : IDisposable
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "HttpApiClient.GetRemoteUpdatedAtAsync failed for {EntityType}:{EntityKey}.", entityType, entityKey);
+            logger.LogError(ex, "GetRemoteUpdatedAtAsync failed for {EntityType}:{EntityKey}", entityType, entityKey);
             return null;
         }
     }
@@ -145,7 +146,7 @@ public sealed class HttpApiClient : IDisposable
         {
             await Task.Delay(80);
             simulatedRemoteTimestamps[compositeKey] = localUpdatedAtUtc;
-            logger?.LogInformation("Synced {EntityType}:{EntityKey} ({Operation}) locally at {UpdatedAt:O}.",
+            logger.LogInformation("Synced {EntityType}:{EntityKey} ({Operation}) via local simulation at {UpdatedAt:O}",
                 item.EntityType, entityKey, item.Operation, localUpdatedAtUtc);
             return true;
         }
@@ -153,11 +154,13 @@ public sealed class HttpApiClient : IDisposable
         try
         {
             using var response = await httpClient.PostAsJsonAsync("api/sync", item);
+            if (!response.IsSuccessStatusCode)
+                logger.LogWarning("PushSyncItemAsync returned HTTP {StatusCode} for {EntityType}", (int)response.StatusCode, item.EntityType);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "HttpApiClient.PushSyncItemAsync failed for {EntityType}:{EntityKey}.", item.EntityType, entityKey);
+            logger.LogError(ex, "PushSyncItemAsync failed for {EntityType} ({Operation})", item.EntityType, item.Operation);
             return false;
         }
     }
@@ -165,12 +168,15 @@ public sealed class HttpApiClient : IDisposable
     public async Task<bool> SendOtpAsync(string phone)
     {
         if (!IsValidPhone(phone))
+        {
+            logger.LogWarning("SendOtpAsync rejected invalid phone format");
             return false;
+        }
 
         if (httpClient.BaseAddress is null)
         {
             await Task.Delay(120);
-            logger?.LogInformation("OTP code dispatched (local simulation).");
+            logger.LogInformation("Simulated OTP dispatch completed");
             return true;
         }
 
@@ -181,7 +187,7 @@ public sealed class HttpApiClient : IDisposable
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "HttpApiClient.SendOtpAsync failed.");
+            logger.LogError(ex, "SendOtpAsync request failed");
             return false;
         }
     }
@@ -205,7 +211,7 @@ public sealed class HttpApiClient : IDisposable
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "HttpApiClient.VerifyOtpAsync failed.");
+            logger.LogError(ex, "VerifyOtpAsync request failed");
             return false;
         }
     }
@@ -221,13 +227,18 @@ public sealed class HttpApiClient : IDisposable
     private static string BuildCompositeKey(string entityType, string entityKey) =>
         $"{entityType.Trim()}:{entityKey.Trim()}";
 
-    private static bool IsValidPhone(string phone)
+    public static bool IsValidPhone(string phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
             return false;
 
-        var digits = Regex.Replace(phone, @"\D", string.Empty);
-        return digits.Length >= 9;
+        var trimmed = phone.Trim();
+        var digits = Regex.Replace(trimmed, @"\D", string.Empty);
+        if (trimmed.StartsWith('+'))
+            return digits.Length == 12 && digits.StartsWith("380", StringComparison.Ordinal);
+
+        return (digits.Length == 12 && digits.StartsWith("380", StringComparison.Ordinal))
+            || (digits.Length == 10 && digits.StartsWith("0", StringComparison.Ordinal));
     }
 
     private sealed record RemoteSyncMetadata(DateTime UpdatedAtUtc);

@@ -59,7 +59,7 @@
                     </Border>
 
                     <Label Text="{Binding ErrorMessage}"
-                           IsVisible="{Binding HasError}"
+                           IsVisible="{Binding HasMainError}"
                            TextColor="#FCA5A5"
                            FontSize="13"
                            HorizontalTextAlignment="Center" />
@@ -123,7 +123,7 @@
                            HorizontalTextAlignment="Center"
                            TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
 
-                    <Label Text="Введіть 4-значний код з SMS (наприклад, 1234)"
+                    <Label Text="Введіть 4-значний код підтвердження з SMS"
                            FontSize="14"
                            HorizontalTextAlignment="Center"
                            TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
@@ -135,7 +135,7 @@
                         <Entry Text="{Binding SmsOtpCode, Mode=TwoWay}"
                                Placeholder="0000"
                                Keyboard="Numeric"
-                               MaxLength="6"
+                               MaxLength="4"
                                FontSize="22"
                                FontAttributes="Bold"
                                HorizontalTextAlignment="Center"

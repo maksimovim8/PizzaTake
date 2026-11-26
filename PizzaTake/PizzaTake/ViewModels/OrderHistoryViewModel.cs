@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -15,16 +17,19 @@ public sealed class OrderHistoryViewModel : BaseViewModel
     private readonly IOrderRepository orderRepository;
     private readonly IAuthService authService;
     private readonly ISessionService sessionService;
+    private readonly ILogger<OrderHistoryViewModel> logger;
     private bool isSessionLocked;
 
     public OrderHistoryViewModel(
         IOrderRepository orderRepository,
         IAuthService authService,
-        ISessionService sessionService)
+        ISessionService sessionService,
+        ILogger<OrderHistoryViewModel>? logger = null)
     {
         this.orderRepository = orderRepository;
         this.authService = authService;
         this.sessionService = sessionService;
+        this.logger = logger ?? NullLogger<OrderHistoryViewModel>.Instance;
         Title = "Історія замовлень";
 
         this.sessionService.SessionChanged += (_, _) =>
@@ -74,6 +79,11 @@ public sealed class OrderHistoryViewModel : BaseViewModel
             }
 
             OnPropertyChanged(nameof(IsEmpty));
+            logger.LogInformation("Loaded {OrderCount} order(s) in order history", PastOrders.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load order history");
         }
         finally
         {

@@ -1,4 +1,6 @@
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -21,6 +23,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     private readonly IUserProfileRepository userProfileRepository;
     private readonly IAppStateService appState;
     private readonly ISyncService syncService;
+    private readonly ILogger<AddressEditViewModel> logger;
 
     private UserAddress? editingAddress;
     private string label = string.Empty;
@@ -35,12 +38,14 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         IAddressRepository addressRepository,
         IUserProfileRepository userProfileRepository,
         IAppStateService appState,
-        ISyncService syncService)
+        ISyncService syncService,
+        ILogger<AddressEditViewModel>? logger = null)
     {
         this.addressRepository = addressRepository;
         this.userProfileRepository = userProfileRepository;
         this.appState = appState;
         this.syncService = syncService;
+        this.logger = logger ?? NullLogger<AddressEditViewModel>.Instance;
         Title = "Нова адреса";
 
         SaveCommand = new Command(async () => await SaveAsync(), CanSave);
@@ -58,6 +63,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
                 if (!suppressDraftSync)
                     appState.SetDraftValue(DraftLabelKey, value);
                 ErrorMessage = string.Empty;
+                ((Command)SaveCommand).ChangeCanExecute();
             }
         }
     }
@@ -110,7 +116,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         }
     }
 
-    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
     public ICommand SaveCommand { get; }
     public ICommand DeleteCommand { get; }
@@ -253,10 +259,16 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
             });
             ClearDraft();
 
+            logger.LogInformation("Address {Operation} succeeded (Id={AddressId})", operation, address.Id);
             await Shell.Current.GoToAsync("..", new Dictionary<string, object>
             {
                 ["UpdatedAddress"] = address
             });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to save user address");
+            ErrorMessage = "Не вдалося зберегти адресу. Спробуйте ще раз.";
         }
         finally
         {
@@ -283,10 +295,16 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
             });
             ClearDraft();
 
+            logger.LogInformation("Address deleted (Id={AddressId})", deletedId);
             await Shell.Current.GoToAsync("..", new Dictionary<string, object>
             {
                 ["DeletedAddressId"] = deletedId
             });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete user address {AddressId}", editingAddress.Id);
+            ErrorMessage = "Не вдалося видалити адресу. Спробуйте ще раз.";
         }
         finally
         {

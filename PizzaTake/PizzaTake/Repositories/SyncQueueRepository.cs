@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Services;
 
@@ -8,8 +10,11 @@ namespace PizzaTake.Repositories;
 /// </summary>
 public sealed class SyncQueueRepository : SqliteRepositoryBase, ISyncQueueRepository
 {
-    public SyncQueueRepository(SqliteDatabase database) : base(database)
+    private readonly ILogger<SyncQueueRepository> logger;
+
+    public SyncQueueRepository(SqliteDatabase database, ILogger<SyncQueueRepository>? logger = null) : base(database)
     {
+        this.logger = logger ?? NullLogger<SyncQueueRepository>.Instance;
     }
 
     public async Task<List<SyncQueueItem>> GetAllPendingAsync()
@@ -27,13 +32,17 @@ public sealed class SyncQueueRepository : SqliteRepositoryBase, ISyncQueueReposi
         if (item.CreatedAt == default)
             item.CreatedAt = DateTime.UtcNow;
 
-        return await connection.InsertAsync(item);
+        var rows = await connection.InsertAsync(item);
+        logger.LogDebug("Persisted SyncQueue item {EntityType}/{Operation} (Id={SyncItemId})", item.EntityType, item.Operation, item.Id);
+        return rows;
     }
 
     public async Task<int> DeleteAsync(SyncQueueItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
         var connection = await GetConnectionAsync();
-        return await connection.DeleteAsync(item);
+        var rows = await connection.DeleteAsync(item);
+        logger.LogDebug("Removed SyncQueue item (Id={SyncItemId})", item.Id);
+        return rows;
     }
 }

@@ -76,7 +76,7 @@
                                                FontAttributes="Bold"
                                                TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                                         <Label Grid.Column="1"
-                                               Text="{Binding CreatedAtUtc, StringFormat='{0:dd.MM.yyyy · HH:mm}'}"
+                                               Text="{Binding CreatedAtLocal, StringFormat='{0:dd.MM.yyyy · HH:mm}'}"
                                                FontSize="12"
                                                VerticalTextAlignment="Center"
                                                TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 
@@ -18,34 +19,46 @@ public sealed class AuthService : IAuthService
     private readonly IUserProfileRepository userProfileRepository;
     private readonly ISecureStoreService secureStore;
     private readonly ISessionService sessionService;
-    private readonly ILogger<AuthService>? logger;
+    private readonly ILogger<AuthService> logger;
+    private readonly ICrashReportingService? crashReporting;
 
     public AuthService(
         HttpApiClient httpApiClient,
         IUserProfileRepository userProfileRepository,
         ISecureStoreService secureStore,
         ISessionService sessionService,
-        ILogger<AuthService>? logger = null)
+        ILogger<AuthService>? logger = null,
+        ICrashReportingService? crashReporting = null)
     {
         this.httpApiClient = httpApiClient;
         this.userProfileRepository = userProfileRepository;
         this.secureStore = secureStore;
         this.sessionService = sessionService;
-        this.logger = logger;
+        this.logger = logger ?? NullLogger<AuthService>.Instance;
+        this.crashReporting = crashReporting;
     }
 
     public bool IsAuthenticated => sessionService.IsAuthenticated;
 
     public UserRole? CurrentRole => sessionService.CurrentRole;
 
-    public Task<bool> SendOtpAsync(string phone) => httpApiClient.SendOtpAsync(phone);
+    public async Task<bool> SendOtpAsync(string phone)
+    {
+        var sent = await httpApiClient.SendOtpAsync(phone);
+        if (sent)
+            logger.LogInformation("OTP verification code requested successfully");
+        else
+            logger.LogWarning("OTP verification code request was rejected");
+
+        return sent;
+    }
 
     public async Task<bool> VerifyOtpAsync(string phone, string code)
     {
         var verified = await httpApiClient.VerifyOtpAsync(phone, code);
         if (!verified)
         {
-            logger?.LogWarning("OTP verification failed for submitted phone number.");
+            logger.LogWarning("OTP verification failed for submitted code");
             return false;
         }
 
@@ -65,7 +78,12 @@ public sealed class AuthService : IAuthService
         await secureStore.SetAsync(AuthStorageKeys.UserPhone, normalizedPhone);
 
         sessionService.SetSession(normalizedPhone, role);
-        logger?.LogInformation("User authenticated via OTP with role {Role}.", role);
+        logger.LogInformation("User authenticated via OTP with role {Role}", role);
+        crashReporting?.TrackEvent(CrashEventNames.LoginSuccess, new Dictionary<string, string>
+        {
+            ["method"] = "otp",
+            ["role"] = role.ToString()
+        });
         return true;
     }
 
@@ -80,7 +98,7 @@ public sealed class AuthService : IAuthService
         var token = await secureStore.GetAsync(AuthStorageKeys.AuthToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            logger?.LogWarning("Cannot restore session: no saved token in SecureStorage.");
+            logger.LogWarning("Cannot restore session: no saved token in SecureStorage");
             return false;
         }
 
@@ -98,7 +116,12 @@ public sealed class AuthService : IAuthService
             : ResolveRoleForPhone(phone);
 
         sessionService.SetSession(phone, role);
-        logger?.LogInformation("Session restored from SecureStorage with role {Role}.", role);
+        logger.LogInformation("Session restored from SecureStorage with role {Role}", role);
+        crashReporting?.TrackEvent(CrashEventNames.LoginSuccess, new Dictionary<string, string>
+        {
+            ["method"] = "biometric",
+            ["role"] = role.ToString()
+        });
         return true;
     }
 
@@ -114,7 +137,7 @@ public sealed class AuthService : IAuthService
         secureStore.Remove(AuthStorageKeys.UserRole);
         secureStore.Remove(AuthStorageKeys.UserPhone);
         sessionService.ClearSession();
-        logger?.LogInformation("User logged out and SecureStorage credentials removed.");
+        logger.LogInformation("User logged out and SecureStorage credentials removed");
         return Task.CompletedTask;
     }
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
+using PizzaTake.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -17,9 +18,17 @@ namespace PizzaTake.WinUI
         public App()
         {
             this.InitializeComponent();
+            this.UnhandledException += OnWinUiUnhandledException;
         }
 
         protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+
+        private static void OnWinUiUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)
+        {
+            GlobalExceptionHandler.HandlePlatformUnhandledException(
+                args.Exception,
+                "WinUI.UnhandledException");
+        }
     }
 
 }

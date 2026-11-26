@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using SQLite;
 
@@ -9,7 +10,7 @@ public sealed class SqliteDatabase
     public const int LatestSchemaVersion = 2;
 
     private readonly SQLiteAsyncConnection connection;
-    private readonly ILogger<SqliteDatabase>? logger;
+    private readonly ILogger<SqliteDatabase> logger;
     private readonly SemaphoreSlim initializationLock = new(1, 1);
     private bool isInitialized;
 
@@ -21,8 +22,9 @@ public sealed class SqliteDatabase
     public SqliteDatabase(string databasePath, ILogger<SqliteDatabase>? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
-        this.logger = logger;
+        this.logger = logger ?? NullLogger<SqliteDatabase>.Instance;
         connection = new SQLiteAsyncConnection(databasePath);
+        this.logger.LogDebug("Configured SQLite database at {DatabasePath}", databasePath);
     }
 
     public SQLiteAsyncConnection Connection => connection;
@@ -43,9 +45,16 @@ public sealed class SqliteDatabase
             if (isInitialized)
                 return;
 
+            logger.LogInformation("Initializing SQLite database tables, migrations, and catalog seed");
             await ApplyMigrationsAsync();
             await SeedCatalogAsync();
             isInitialized = true;
+            logger.LogInformation("SQLite database initialization completed successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "SQLite database initialization failed");
+            throw;
         }
         finally
         {
@@ -56,7 +65,7 @@ public sealed class SqliteDatabase
     private async Task ApplyMigrationsAsync()
     {
         var currentVersion = await GetSchemaVersionAsync();
-        logger?.LogInformation("SQLite schema check: current user_version={CurrentVersion}, target={TargetVersion}",
+        logger.LogInformation("SQLite schema check: current user_version={CurrentVersion}, target={TargetVersion}",
             currentVersion, LatestSchemaVersion);
 
         if (currentVersion < 1)
@@ -64,14 +73,14 @@ public sealed class SqliteDatabase
             await CreateBaseTablesAsync();
             await connection.ExecuteAsync("PRAGMA user_version = 1;");
             currentVersion = 1;
-            logger?.LogInformation("Applied SQLite migration to schema v1 (base tables).");
+            logger.LogInformation("Applied SQLite migration to schema v1 (base tables).");
         }
 
         if (currentVersion < 2)
         {
             await MigrateToV2Async();
             await connection.ExecuteAsync("PRAGMA user_version = 2;");
-            logger?.LogInformation("Applied SQLite migration to schema v2 (UserAddresses Notes & coordinates).");
+            logger.LogInformation("Applied SQLite migration to schema v2 (UserAddresses Notes & coordinates).");
         }
 
         await EnsureUserProfileRoleColumnAsync();

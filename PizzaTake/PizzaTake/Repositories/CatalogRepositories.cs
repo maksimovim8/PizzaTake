@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Services;
 
@@ -35,8 +37,10 @@ public interface IFavoriteRepository
     Task ToggleFavoriteAsync(int productId);
 }
 
-public sealed class CityRepository(SqliteDatabase database) : ICityRepository
+public sealed class CityRepository(SqliteDatabase database, ILogger<CityRepository>? logger = null) : ICityRepository
 {
+    private readonly ILogger<CityRepository> log = logger ?? NullLogger<CityRepository>.Instance;
+
     public async Task<List<City>> GetAllAsync()
     {
         await database.InitializeAsync();
@@ -66,11 +70,14 @@ public sealed class CityRepository(SqliteDatabase database) : ICityRepository
         ArgumentNullException.ThrowIfNull(city);
         await database.InitializeAsync();
         await database.Connection.InsertOrReplaceAsync(city);
+        log.LogInformation("Saved city {CityName} (Id={CityId})", city.Name, city.Id);
     }
 }
 
-public sealed class PizzeriaRepository(SqliteDatabase database) : IPizzeriaRepository
+public sealed class PizzeriaRepository(SqliteDatabase database, ILogger<PizzeriaRepository>? logger = null) : IPizzeriaRepository
 {
+    private readonly ILogger<PizzeriaRepository> log = logger ?? NullLogger<PizzeriaRepository>.Instance;
+
     public async Task<List<Pizzeria>> GetByCityIdAsync(int cityId)
     {
         await database.InitializeAsync();
@@ -91,15 +98,20 @@ public sealed class PizzeriaRepository(SqliteDatabase database) : IPizzeriaRepos
         ArgumentNullException.ThrowIfNull(pizzeria);
         await database.InitializeAsync();
         await database.Connection.InsertOrReplaceAsync(pizzeria);
+        log.LogInformation("Saved pizzeria {StoreNumber} (Id={PizzeriaId})", pizzeria.StoreNumber, pizzeria.Id);
     }
 }
 
-public sealed class ProductRepository(SqliteDatabase database) : IProductRepository
+public sealed class ProductRepository(SqliteDatabase database, ILogger<ProductRepository>? logger = null) : IProductRepository
 {
+    private readonly ILogger<ProductRepository> log = logger ?? NullLogger<ProductRepository>.Instance;
+
     public async Task<List<Product>> GetAllAsync()
     {
         await database.InitializeAsync();
-        return await database.Connection.Table<Product>().OrderBy(product => product.Name).ToListAsync();
+        var items = await database.Connection.Table<Product>().OrderBy(product => product.Name).ToListAsync();
+        log.LogDebug("Loaded {ProductCount} product(s) from catalog", items.Count);
+        return items;
     }
 
     public async Task<Product?> GetByIdAsync(int id)
@@ -146,6 +158,7 @@ public sealed class ProductRepository(SqliteDatabase database) : IProductReposit
             await database.Connection.InsertAsync(product);
         else
             await database.Connection.UpdateAsync(product);
+        log.LogInformation("Saved catalog product {ProductName} (Id={ProductId})", product.Name, product.Id);
     }
 
     public async Task DeleteAsync(Product product)
@@ -153,11 +166,14 @@ public sealed class ProductRepository(SqliteDatabase database) : IProductReposit
         ArgumentNullException.ThrowIfNull(product);
         await database.InitializeAsync();
         await database.Connection.DeleteAsync(product);
+        log.LogInformation("Deleted catalog product {ProductName} (Id={ProductId})", product.Name, product.Id);
     }
 }
 
-public sealed class FavoriteRepository(SqliteDatabase database) : IFavoriteRepository
+public sealed class FavoriteRepository(SqliteDatabase database, ILogger<FavoriteRepository>? logger = null) : IFavoriteRepository
 {
+    private readonly ILogger<FavoriteRepository> log = logger ?? NullLogger<FavoriteRepository>.Instance;
+
     public async Task<List<Product>> GetFavoriteProductsAsync()
     {
         await database.InitializeAsync();
@@ -185,8 +201,14 @@ public sealed class FavoriteRepository(SqliteDatabase database) : IFavoriteRepos
             .FirstOrDefaultAsync();
 
         if (existing is null)
+        {
             await database.Connection.InsertAsync(new FavoriteProduct { ProductId = productId });
+            log.LogInformation("Added product {ProductId} to favorites", productId);
+        }
         else
+        {
             await database.Connection.DeleteAsync(existing);
+            log.LogInformation("Removed product {ProductId} from favorites", productId);
+        }
     }
 }

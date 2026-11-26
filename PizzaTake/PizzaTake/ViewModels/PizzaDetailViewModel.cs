@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.Controls;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
@@ -12,6 +14,8 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     private readonly IProductRepository products;
     private readonly ICartRepository cart;
     private readonly IFavoriteRepository favorites;
+    private readonly ILogger<PizzaDetailViewModel> logger;
+    private readonly ICrashReportingService? crashReporting;
     private Product? product;
     private decimal calculatedPrice;
     private bool isKbjuVisible;
@@ -57,11 +61,18 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     public ICommand AddToCartCommand { get; }
     public ICommand GoBackCommand { get; }
 
-    public PizzaDetailViewModel(IProductRepository products, ICartRepository cart, IFavoriteRepository favorites)
+    public PizzaDetailViewModel(
+        IProductRepository products,
+        ICartRepository cart,
+        IFavoriteRepository favorites,
+        ILogger<PizzaDetailViewModel>? logger = null,
+        ICrashReportingService? crashReporting = null)
     {
         this.products = products;
         this.cart = cart;
         this.favorites = favorites;
+        this.logger = logger ?? NullLogger<PizzaDetailViewModel>.Instance;
+        this.crashReporting = crashReporting;
         LoadCommand = new Command(async () => await LoadAsync());
         ToggleOptionCommand = new Command<IngredientOption>(ToggleOption);
         ToggleKbjuCommand = new Command(() => IsKbjuVisible = !IsKbjuVisible);
@@ -92,12 +103,31 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
 
     private async Task LoadProductAsync(int id)
     {
-        Product = await products.GetByIdAsync(id);
-        if (Product is not null)
+        try
         {
-            PrepareProduct();
-            await LoadOptionsAsync();
-            await RefreshFavoriteAsync();
+            Product = await products.GetByIdAsync(id);
+            if (Product is not null)
+            {
+                PrepareProduct();
+                await LoadOptionsAsync();
+                await RefreshFavoriteAsync();
+            }
+            else
+            {
+                logger.LogWarning("Product with id {ProductId} was not found", id);
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (Shell.Current is not null)
+                    {
+                        await Shell.Current.DisplayAlertAsync("Товар не знайдено", "Запитану піцу не знайдено в каталозі.", "OK");
+                        await Shell.Current.GoToAsync("..");
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load product {ProductId}", id);
         }
     }
 
@@ -107,6 +137,13 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
         selectedOptionIds.Clear();
         CalculatedPrice = Product.GetEffectivePrice();
         ((Command)AddToCartCommand).ChangeCanExecute();
+        logger.LogInformation("Opened product {ProductName} (Id={ProductId})", Product.Name, Product.Id);
+        crashReporting?.TrackEvent(CrashEventNames.ProductOpened, new Dictionary<string, string>
+        {
+            ["product_id"] = Product.Id.ToString(),
+            ["product_name"] = Product.Name,
+            ["category"] = Product.Category
+        });
     }
 
     private async Task RefreshFavoriteAsync()
@@ -130,6 +167,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
         AddOns.Clear(); Exclusions.Clear(); Replacements.Clear();
         foreach (var option in options)
         {
+            option.IsSelected = selectedOptionIds.Contains(option.Id);
             switch (option.Kind)
             {
                 case OptionKind.AddOn: AddOns.Add(option); break;
@@ -143,7 +181,9 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     private void ToggleOption(IngredientOption? option)
     {
         if (option is null) return;
-        if (!selectedOptionIds.Add(option.Id)) selectedOptionIds.Remove(option.Id);
+        var added = selectedOptionIds.Add(option.Id);
+        if (!added) selectedOptionIds.Remove(option.Id);
+        option.IsSelected = added;
         OnPropertyChanged(nameof(SelectedOptionIds));
         OnPropertyChanged(nameof(SelectedOptionsSummary));
         RecalculatePrice();
@@ -170,6 +210,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
             UnitPrice = CalculatedPrice,
             OptionsSummary = string.Join(", ", selected.Select(option => option.Name))
         });
+        logger.LogInformation("Added configured product {ProductName} (Price={Price}) to cart", Product.Name, CalculatedPrice);
         await Shell.Current.GoToAsync("..");
     }
 }

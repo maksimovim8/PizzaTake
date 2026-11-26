@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using PizzaTake.Models;
@@ -17,7 +18,7 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly IAppStateService appState;
     private readonly IAuthService authService;
     private readonly ISessionService sessionService;
-    private readonly ILogger<MenuViewModel>? logger;
+    private readonly ILogger<MenuViewModel> logger;
     private string searchText = string.Empty;
     private string? selectedCategory;
     private string statusMessage = string.Empty;
@@ -38,7 +39,16 @@ public sealed class MenuViewModel : BaseViewModel
     }
     public bool HasActiveOrder => ActiveOrder is not null;
     public string SelectedPizzeriaText { get => selectedPizzeriaText; private set => SetProperty(ref selectedPizzeriaText, value); }
-    public string StatusMessage { get => statusMessage; private set => SetProperty(ref statusMessage, value); }
+    public string StatusMessage
+    {
+        get => statusMessage;
+        private set
+        {
+            if (SetProperty(ref statusMessage, value))
+                OnPropertyChanged(nameof(HasStatusMessage));
+        }
+    }
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
     public string SearchText
     {
         get => searchText;
@@ -60,6 +70,7 @@ public sealed class MenuViewModel : BaseViewModel
     public ICommand OpenProductCommand { get; }
     public ICommand OpenPizzeriaSelectorCommand { get; }
     public ICommand OpenAdminProductCommand { get; }
+    public ICommand OpenActiveOrderCommand { get; }
 
     public MenuViewModel(
         IProductRepository products,
@@ -76,7 +87,7 @@ public sealed class MenuViewModel : BaseViewModel
         this.appState = appState;
         this.authService = authService;
         this.sessionService = sessionService;
-        this.logger = logger;
+        this.logger = logger ?? NullLogger<MenuViewModel>.Instance;
 
         this.sessionService.SessionChanged += (_, _) =>
             MainThread.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(IsAdmin)));
@@ -95,13 +106,14 @@ public sealed class MenuViewModel : BaseViewModel
         });
         OpenPizzeriaSelectorCommand = new Command(async () => await OpenPizzeriaSelectorAsync());
         OpenAdminProductCommand = new Command<Product?>(async product => await OpenAdminProductAsync(product));
+        OpenActiveOrderCommand = new Command(async () => await OpenActiveOrderAsync());
     }
 
     private async Task OpenAdminProductAsync(Product? product)
     {
         if (!sessionService.IsInRole(UserRole.Administrator))
         {
-            logger?.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenAdminProductCommand));
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenAdminProductCommand));
             await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
             return;
         }
@@ -110,6 +122,18 @@ public sealed class MenuViewModel : BaseViewModel
             await Shell.Current.GoToAsync("adminproductedit", new Dictionary<string, object> { ["Product"] = product });
         else
             await Shell.Current.GoToAsync("adminproductedit");
+    }
+
+    private async Task OpenActiveOrderAsync()
+    {
+        if (ActiveOrder is null)
+            return;
+
+        logger.LogInformation("Opening active order {OrderNumber} from MenuPage banner", ActiveOrder.OrderNumber);
+        await Shell.Current.GoToAsync("orderdetail", new Dictionary<string, object>
+        {
+            ["Order"] = ActiveOrder
+        });
     }
 
     private async Task OpenPizzeriaSelectorAsync()
@@ -140,6 +164,12 @@ public sealed class MenuViewModel : BaseViewModel
                 OnPropertyChanged(nameof(SelectedCategory));
             }
             await ShowProductsAsync(Filter(all));
+            logger.LogInformation("Loaded menu catalog with {ProductCount} product(s)", all.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load menu catalog");
+            StatusMessage = "Не вдалося завантажити меню.";
         }
         finally { IsBusy = false; }
     }
@@ -198,6 +228,7 @@ public sealed class MenuViewModel : BaseViewModel
             Quantity = 1,
             UnitPrice = product.GetEffectivePrice()
         });
+        logger.LogInformation("Quick-added product {ProductName} (Id={ProductId}) to cart", product.Name, product.Id);
         StatusMessage = $"{product.Name} додано до кошика.";
     }
 }

@@ -26,15 +26,18 @@ public partial class App : Application
         this.logger = logger;
         InitializeComponent();
         this.appState.RestoreState();
+        this.logger.LogInformation("PizzaTake application initialized");
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        _ = database.InitializeAsync();
-        services.GetService<ISyncService>()?.StartConnectivityListener();
-        logger.LogInformation("Lifecycle: Application window created.");
-
+        _ = InitializeDatabaseSafeAsync();
         var window = new Window(shell);
+        window.Created += (_, _) =>
+        {
+            services.GetService<ISyncService>()?.StartConnectivityListener();
+            logger.LogInformation("Application window created and started");
+        };
         window.Stopped += (_, _) =>
         {
             appState.SaveState();
@@ -54,5 +57,18 @@ public partial class App : Application
             logger.LogInformation("Lifecycle: Application window destroying; resources released.");
         };
         return window;
+    }
+
+    private async Task InitializeDatabaseSafeAsync()
+    {
+        try
+        {
+            await database.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Database initialization failed during application startup");
+            services.GetService<ICrashReportingService>()?.CaptureException(ex, "App.InitializeDatabase");
+        }
     }
 }

@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.ViewModels;
 
 namespace PizzaTake.Views;
@@ -6,11 +7,13 @@ namespace PizzaTake.Views;
 public partial class FavoritesPage : ContentPage
 {
     private readonly FavoritesViewModel viewModel;
+    private readonly ILogger<FavoritesPage> logger;
 
-    public FavoritesPage(FavoritesViewModel viewModel)
+    public FavoritesPage(FavoritesViewModel viewModel, ILogger<FavoritesPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.logger = logger ?? NullLogger<FavoritesPage>.Instance;
         BindingContext = viewModel;
     }
 
@@ -22,7 +25,7 @@ public partial class FavoritesPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        Debug.WriteLine("Leaving page: FavoritesPage");
+        logger.LogDebug("Leaving page {PageName}", nameof(FavoritesPage));
         base.OnDisappearing();
     }
 }

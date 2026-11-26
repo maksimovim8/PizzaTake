@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Models;
 using PizzaTake.Repositories;
 using PizzaTake.Services;
@@ -18,7 +19,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     private readonly IAuthService authService;
     private readonly ISessionService sessionService;
     private readonly ISyncService syncService;
-    private readonly ILogger<OrderDetailViewModel>? logger;
+    private readonly ILogger<OrderDetailViewModel> logger;
 
     private Order? currentOrder;
 
@@ -35,7 +36,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         this.authService = authService;
         this.sessionService = sessionService;
         this.syncService = syncService;
-        this.logger = logger;
+        this.logger = logger ?? NullLogger<OrderDetailViewModel>.Instance;
         Title = "Деталі замовлення";
 
         this.sessionService.SessionChanged += (_, _) =>
@@ -91,6 +92,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         var order = await orderRepository.GetByIdAsync(orderId);
         if (order is not null)
             await LoadOrderAsync(order);
+        else
+            logger.LogWarning("Order with id {OrderId} was not found", orderId);
     }
 
     private async Task LoadOrderAsync(Order order)
@@ -110,6 +113,12 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
             Items.Clear();
             foreach (var item in items)
                 Items.Add(item);
+
+            logger.LogInformation("Loaded order details for {OrderNumber} ({ItemCount} item(s))", order.OrderNumber, Items.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load items for order {OrderId}", order.Id);
         }
         finally
         {
@@ -122,7 +131,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     {
         if (!sessionService.IsInRole(UserRole.Administrator))
         {
-            logger?.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(AdvanceOrderStatusCommand));
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(AdvanceOrderStatusCommand));
             await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
             return;
         }
@@ -152,12 +161,12 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
                 UpdatedAt = DateTime.UtcNow
             });
 
-            logger?.LogInformation("Administrator advanced order {OrderNumber} status to {Status}.",
+            logger.LogInformation("Administrator advanced order {OrderNumber} status to {Status}.",
                 CurrentOrder.OrderNumber, nextStatus.Value);
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Failed to update order status for OrderId={OrderId}.", CurrentOrder.Id);
+            logger.LogError(ex, "Failed to update order status for OrderId={OrderId}.", CurrentOrder.Id);
             await Shell.Current.DisplayAlertAsync("Помилка", "Не вдалося оновити статус замовлення.", "OK");
         }
         finally
@@ -170,7 +179,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     {
         if (!sessionService.IsInRole(UserRole.Administrator))
         {
-            logger?.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(DeleteOrderCommand));
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(DeleteOrderCommand));
             await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
             return;
         }
@@ -201,12 +210,12 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
                 UpdatedAt = DateTime.UtcNow
             });
 
-            logger?.LogInformation("Administrator deleted order {OrderNumber} (Id={OrderId}).", deletedNumber, deletedId);
+            logger.LogInformation("Administrator deleted order {OrderNumber} (Id={OrderId}).", deletedNumber, deletedId);
             await Shell.Current.GoToAsync("..");
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Failed to delete order Id={OrderId}.", CurrentOrder.Id);
+            logger.LogError(ex, "Failed to delete order Id={OrderId}.", CurrentOrder.Id);
             await Shell.Current.DisplayAlertAsync("Помилка", "Не вдалося видалити замовлення.", "OK");
         }
         finally
@@ -223,11 +232,12 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         try
         {
             await AddOrderItemToCartAsync(item);
+            logger.LogInformation("Repeated single order item {ProductName} into cart", item.ProductName);
             await Shell.Current.DisplayAlertAsync("Кошик", $"Додано «{item.ProductName}» до кошика.", "OK");
         }
         catch (Exception exception)
         {
-            logger?.LogError(exception, "Could not repeat order item {ProductName}.", item.ProductName);
+            logger.LogError(exception, "Could not repeat order item {ProductName}", item.ProductName);
             await Shell.Current.DisplayAlertAsync("Не вдалося додати товар", "Спробуйте ще раз.", "OK");
         }
     }
@@ -244,6 +254,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
             foreach (var item in Items.ToList())
                 await AddOrderItemToCartAsync(item);
 
+            logger.LogInformation("Repeated full order {OrderNumber} ({ItemCount} item(s))", CurrentOrder?.OrderNumber, Items.Count);
+
             // Clear the detail route, then select Cart and clear any stale checkout route there.
             await Shell.Current.Navigation.PopToRootAsync(false);
             await Shell.Current.GoToAsync("///cart");
@@ -251,7 +263,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         }
         catch (Exception exception)
         {
-            logger?.LogError(exception, "Could not repeat full order.");
+            logger.LogError(exception, "Could not repeat full order {OrderNumber}", CurrentOrder?.OrderNumber);
             await Shell.Current.DisplayAlertAsync("Не вдалося повторити замовлення", "Спробуйте ще раз.", "OK");
         }
         finally

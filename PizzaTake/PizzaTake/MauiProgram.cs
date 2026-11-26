@@ -3,21 +3,45 @@ using PizzaTake.Repositories;
 using PizzaTake.Services;
 using PizzaTake.ViewModels;
 using PizzaTake.Views;
+using Sentry;
+using Serilog;
+using Serilog.Events;
 
 namespace PizzaTake
 {
     public static class MauiProgram
     {
+        private const string LogOutputTemplate =
+            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}";
+
         public static MauiApp CreateMauiApp()
         {
+            ConfigureSerilog();
+            GlobalExceptionHandler.Register();
+
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseSentry(options =>
+                {
+                    options.Dsn = ResolveSentryDsn();
+                    options.SendDefaultPii = false;
+                    options.TracesSampleRate = 1.0;
+#if DEBUG
+                    options.Debug = true;
+                    options.Environment = "development";
+#else
+                    options.Environment = "production";
+#endif
+                })
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+
+            builder.Logging.ClearProviders();
+            builder.Logging.AddSerilog(Log.Logger, dispose: false);
 
             SQLitePCL.Batteries_V2.Init();
             builder.Services.AddSingleton(sp => new SqliteDatabase(sp.GetService<ILogger<SqliteDatabase>>()));
@@ -39,6 +63,8 @@ namespace PizzaTake
             builder.Services.AddSingleton<ISyncService, SyncService>();
             builder.Services.AddSingleton<IAuthService, AuthService>();
             builder.Services.AddSingleton<IUserDataResetService, UserDataResetService>();
+            builder.Services.AddSingleton<ICrashReportingService, SentryCrashReportingService>();
+            builder.Services.AddSingleton<ILogReaderService, SerilogLogReaderService>();
             builder.Services.AddSingleton<AppShell>();
             builder.Services.AddTransient<WelcomePage>();
             builder.Services.AddTransient<CitySelectionPage>();
@@ -54,6 +80,7 @@ namespace PizzaTake
             builder.Services.AddTransient<SettingsPage>();
             builder.Services.AddTransient<AddressEditPage>();
             builder.Services.AddTransient<AdminProductEditPage>();
+            builder.Services.AddTransient<LogsPage>();
             builder.Services.AddTransient<WelcomeViewModel>();
             builder.Services.AddTransient<CitySelectionViewModel>();
             builder.Services.AddTransient<PizzeriaSelectionViewModel>();
@@ -68,12 +95,52 @@ namespace PizzaTake
             builder.Services.AddTransient<SettingsViewModel>();
             builder.Services.AddTransient<AddressEditViewModel>();
             builder.Services.AddTransient<AdminProductEditViewModel>();
+            builder.Services.AddTransient<LogsViewModel>();
 
-#if DEBUG
-    		builder.Logging.AddDebug();
-#endif
-
+            Log.Information("PizzaTake MauiApp configured successfully");
             return builder.Build();
+        }
+
+        private static void ConfigureSerilog()
+        {
+            var logsDirectory = Path.Combine(FileSystem.AppDataDirectory, "logs");
+            Directory.CreateDirectory(logsDirectory);
+            var logFilePath = Path.Combine(logsDirectory, "app-.log");
+
+            var loggerConfiguration = new LoggerConfiguration()
+#if DEBUG
+                .MinimumLevel.Debug()
+#else
+                .MinimumLevel.Information()
+#endif
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .Enrich.FromLogContext()
+                .WriteTo.Debug(outputTemplate: LogOutputTemplate)
+                .WriteTo.File(
+                    path: logFilePath,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7,
+                    shared: true,
+                    outputTemplate: LogOutputTemplate);
+
+            Log.Logger = loggerConfiguration.CreateLogger();
+        }
+
+        private static string ResolveSentryDsn()
+        {
+            var envDsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
+            if (!string.IsNullOrWhiteSpace(envDsn))
+                return envDsn.Trim();
+
+            var assemblyDsn = typeof(MauiProgram).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), inherit: false)
+                .OfType<System.Reflection.AssemblyMetadataAttribute>()
+                .FirstOrDefault(attr => string.Equals(attr.Key, "SentryDsn", StringComparison.Ordinal))
+                ?.Value;
+            if (!string.IsNullOrWhiteSpace(assemblyDsn))
+                return assemblyDsn.Trim();
+
+            return Preferences.Default.Get("diagnostics.sentry_dsn", string.Empty).Trim();
         }
     }
 }
