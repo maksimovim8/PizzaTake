@@ -16,6 +16,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
     private readonly IProductRepository productRepository;
     private readonly ISessionService sessionService;
     private readonly ISyncService syncService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<AdminProductEditViewModel>? logger;
 
     private Product? editingProduct;
@@ -29,30 +30,55 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
     private string caloriesInput = "240";
     private bool isNew;
     private string errorMessage = string.Empty;
+    private string? reportableErrorContext;
 
     public AdminProductEditViewModel(
         IProductRepository productRepository,
         ISessionService sessionService,
         ISyncService syncService,
+        IBugReportService? bugReportService = null,
         ILogger<AdminProductEditViewModel>? logger = null)
     {
         this.productRepository = productRepository;
         this.sessionService = sessionService;
         this.syncService = syncService;
+        this.bugReportService = bugReportService;
         this.logger = logger;
         Title = "Нова піца";
 
         SaveProductCommand = new Command(async () => await SaveProductAsync(), CanSaveProduct);
         DeleteProductCommand = new Command(async () => await DeleteProductAsync(), () => IsEditMode && !IsBusy);
+        ReportErrorCommand = new Command(async () => await ReportErrorAsync(), () => CanReportError);
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
-
-        this.sessionService.SessionChanged += (_, _) => OnPropertyChanged(nameof(IsAdmin));
     }
 
     public string[] AvailableCategories { get; } = ["Новинки", "WOW піци", "Standard"];
 
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
     public bool IsEditMode => editingProduct is not null && editingProduct.Id > 0;
+    public bool CanDeleteProduct => IsAdmin && IsEditMode;
+
+    public void StartSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+        sessionService.SessionChanged += OnSessionChanged;
+        OnPropertyChanged(nameof(IsAdmin));
+        OnPropertyChanged(nameof(CanDeleteProduct));
+    }
+
+    public void StopSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            OnPropertyChanged(nameof(IsAdmin));
+            OnPropertyChanged(nameof(CanDeleteProduct));
+        });
+    }
 
     public string Name
     {
@@ -140,14 +166,20 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
         private set
         {
             if (SetProperty(ref errorMessage, value))
+            {
+                if (string.IsNullOrEmpty(value))
+                    SetReportableErrorContext(null);
                 OnPropertyChanged(nameof(HasError));
+            }
         }
     }
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    public bool CanReportError => HasError && !string.IsNullOrEmpty(reportableErrorContext) && bugReportService is not null;
 
     public ICommand SaveProductCommand { get; }
     public ICommand DeleteProductCommand { get; }
+    public ICommand ReportErrorCommand { get; }
     public ICommand GoBackCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -183,6 +215,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
 
         OnPropertyChanged(nameof(IsEditMode));
         OnPropertyChanged(nameof(IsAdmin));
+        OnPropertyChanged(nameof(CanDeleteProduct));
         RefreshCommandStates();
     }
 
@@ -276,6 +309,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
         {
             logger?.LogError(ex, "Failed to save product {ProductName}.", Name);
             ErrorMessage = "Не вдалося зберегти товар. Спробуйте ще раз.";
+            SetReportableErrorContext("AdminProductEdit: SaveProductAsync");
         }
         finally
         {
@@ -327,12 +361,28 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryAttributabl
         {
             logger?.LogError(ex, "Failed to delete product Id={ProductId}.", editingProduct.Id);
             ErrorMessage = "Не вдалося видалити товар. Спробуйте ще раз.";
+            SetReportableErrorContext("AdminProductEdit: DeleteProductAsync");
         }
         finally
         {
             IsBusy = false;
             RefreshCommandStates();
         }
+    }
+
+    private void SetReportableErrorContext(string? context)
+    {
+        reportableErrorContext = context;
+        OnPropertyChanged(nameof(CanReportError));
+        ((Command)ReportErrorCommand).ChangeCanExecute();
+    }
+
+    private async Task ReportErrorAsync()
+    {
+        if (bugReportService is null)
+            return;
+
+        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Редагування піци");
     }
 
     private static bool TryParseDecimal(string? raw, out decimal result)

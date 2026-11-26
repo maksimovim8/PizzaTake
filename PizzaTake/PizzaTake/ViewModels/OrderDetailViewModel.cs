@@ -19,6 +19,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
     private readonly IAuthService authService;
     private readonly ISessionService sessionService;
     private readonly ISyncService syncService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<OrderDetailViewModel> logger;
 
     private Order? currentOrder;
@@ -29,6 +30,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         IAuthService authService,
         ISessionService sessionService,
         ISyncService syncService,
+        IBugReportService? bugReportService = null,
         ILogger<OrderDetailViewModel>? logger = null)
     {
         this.orderRepository = orderRepository;
@@ -36,21 +38,37 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         this.authService = authService;
         this.sessionService = sessionService;
         this.syncService = syncService;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<OrderDetailViewModel>.Instance;
         Title = "Деталі замовлення";
-
-        this.sessionService.SessionChanged += (_, _) =>
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                OnPropertyChanged(nameof(IsAdmin));
-                OnPropertyChanged(nameof(CanShowAdminPanel));
-            });
 
         RepeatSingleItemCommand = new Command<OrderItem?>(async item => await RepeatSingleItemAsync(item));
         RepeatFullOrderCommand = new Command(async () => await RepeatFullOrderAsync(), () => Items.Count > 0 && !IsBusy);
         AdvanceOrderStatusCommand = new Command(async () => await AdvanceOrderStatusAsync());
         DeleteOrderCommand = new Command(async () => await DeleteOrderAsync());
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
+    }
+
+    public void StartSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+        sessionService.SessionChanged += OnSessionChanged;
+        OnPropertyChanged(nameof(IsAdmin));
+        OnPropertyChanged(nameof(CanShowAdminPanel));
+    }
+
+    public void StopSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            OnPropertyChanged(nameof(IsAdmin));
+            OnPropertyChanged(nameof(CanShowAdminPanel));
+        });
     }
 
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
@@ -89,11 +107,31 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
 
     private async Task LoadOrderByIdAsync(int orderId)
     {
-        var order = await orderRepository.GetByIdAsync(orderId);
-        if (order is not null)
-            await LoadOrderAsync(order);
-        else
-            logger.LogWarning("Order with id {OrderId} was not found", orderId);
+        try
+        {
+            var order = await orderRepository.GetByIdAsync(orderId);
+            if (order is not null)
+            {
+                await LoadOrderAsync(order);
+            }
+            else
+            {
+                logger.LogWarning("Order with id {OrderId} was not found", orderId);
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (Shell.Current is not null)
+                    {
+                        await Shell.Current.DisplayAlertAsync("Замовлення не знайдено", "Запитане замовлення не знайдено в історії.", "OK");
+                        await Shell.Current.GoToAsync("..");
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load order {OrderId}", orderId);
+            await ShowOperationalErrorAsync("Помилка", "Не вдалося завантажити замовлення.", "OrderDetail: LoadOrderByIdAsync");
+        }
     }
 
     private async Task LoadOrderAsync(Order order)
@@ -167,7 +205,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update order status for OrderId={OrderId}.", CurrentOrder.Id);
-            await Shell.Current.DisplayAlertAsync("Помилка", "Не вдалося оновити статус замовлення.", "OK");
+            await ShowOperationalErrorAsync("Помилка", "Не вдалося оновити статус замовлення.", "OrderDetail: AdvanceOrderStatusAsync");
         }
         finally
         {
@@ -216,7 +254,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to delete order Id={OrderId}.", CurrentOrder.Id);
-            await Shell.Current.DisplayAlertAsync("Помилка", "Не вдалося видалити замовлення.", "OK");
+            await ShowOperationalErrorAsync("Помилка", "Не вдалося видалити замовлення.", "OrderDetail: DeleteOrderAsync");
         }
         finally
         {
@@ -238,7 +276,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         catch (Exception exception)
         {
             logger.LogError(exception, "Could not repeat order item {ProductName}", item.ProductName);
-            await Shell.Current.DisplayAlertAsync("Не вдалося додати товар", "Спробуйте ще раз.", "OK");
+            await ShowOperationalErrorAsync("Не вдалося додати товар", "Спробуйте ще раз.", "OrderDetail: RepeatSingleItemAsync");
         }
     }
 
@@ -264,13 +302,23 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryAttributable
         catch (Exception exception)
         {
             logger.LogError(exception, "Could not repeat full order {OrderNumber}", CurrentOrder?.OrderNumber);
-            await Shell.Current.DisplayAlertAsync("Не вдалося повторити замовлення", "Спробуйте ще раз.", "OK");
+            await ShowOperationalErrorAsync("Не вдалося повторити замовлення", "Спробуйте ще раз.", "OrderDetail: RepeatFullOrderAsync");
         }
         finally
         {
             IsBusy = false;
             ((Command)RepeatFullOrderCommand).ChangeCanExecute();
         }
+    }
+
+    private Task ShowOperationalErrorAsync(string title, string message, string context)
+    {
+        if (bugReportService is not null)
+            return bugReportService.ShowErrorWithReportOptionAsync(title, message, context);
+
+        return Shell.Current is not null
+            ? Shell.Current.DisplayAlertAsync(title, message, "OK")
+            : Task.CompletedTask;
     }
 
     private Task AddOrderItemToCartAsync(OrderItem item)

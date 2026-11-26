@@ -239,6 +239,21 @@
                    HorizontalTextAlignment="Center"
                    TextColor="#DC2626" />
 
+            <Button Text="Повідомити про помилку"
+                    AutomationId="CheckoutReportErrorButton"
+                    Command="{Binding ReportErrorCommand}"
+                    IsVisible="{Binding CanReportError}"
+                    HorizontalOptions="Center"
+                    BackgroundColor="Transparent"
+                    BorderColor="#DC2626"
+                    BorderWidth="1"
+                    TextColor="#DC2626"
+                    FontSize="12"
+                    FontAttributes="Bold"
+                    CornerRadius="14"
+                    HeightRequest="34"
+                    Padding="14,0" />
+
             <Grid ColumnDefinitions="*,Auto">
                 <Label Text="До сплати"
                        FontSize="18"

@@ -65,6 +65,7 @@ namespace PizzaTake
             builder.Services.AddSingleton<IUserDataResetService, UserDataResetService>();
             builder.Services.AddSingleton<ICrashReportingService, SentryCrashReportingService>();
             builder.Services.AddSingleton<ILogReaderService, SerilogLogReaderService>();
+            builder.Services.AddSingleton<IBugReportService, BugReportService>();
             builder.Services.AddSingleton<AppShell>();
             builder.Services.AddTransient<WelcomePage>();
             builder.Services.AddTransient<CitySelectionPage>();

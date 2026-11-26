@@ -18,6 +18,7 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly IAppStateService appState;
     private readonly IAuthService authService;
     private readonly ISessionService sessionService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<MenuViewModel> logger;
     private string searchText = string.Empty;
     private string? selectedCategory;
@@ -79,6 +80,7 @@ public sealed class MenuViewModel : BaseViewModel
         IAppStateService appState,
         IAuthService authService,
         ISessionService sessionService,
+        IBugReportService? bugReportService = null,
         ILogger<MenuViewModel>? logger = null)
     {
         this.products = products;
@@ -87,6 +89,7 @@ public sealed class MenuViewModel : BaseViewModel
         this.appState = appState;
         this.authService = authService;
         this.sessionService = sessionService;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<MenuViewModel>.Instance;
 
         this.sessionService.SessionChanged += (_, _) =>
@@ -176,8 +179,16 @@ public sealed class MenuViewModel : BaseViewModel
 
     private async Task ApplyFilterAsync()
     {
-        var all = await products.GetAllAsync();
-        await ShowProductsAsync(Filter(all));
+        try
+        {
+            var all = await products.GetAllAsync();
+            await ShowProductsAsync(Filter(all));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to filter menu products");
+            StatusMessage = "Не вдалося відфільтрувати меню.";
+        }
     }
 
     private IEnumerable<Product> Filter(IEnumerable<Product> all)
@@ -221,14 +232,26 @@ public sealed class MenuViewModel : BaseViewModel
     private async Task QuickAddAsync(Product? product)
     {
         if (product is null) return;
-        await cart.SaveAsync(new CartItem
+        try
         {
-            ProductId = product.Id,
-            ProductName = product.Name,
-            Quantity = 1,
-            UnitPrice = product.GetEffectivePrice()
-        });
-        logger.LogInformation("Quick-added product {ProductName} (Id={ProductId}) to cart", product.Name, product.Id);
-        StatusMessage = $"{product.Name} додано до кошика.";
+            await cart.SaveAsync(new CartItem
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Quantity = 1,
+                UnitPrice = product.GetEffectivePrice()
+            });
+            logger.LogInformation("Quick-added product {ProductName} (Id={ProductId}) to cart", product.Name, product.Id);
+            StatusMessage = $"{product.Name} додано до кошика.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to quick-add product {ProductName} (Id={ProductId}) to cart", product.Name, product.Id);
+            if (bugReportService is not null)
+                await bugReportService.ShowErrorWithReportOptionAsync(
+                    "Помилка додавання",
+                    "Не вдалося додати піцу до кошика. Спробуйте ще раз.",
+                    "Menu: QuickAddAsync");
+        }
     }
 }

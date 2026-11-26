@@ -92,6 +92,21 @@
                                IsVisible="{Binding HasError}"
                                FontSize="13"
                                TextColor="#DC2626" />
+
+                        <Button Text="Повідомити про помилку"
+                                AutomationId="AddressEditReportErrorButton"
+                                Command="{Binding ReportErrorCommand}"
+                                IsVisible="{Binding CanReportError}"
+                                HorizontalOptions="Start"
+                                BackgroundColor="Transparent"
+                                BorderColor="#DC2626"
+                                BorderWidth="1"
+                                TextColor="#DC2626"
+                                FontSize="12"
+                                FontAttributes="Bold"
+                                CornerRadius="14"
+                                HeightRequest="34"
+                                Padding="14,0" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

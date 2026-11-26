@@ -68,7 +68,11 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("adminproductedit", typeof(AdminProductEditPage));
         Routing.RegisterRoute("logs", typeof(LogsPage));
 
-        this.appState.StateChanged += (_, _) => MainThread.BeginInvokeOnMainThread(UpdateTabAvailability);
+        this.appState.StateChanged += (_, _) =>
+        {
+            MainThread.BeginInvokeOnMainThread(UpdateTabAvailability);
+            _ = RefreshCartBadgeAsync();
+        };
         this.cartRepository.CartChanged += (_, _) => _ = RefreshCartBadgeAsync();
         Loaded += async (_, _) => await TryNavigatePendingDeepLinkAsync();
         UpdateTabAvailability();

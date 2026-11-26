@@ -16,6 +16,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     private readonly IFavoriteRepository favorites;
     private readonly ILogger<PizzaDetailViewModel> logger;
     private readonly ICrashReportingService? crashReporting;
+    private readonly IBugReportService? bugReportService;
     private Product? product;
     private decimal calculatedPrice;
     private bool isKbjuVisible;
@@ -66,13 +67,15 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
         ICartRepository cart,
         IFavoriteRepository favorites,
         ILogger<PizzaDetailViewModel>? logger = null,
-        ICrashReportingService? crashReporting = null)
+        ICrashReportingService? crashReporting = null,
+        IBugReportService? bugReportService = null)
     {
         this.products = products;
         this.cart = cart;
         this.favorites = favorites;
         this.logger = logger ?? NullLogger<PizzaDetailViewModel>.Instance;
         this.crashReporting = crashReporting;
+        this.bugReportService = bugReportService;
         LoadCommand = new Command(async () => await LoadAsync());
         ToggleOptionCommand = new Command<IngredientOption>(ToggleOption);
         ToggleKbjuCommand = new Command(() => IsKbjuVisible = !IsKbjuVisible);
@@ -156,8 +159,20 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     private async Task ToggleFavoriteAsync()
     {
         if (Product is null) return;
-        await favorites.ToggleFavoriteAsync(Product.Id);
-        IsFavorite = !IsFavorite;
+        try
+        {
+            await favorites.ToggleFavoriteAsync(Product.Id);
+            IsFavorite = !IsFavorite;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to toggle favorite for product Id={ProductId}", Product.Id);
+            if (bugReportService is not null)
+                await bugReportService.ShowErrorWithReportOptionAsync(
+                    "Помилка",
+                    "Не вдалося оновити обране. Спробуйте ще раз.",
+                    "PizzaDetail: ToggleFavoriteAsync");
+        }
     }
 
     private async Task LoadOptionsAsync()
@@ -201,16 +216,28 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryAttributable
     private async Task AddToCartAsync()
     {
         if (Product is null) return;
-        var selected = AddOns.Concat(Exclusions).Concat(Replacements).Where(option => selectedOptionIds.Contains(option.Id)).ToList();
-        await cart.SaveAsync(new CartItem
+        try
         {
-            ProductId = Product.Id,
-            ProductName = Product.Name,
-            Quantity = 1,
-            UnitPrice = CalculatedPrice,
-            OptionsSummary = string.Join(", ", selected.Select(option => option.Name))
-        });
-        logger.LogInformation("Added configured product {ProductName} (Price={Price}) to cart", Product.Name, CalculatedPrice);
-        await Shell.Current.GoToAsync("..");
+            var selected = AddOns.Concat(Exclusions).Concat(Replacements).Where(option => selectedOptionIds.Contains(option.Id)).ToList();
+            await cart.SaveAsync(new CartItem
+            {
+                ProductId = Product.Id,
+                ProductName = Product.Name,
+                Quantity = 1,
+                UnitPrice = CalculatedPrice,
+                OptionsSummary = string.Join(", ", selected.Select(option => option.Name))
+            });
+            logger.LogInformation("Added configured product {ProductName} (Price={Price}) to cart", Product.Name, CalculatedPrice);
+            await Shell.Current.GoToAsync("..");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to add product {ProductName} to cart", Product.Name);
+            if (bugReportService is not null)
+                await bugReportService.ShowErrorWithReportOptionAsync(
+                    "Помилка кошика",
+                    "Не вдалося додати піцу до кошика. Спробуйте ще раз.",
+                    "PizzaDetail: AddToCartAsync");
+        }
     }
 }

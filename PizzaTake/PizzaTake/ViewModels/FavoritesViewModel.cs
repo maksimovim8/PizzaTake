@@ -15,6 +15,7 @@ public sealed class FavoritesViewModel : BaseViewModel
 {
     private readonly IFavoriteRepository favorites;
     private readonly ICartRepository cart;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<FavoritesViewModel> logger;
     private string statusMessage = string.Empty;
 
@@ -37,30 +38,56 @@ public sealed class FavoritesViewModel : BaseViewModel
     public FavoritesViewModel(
         IFavoriteRepository favorites,
         ICartRepository cart,
+        IBugReportService? bugReportService = null,
         ILogger<FavoritesViewModel>? logger = null)
     {
         this.favorites = favorites;
         this.cart = cart;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<FavoritesViewModel>.Instance;
         LoadCommand = new Command(async () => await LoadAsync());
         ToggleFavoriteCommand = new Command<Product>(async product =>
         {
             if (product is null) return;
-            await favorites.ToggleFavoriteAsync(product.Id);
-            await LoadAsync();
+            try
+            {
+                await favorites.ToggleFavoriteAsync(product.Id);
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to toggle favorite for product Id={ProductId}", product.Id);
+                if (this.bugReportService is not null)
+                    await this.bugReportService.ShowErrorWithReportOptionAsync(
+                        "Помилка",
+                        "Не вдалося оновити список обраного.",
+                        "Favorites: ToggleFavoriteCommand");
+            }
         });
         AddToCartCommand = new Command<Product>(async product =>
         {
             if (product is null) return;
-            await cart.SaveAsync(new CartItem
+            try
             {
-                ProductId = product.Id,
-                ProductName = product.Name,
-                Quantity = 1,
-                UnitPrice = product.GetEffectivePrice()
-            });
-            StatusMessage = $"{product.Name} додано до кошика.";
-            this.logger.LogInformation("Added favorite product {ProductName} to cart", product.Name);
+                await cart.SaveAsync(new CartItem
+                {
+                    ProductId = product.Id,
+                    ProductName = product.Name,
+                    Quantity = 1,
+                    UnitPrice = product.GetEffectivePrice()
+                });
+                StatusMessage = $"{product.Name} додано до кошика.";
+                this.logger.LogInformation("Added favorite product {ProductName} to cart", product.Name);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to add favorite product {ProductName} to cart", product.Name);
+                if (this.bugReportService is not null)
+                    await this.bugReportService.ShowErrorWithReportOptionAsync(
+                        "Помилка",
+                        "Не вдалося додати товар до кошика.",
+                        "Favorites: AddToCartCommand");
+            }
         });
         OpenProductCommand = new Command<Product>(async product =>
         {

@@ -23,6 +23,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     private readonly IUserProfileRepository userProfileRepository;
     private readonly IAppStateService appState;
     private readonly ISyncService syncService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<AddressEditViewModel> logger;
 
     private UserAddress? editingAddress;
@@ -30,6 +31,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
     private string addressText = string.Empty;
     private string notes = string.Empty;
     private string errorMessage = string.Empty;
+    private string? reportableErrorContext;
     private bool isEditMode;
     private bool suppressDraftSync;
     private bool isDraftCleared;
@@ -39,17 +41,20 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         IUserProfileRepository userProfileRepository,
         IAppStateService appState,
         ISyncService syncService,
+        IBugReportService? bugReportService = null,
         ILogger<AddressEditViewModel>? logger = null)
     {
         this.addressRepository = addressRepository;
         this.userProfileRepository = userProfileRepository;
         this.appState = appState;
         this.syncService = syncService;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<AddressEditViewModel>.Instance;
         Title = "Нова адреса";
 
         SaveCommand = new Command(async () => await SaveAsync(), CanSave);
         DeleteCommand = new Command(async () => await DeleteAsync(), CanDelete);
+        ReportErrorCommand = new Command(async () => await ReportErrorAsync(), () => CanReportError);
         GoBackCommand = new Command(async () => await GoBackAsync());
     }
 
@@ -112,14 +117,20 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         private set
         {
             if (SetProperty(ref errorMessage, value))
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    SetReportableErrorContext(null);
                 OnPropertyChanged(nameof(HasError));
+            }
         }
     }
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool CanReportError => HasError && !string.IsNullOrEmpty(reportableErrorContext) && bugReportService is not null;
 
     public ICommand SaveCommand { get; }
     public ICommand DeleteCommand { get; }
+    public ICommand ReportErrorCommand { get; }
     public ICommand GoBackCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -269,6 +280,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         {
             logger.LogError(ex, "Failed to save user address");
             ErrorMessage = "Не вдалося зберегти адресу. Спробуйте ще раз.";
+            SetReportableErrorContext("AddressEdit: SaveAsync");
         }
         finally
         {
@@ -305,12 +317,28 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryAttributable
         {
             logger.LogError(ex, "Failed to delete user address {AddressId}", editingAddress.Id);
             ErrorMessage = "Не вдалося видалити адресу. Спробуйте ще раз.";
+            SetReportableErrorContext("AddressEdit: DeleteAsync");
         }
         finally
         {
             IsBusy = false;
             RefreshCommandStates();
         }
+    }
+
+    private void SetReportableErrorContext(string? context)
+    {
+        reportableErrorContext = context;
+        OnPropertyChanged(nameof(CanReportError));
+        ((Command)ReportErrorCommand).ChangeCanExecute();
+    }
+
+    private async Task ReportErrorAsync()
+    {
+        if (bugReportService is null)
+            return;
+
+        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Редагування адреси");
     }
 
     private void RefreshCommandStates()

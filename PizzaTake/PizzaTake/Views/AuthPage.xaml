@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             xmlns:behaviors="clr-namespace:PizzaTake.Behaviors"
              x:Class="PizzaTake.Views.AuthPage"
              x:DataType="vm:AuthViewModel"
              Title="{Binding Title}"
@@ -44,25 +45,52 @@
                            HorizontalTextAlignment="Center"
                            TextColor="#E7DCD2" />
 
-                    <Border StrokeShape="RoundRectangle 14"
-                            Stroke="#7C5D47"
-                            BackgroundColor="#3B2616"
-                            Padding="14,6">
-                        <Entry Text="{Binding PhoneInput, Mode=TwoWay}"
-                               Placeholder="+380 00 000 00 00"
-                               PlaceholderColor="#A89080"
-                               TextColor="#FFFFFF"
-                               Keyboard="Telephone"
-                               FontSize="20"
-                               FontAttributes="Bold"
-                               HorizontalTextAlignment="Center" />
-                    </Border>
+                    <VerticalStackLayout Spacing="6">
+                        <Border StrokeShape="RoundRectangle 14"
+                                Stroke="#7C5D47"
+                                BackgroundColor="#3B2616"
+                                Padding="14,6">
+                            <Entry Text="{Binding PhoneInput, Mode=TwoWay}"
+                                   AutomationId="AuthPhoneEntry"
+                                   Placeholder="+380000000000"
+                                   PlaceholderColor="#A89080"
+                                   TextColor="#FFFFFF"
+                                   Keyboard="Telephone"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center">
+                                <Entry.Behaviors>
+                                    <behaviors:PhoneInputBehavior />
+                                </Entry.Behaviors>
+                            </Entry>
+                        </Border>
+
+                        <Label Text="Формат: +380XXXXXXXXX (рівно 9 цифр після +380)"
+                               FontSize="12"
+                               HorizontalTextAlignment="Center"
+                               TextColor="#C7B6A8" />
+                    </VerticalStackLayout>
 
                     <Label Text="{Binding ErrorMessage}"
                            IsVisible="{Binding HasMainError}"
                            TextColor="#FCA5A5"
                            FontSize="13"
                            HorizontalTextAlignment="Center" />
+
+                    <Button Text="Повідомити про помилку"
+                            AutomationId="AuthReportErrorButton"
+                            Command="{Binding ReportErrorCommand}"
+                            IsVisible="{Binding CanReportMainError}"
+                            HorizontalOptions="Center"
+                            BackgroundColor="Transparent"
+                            BorderColor="#FCA5A5"
+                            BorderWidth="1"
+                            TextColor="#FCA5A5"
+                            FontSize="12"
+                            FontAttributes="Bold"
+                            CornerRadius="14"
+                            HeightRequest="34"
+                            Padding="14,0" />
 
                     <Button Text="Увійти за біометрією"
                             Command="{Binding BiometricLoginCommand}"
@@ -147,6 +175,21 @@
                            TextColor="#DC2626"
                            FontSize="13"
                            HorizontalTextAlignment="Center" />
+
+                    <Button Text="Повідомити про помилку"
+                            AutomationId="AuthSmsReportErrorButton"
+                            Command="{Binding ReportErrorCommand}"
+                            IsVisible="{Binding CanReportError}"
+                            HorizontalOptions="Center"
+                            BackgroundColor="Transparent"
+                            BorderColor="#DC2626"
+                            BorderWidth="1"
+                            TextColor="#DC2626"
+                            FontSize="12"
+                            FontAttributes="Bold"
+                            CornerRadius="14"
+                            HeightRequest="34"
+                            Padding="14,0" />
 
                     <Button Text="Підтвердити код"
                             Command="{Binding VerifySmsCommand}"

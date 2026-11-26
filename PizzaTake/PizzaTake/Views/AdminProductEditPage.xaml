@@ -172,6 +172,21 @@
                            IsVisible="{Binding HasError}"
                            TextColor="#DC2626"
                            FontSize="13" />
+
+                    <Button Text="Повідомити про помилку"
+                            AutomationId="AdminProductReportErrorButton"
+                            Command="{Binding ReportErrorCommand}"
+                            IsVisible="{Binding CanReportError}"
+                            HorizontalOptions="Start"
+                            BackgroundColor="Transparent"
+                            BorderColor="#DC2626"
+                            BorderWidth="1"
+                            TextColor="#DC2626"
+                            FontSize="12"
+                            FontAttributes="Bold"
+                            CornerRadius="14"
+                            HeightRequest="34"
+                            Padding="14,0" />
                 </VerticalStackLayout>
             </Border>
 
@@ -187,7 +202,7 @@
 
             <Button Text="Видалити піцу"
                     Command="{Binding DeleteProductCommand}"
-                    IsVisible="{Binding IsEditMode}"
+                    IsVisible="{Binding CanDeleteProduct}"
                     BackgroundColor="Transparent"
                     BorderColor="#DC2626"
                     BorderWidth="1"

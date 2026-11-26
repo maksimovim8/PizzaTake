@@ -16,6 +16,8 @@ public sealed class LogsViewModel : BaseViewModel
 
     private readonly ILogReaderService logReaderService;
     private readonly ICrashReportingService crashReportingService;
+    private readonly ISessionService sessionService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<LogsViewModel> logger;
 
     private string selectedLevel = "Усі";
@@ -26,10 +28,14 @@ public sealed class LogsViewModel : BaseViewModel
     public LogsViewModel(
         ILogReaderService logReaderService,
         ICrashReportingService crashReportingService,
-        ILogger<LogsViewModel> logger)
+        ISessionService sessionService,
+        ILogger<LogsViewModel> logger,
+        IBugReportService? bugReportService = null)
     {
         this.logReaderService = logReaderService;
         this.crashReportingService = crashReportingService;
+        this.sessionService = sessionService;
+        this.bugReportService = bugReportService;
         this.logger = logger;
         Title = "Журнал логів";
 
@@ -43,7 +49,7 @@ public sealed class LogsViewModel : BaseViewModel
 
     public ObservableCollection<LogEntry> LogEntries { get; } = new();
 
-    public IReadOnlyList<string> LevelFilters { get; } =
+    public string[] LevelFilters { get; } =
     [
         "Усі",
         "Information",
@@ -109,6 +115,9 @@ public sealed class LogsViewModel : BaseViewModel
 
     public async Task LoadLogsAsync()
     {
+        if (!await EnsureAdminAccessAsync(nameof(LoadLogsCommand), navigateBackOnDeny: true))
+            return;
+
         if (IsBusy)
             return;
 
@@ -156,19 +165,32 @@ public sealed class LogsViewModel : BaseViewModel
         UpdateCommandStates();
         try
         {
-            var recentLines = await logReaderService.ReadRecentRawLinesAsync(BugReportLogLinesCount);
-            var sentToSentry = await crashReportingService.SendUserBugReportAsync(BugReportComment, recentLines);
-            BugReportComment = string.Empty;
-
-            if (sentToSentry)
+            if (bugReportService is not null)
             {
-                StatusMessage = $"Звіт про помилку надіслано в Sentry (додано {recentLines.Count} рядків логу).";
-                await Shell.Current.DisplayAlertAsync("Звіт надіслано", StatusMessage, "OK");
+                var result = await bugReportService.SendReportAsync(BugReportComment, "LogsPage");
+                BugReportComment = string.Empty;
+                StatusMessage = result.Message;
+                await Shell.Current.DisplayAlertAsync(
+                    result.SentToSentry ? "Звіт надіслано" : "Звіт збережено локально",
+                    StatusMessage,
+                    "OK");
             }
             else
             {
-                StatusMessage = $"Звіт зафіксовано у локальному журналі ({recentLines.Count} рядків). Налаштуйте SENTRY_DSN для надсилання у Sentry.";
-                await Shell.Current.DisplayAlertAsync("Звіт збережено локально", StatusMessage, "OK");
+                var recentLines = await logReaderService.ReadRecentRawLinesAsync(BugReportLogLinesCount);
+                var sentToSentry = await crashReportingService.SendUserBugReportAsync(BugReportComment, recentLines);
+                BugReportComment = string.Empty;
+
+                if (sentToSentry)
+                {
+                    StatusMessage = $"Звіт про помилку надіслано в Sentry (додано {recentLines.Count} рядків логу).";
+                    await Shell.Current.DisplayAlertAsync("Звіт надіслано", StatusMessage, "OK");
+                }
+                else
+                {
+                    StatusMessage = $"Звіт зафіксовано у локальному журналі ({recentLines.Count} рядків). Налаштуйте SENTRY_DSN для надсилання у Sentry.";
+                    await Shell.Current.DisplayAlertAsync("Звіт збережено локально", StatusMessage, "OK");
+                }
             }
         }
         catch (Exception ex)
@@ -187,6 +209,9 @@ public sealed class LogsViewModel : BaseViewModel
 
     private async Task TriggerUnobservedTaskExceptionAsync()
     {
+        if (!await EnsureAdminAccessAsync(nameof(TestTaskExceptionCommand), navigateBackOnDeny: false))
+            return;
+
         if (IsBusy)
             return;
 
@@ -225,6 +250,9 @@ public sealed class LogsViewModel : BaseViewModel
 
     private async Task TriggerTestCrashAsync()
     {
+        if (!await EnsureAdminAccessAsync(nameof(TestSentryCrashCommand), navigateBackOnDeny: false))
+            return;
+
         var confirmed = await Shell.Current.DisplayAlertAsync(
             "Тест крашу (Sentry)",
             "Це спричинить навмисне аварійне завершення застосунку для перевірки панелі Sentry Issues. Продовжити?",
@@ -235,6 +263,20 @@ public sealed class LogsViewModel : BaseViewModel
             return;
 
         crashReportingService.TriggerTestCrash();
+    }
+
+    private async Task<bool> EnsureAdminAccessAsync(string commandName, bool navigateBackOnDeny)
+    {
+        if (sessionService.IsInRole(UserRole.Administrator))
+            return true;
+
+        logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, commandName);
+        LogEntries.Clear();
+        OnPropertyChanged(nameof(IsEmpty));
+        await Shell.Current.DisplayAlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.", "OK");
+        if (navigateBackOnDeny && Shell.Current is not null)
+            await Shell.Current.GoToAsync("..");
+        return false;
     }
 
     private void UpdateCommandStates()

@@ -86,9 +86,17 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryAttributable
 
     private async Task SearchAsync()
     {
-        var results = await cities.SearchAsync(SearchText);
-        await ReplaceCitiesAsync(results);
-        StatusMessage = results.Count == 0 ? "Нічого не знайдено." : string.Empty;
+        try
+        {
+            var results = await cities.SearchAsync(SearchText);
+            await ReplaceCitiesAsync(results);
+            StatusMessage = results.Count == 0 ? "Нічого не знайдено." : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to search cities for query {SearchText}", SearchText);
+            StatusMessage = "Не вдалося виконати пошук міст.";
+        }
     }
 
     private Task ReplaceCitiesAsync(IEnumerable<City> values)

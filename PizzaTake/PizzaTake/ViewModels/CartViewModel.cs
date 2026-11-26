@@ -17,6 +17,7 @@ public sealed class CartViewModel : BaseViewModel
     private readonly IProductRepository productRepository;
     private readonly IAuthService authService;
     private readonly IAppStateService appState;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<CartViewModel> logger;
 
     private decimal subtotal;
@@ -28,12 +29,14 @@ public sealed class CartViewModel : BaseViewModel
         IProductRepository productRepository,
         IAuthService authService,
         IAppStateService appState,
+        IBugReportService? bugReportService = null,
         ILogger<CartViewModel>? logger = null)
     {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
         this.authService = authService;
         this.appState = appState;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<CartViewModel>.Instance;
         Title = "Кошик";
 
@@ -136,33 +139,41 @@ public sealed class CartViewModel : BaseViewModel
         if (item is null)
             return;
 
-        var nextQty = item.Quantity + delta;
-        if (nextQty <= 0)
+        try
         {
-            await RemoveItemAsync(item);
-            return;
+            var nextQty = item.Quantity + delta;
+            if (nextQty <= 0)
+            {
+                await RemoveItemAsync(item);
+                return;
+            }
+
+            var updatedItem = new CartItem
+            {
+                Id = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.ProductName,
+                Quantity = nextQty,
+                UnitPrice = item.UnitPrice,
+                OptionsSummary = item.OptionsSummary
+            };
+            await cartRepository.SaveAsync(updatedItem);
+
+            // RemoveAt/Insert with a new instance forces BindableLayout to rebind Quantity on POCO CartItem.
+            var index = Items.IndexOf(item);
+            if (index >= 0)
+            {
+                Items.RemoveAt(index);
+                Items.Insert(index, updatedItem);
+            }
+
+            RecalculateTotals();
         }
-
-        var updatedItem = new CartItem
+        catch (Exception ex)
         {
-            Id = item.Id,
-            ProductId = item.ProductId,
-            ProductName = item.ProductName,
-            Quantity = nextQty,
-            UnitPrice = item.UnitPrice,
-            OptionsSummary = item.OptionsSummary
-        };
-        await cartRepository.SaveAsync(updatedItem);
-
-        // RemoveAt/Insert with a new instance forces BindableLayout to rebind Quantity on POCO CartItem.
-        var index = Items.IndexOf(item);
-        if (index >= 0)
-        {
-            Items.RemoveAt(index);
-            Items.Insert(index, updatedItem);
+            logger.LogError(ex, "Failed to update quantity for cart item {ProductName}", item.ProductName);
+            await ShowCartErrorAsync("Не вдалося оновити кількість товару.", "Cart: UpdateQtyAsync");
         }
-
-        RecalculateTotals();
     }
 
     private async Task RemoveItemAsync(CartItem? item)
@@ -170,9 +181,17 @@ public sealed class CartViewModel : BaseViewModel
         if (item is null)
             return;
 
-        await cartRepository.DeleteAsync(item);
-        Items.Remove(item);
-        RecalculateTotals();
+        try
+        {
+            await cartRepository.DeleteAsync(item);
+            Items.Remove(item);
+            RecalculateTotals();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to remove cart item {ProductName}", item.ProductName);
+            await ShowCartErrorAsync("Не вдалося видалити товар із кошика.", "Cart: RemoveItemAsync");
+        }
     }
 
     private async Task ClearCartAsync()
@@ -180,9 +199,17 @@ public sealed class CartViewModel : BaseViewModel
         if (Items.Count == 0)
             return;
 
-        await cartRepository.ClearAsync();
-        Items.Clear();
-        RecalculateTotals();
+        try
+        {
+            await cartRepository.ClearAsync();
+            Items.Clear();
+            RecalculateTotals();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to clear shopping cart");
+            await ShowCartErrorAsync("Не вдалося очистити кошик.", "Cart: ClearCartAsync");
+        }
     }
 
     private async Task AddUpsellAsync(Product? product)
@@ -190,25 +217,43 @@ public sealed class CartViewModel : BaseViewModel
         if (product is null)
             return;
 
-        var existing = Items.FirstOrDefault(i => i.ProductId == product.Id && i.ProductName == product.Name);
-        if (existing is not null)
+        try
         {
-            await UpdateQtyAsync(existing, 1);
-            return;
+            var existing = Items.FirstOrDefault(i => i.ProductId == product.Id && i.ProductName == product.Name);
+            if (existing is not null)
+            {
+                await UpdateQtyAsync(existing, 1);
+                return;
+            }
+
+            var newItem = new CartItem
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Quantity = 1,
+                UnitPrice = product.GetEffectivePrice(),
+                OptionsSummary = string.IsNullOrWhiteSpace(product.SizeName) ? "Стандарт" : product.SizeName
+            };
+
+            await cartRepository.SaveAsync(newItem);
+            Items.Add(newItem);
+            RecalculateTotals();
         }
-
-        var newItem = new CartItem
+        catch (Exception ex)
         {
-            ProductId = product.Id,
-            ProductName = product.Name,
-            Quantity = 1,
-            UnitPrice = product.GetEffectivePrice(),
-            OptionsSummary = string.IsNullOrWhiteSpace(product.SizeName) ? "Стандарт" : product.SizeName
-        };
+            logger.LogError(ex, "Failed to add upsell product {ProductName} to cart", product.Name);
+            await ShowCartErrorAsync("Не вдалося додати товар до кошика.", "Cart: AddUpsellAsync");
+        }
+    }
 
-        await cartRepository.SaveAsync(newItem);
-        Items.Add(newItem);
-        RecalculateTotals();
+    private Task ShowCartErrorAsync(string message, string context)
+    {
+        if (bugReportService is not null)
+            return bugReportService.ShowErrorWithReportOptionAsync("Помилка кошика", message, context);
+
+        return Shell.Current is not null
+            ? Shell.Current.DisplayAlertAsync("Помилка кошика", message, "OK")
+            : Task.CompletedTask;
     }
 
     private bool CanProceedCheckout() => Items.Count > 0;

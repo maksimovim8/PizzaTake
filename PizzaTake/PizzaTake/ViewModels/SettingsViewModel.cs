@@ -21,6 +21,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private readonly IUserDataResetService userDataResetService;
     private readonly IAppStateService appState;
     private readonly ISyncService syncService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<SettingsViewModel> logger;
 
     private bool isDarkTheme;
@@ -31,6 +32,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     private bool isPhoneVerified;
     private bool isSessionLocked;
     private int pendingSyncCount;
+    private bool isReportingBug;
 
     public SettingsViewModel(
         IUserProfileRepository userProfileRepository,
@@ -40,6 +42,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         IAppStateService appState,
         IUserDataResetService userDataResetService,
         ISyncService syncService,
+        IBugReportService? bugReportService = null,
         ILogger<SettingsViewModel>? logger = null)
     {
         this.userProfileRepository = userProfileRepository;
@@ -49,6 +52,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         this.appState = appState;
         this.userDataResetService = userDataResetService;
         this.syncService = syncService;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<SettingsViewModel>.Instance;
         Title = "Налаштування";
 
@@ -65,6 +69,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         EditAddressCommand = new Command<UserAddress?>(async address => await EditAddressAsync(address));
         AddAddressCommand = new Command(async () => await EditAddressAsync(null));
         SyncNowCommand = new Command(async () => await SyncNowAsync());
+        ReportBugCommand = new Command(async () => await ReportBugAsync(), () => !isReportingBug);
         OpenLogsCommand = new Command(async () => await OpenLogsAsync());
         LockSessionCommand = new Command(async () => await LockSessionAsync(), () => IsPhoneVerified);
         UnlockSessionCommand = new Command(async () => await Shell.Current.GoToAsync("auth?locked=true"), () => IsSessionLocked);
@@ -180,6 +185,7 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
     public ICommand EditAddressCommand { get; }
     public ICommand AddAddressCommand { get; }
     public ICommand SyncNowCommand { get; }
+    public ICommand ReportBugCommand { get; }
     public ICommand OpenLogsCommand { get; }
     public ICommand LockSessionCommand { get; }
     public ICommand UnlockSessionCommand { get; }
@@ -293,10 +299,42 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         await Shell.Current.GoToAsync("auth?locked=true");
     }
 
+    private async Task ReportBugAsync()
+    {
+        if (isReportingBug || bugReportService is null)
+            return;
+
+        isReportingBug = true;
+        ((Command)ReportBugCommand).ChangeCanExecute();
+        try
+        {
+            await bugReportService.PromptAndSendAsync("Налаштування");
+        }
+        finally
+        {
+            isReportingBug = false;
+            ((Command)ReportBugCommand).ChangeCanExecute();
+        }
+    }
+
     private async Task SyncNowAsync()
     {
-        await syncService.SyncPendingAsync();
-        await RefreshSyncStatusAsync();
+        try
+        {
+            await syncService.SyncPendingAsync();
+            await RefreshSyncStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Manual synchronization failed from SettingsPage");
+            if (bugReportService is not null)
+                await bugReportService.ShowErrorWithReportOptionAsync(
+                    "Помилка синхронізації",
+                    "Не вдалося синхронізувати дані. Спробуйте ще раз.",
+                    "Settings: SyncNowAsync");
+            else
+                await Shell.Current.DisplayAlertAsync("Помилка синхронізації", "Не вдалося синхронізувати дані. Спробуйте ще раз.", "OK");
+        }
     }
 
     private async Task RefreshSyncStatusAsync()
@@ -365,7 +403,13 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryAttributable
         catch (Exception exception)
         {
             logger.LogError(exception, "Logout cleanup failed");
-            await Shell.Current.DisplayAlertAsync("Не вдалося вийти", "Не вдалося очистити дані облікового запису. Спробуйте ще раз.", "OK");
+            if (bugReportService is not null)
+                await bugReportService.ShowErrorWithReportOptionAsync(
+                    "Не вдалося вийти",
+                    "Не вдалося очистити дані облікового запису. Спробуйте ще раз.",
+                    "Settings: LogoutAsync");
+            else
+                await Shell.Current.DisplayAlertAsync("Не вдалося вийти", "Не вдалося очистити дані облікового запису. Спробуйте ще раз.", "OK");
         }
     }
 

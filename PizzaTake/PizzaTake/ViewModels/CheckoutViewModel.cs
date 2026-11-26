@@ -28,6 +28,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private readonly IAppStateService appState;
     private readonly ILogger<CheckoutViewModel> logger;
     private readonly ICrashReportingService? crashReporting;
+    private readonly IBugReportService? bugReportService;
 
     private string deliveryAddress = string.Empty;
     private DeliveryType deliveryType = DeliveryType.Delivery;
@@ -36,6 +37,7 @@ public sealed class CheckoutViewModel : BaseViewModel
     private int itemsCount;
     private bool isOffline;
     private string errorMessage = string.Empty;
+    private string? reportableErrorContext;
     private bool isOrderSubmitted;
 
     public CheckoutViewModel(
@@ -46,7 +48,8 @@ public sealed class CheckoutViewModel : BaseViewModel
         ISyncService syncService,
         IAppStateService appState,
         ILogger<CheckoutViewModel>? logger = null,
-        ICrashReportingService? crashReporting = null)
+        ICrashReportingService? crashReporting = null,
+        IBugReportService? bugReportService = null)
     {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
@@ -56,6 +59,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         this.appState = appState;
         this.logger = logger ?? NullLogger<CheckoutViewModel>.Instance;
         this.crashReporting = crashReporting;
+        this.bugReportService = bugReportService;
         Title = "Оплата замовлення";
 
         LoadCheckoutCommand = new Command(async () => await LoadCheckoutAsync());
@@ -63,6 +67,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         SelectDeliveryTypeCommand = new Command<string?>(SelectDeliveryType);
         SelectPaymentMethodCommand = new Command<string?>(SelectPaymentMethod);
         ConfirmPaymentCommand = new Command(async () => await ConfirmPaymentAsync(), CanConfirmPayment);
+        ReportErrorCommand = new Command(async () => await ReportErrorAsync(), () => CanReportError);
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
 
@@ -147,17 +152,23 @@ public sealed class CheckoutViewModel : BaseViewModel
         private set
         {
             if (SetProperty(ref errorMessage, value))
+            {
+                if (string.IsNullOrEmpty(value))
+                    SetReportableErrorContext(null);
                 OnPropertyChanged(nameof(HasError));
+            }
         }
     }
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    public bool CanReportError => HasError && !string.IsNullOrEmpty(reportableErrorContext) && bugReportService is not null;
 
     public ICommand LoadCheckoutCommand { get; }
     public ICommand SelectAddressCommand { get; }
     public ICommand SelectDeliveryTypeCommand { get; }
     public ICommand SelectPaymentMethodCommand { get; }
     public ICommand ConfirmPaymentCommand { get; }
+    public ICommand ReportErrorCommand { get; }
     public ICommand GoBackCommand { get; }
 
     public async Task LoadCheckoutAsync()
@@ -191,6 +202,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         {
             logger.LogError(ex, "Failed to load checkout state");
             ErrorMessage = "Не вдалося завантажити дані оформлення.";
+            SetReportableErrorContext("Checkout: LoadCheckoutAsync");
         }
         finally
         {
@@ -308,6 +320,7 @@ public sealed class CheckoutViewModel : BaseViewModel
 
         IsBusy = true;
         ErrorMessage = string.Empty;
+        ((Command)ConfirmPaymentCommand).ChangeCanExecute();
         try
         {
             var cartItems = await cartRepository.GetAllAsync();
@@ -392,12 +405,28 @@ public sealed class CheckoutViewModel : BaseViewModel
             logger.LogError(ex, "Order checkout failed");
             crashReporting?.CaptureException(ex, "CheckoutViewModel.ConfirmPaymentAsync");
             ErrorMessage = "Не вдалося оформити замовлення. Спробуйте ще раз.";
+            SetReportableErrorContext("Checkout: ConfirmPaymentAsync");
         }
         finally
         {
             IsBusy = false;
             ((Command)ConfirmPaymentCommand).ChangeCanExecute();
         }
+    }
+
+    private void SetReportableErrorContext(string? context)
+    {
+        reportableErrorContext = context;
+        OnPropertyChanged(nameof(CanReportError));
+        ((Command)ReportErrorCommand).ChangeCanExecute();
+    }
+
+    private async Task ReportErrorAsync()
+    {
+        if (bugReportService is null)
+            return;
+
+        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Оплата замовлення");
     }
 
     private async Task PersistRecentAddressAsync(int userId, string addressText)

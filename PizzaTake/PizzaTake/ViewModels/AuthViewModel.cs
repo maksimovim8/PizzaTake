@@ -1,7 +1,7 @@
-using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using PizzaTake.Behaviors;
 using PizzaTake.Services;
 
 namespace PizzaTake.ViewModels;
@@ -13,6 +13,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
 {
     private readonly IAuthService authService;
     private readonly IBiometricAuthService biometricAuthService;
+    private readonly IBugReportService? bugReportService;
     private readonly ILogger<AuthViewModel> logger;
 
     private string phoneInput = "+380";
@@ -23,15 +24,18 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
     private bool isSessionLocked;
     private string biometricStatusMessage = string.Empty;
     private string errorMessage = string.Empty;
+    private string? reportableErrorContext;
     private string? nextRoute;
 
     public AuthViewModel(
         IAuthService authService,
         IBiometricAuthService biometricAuthService,
+        IBugReportService? bugReportService = null,
         ILogger<AuthViewModel>? logger = null)
     {
         this.authService = authService;
         this.biometricAuthService = biometricAuthService;
+        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<AuthViewModel>.Instance;
         Title = "Авторизація";
 
@@ -39,6 +43,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         RequestSmsCommand = new Command(async () => await RequestSmsAsync(), CanRequestSms);
         VerifySmsCommand = new Command(async () => await VerifySmsAsync(), CanVerifySms);
         BiometricLoginCommand = new Command(async () => await BiometricLoginAsync(), () => !IsBusy);
+        ReportErrorCommand = new Command(async () => await ReportErrorAsync(), () => CanReportError);
         CloseSmsPopupCommand = new Command(() => IsSmsPopupVisible = false);
         GoBackCommand = new Command(async () => await Shell.Current.GoToAsync(".."));
     }
@@ -48,7 +53,8 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         get => phoneInput;
         set
         {
-            if (SetProperty(ref phoneInput, value))
+            var normalized = PhoneInputBehavior.Normalize(value);
+            if (SetProperty(ref phoneInput, normalized))
             {
                 ErrorMessage = string.Empty;
                 ((Command)RequestSmsCommand).ChangeCanExecute();
@@ -85,7 +91,10 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         set
         {
             if (SetProperty(ref isSmsPopupVisible, value))
+            {
                 OnPropertyChanged(nameof(HasMainError));
+                OnPropertyChanged(nameof(CanReportMainError));
+            }
         }
     }
 
@@ -133,19 +142,26 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         {
             if (SetProperty(ref errorMessage, value))
             {
+                if (string.IsNullOrEmpty(value))
+                    SetReportableErrorContext(null);
                 OnPropertyChanged(nameof(HasError));
                 OnPropertyChanged(nameof(HasMainError));
+                OnPropertyChanged(nameof(CanReportError));
+                OnPropertyChanged(nameof(CanReportMainError));
             }
         }
     }
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
     public bool HasMainError => HasError && !IsSmsPopupVisible;
+    public bool CanReportError => HasError && !string.IsNullOrEmpty(reportableErrorContext) && bugReportService is not null;
+    public bool CanReportMainError => CanReportError && !IsSmsPopupVisible;
 
     public ICommand InitializeCommand { get; }
     public ICommand RequestSmsCommand { get; }
     public ICommand VerifySmsCommand { get; }
     public ICommand BiometricLoginCommand { get; }
+    public ICommand ReportErrorCommand { get; }
     public ICommand CloseSmsPopupCommand { get; }
     public ICommand GoBackCommand { get; }
 
@@ -230,6 +246,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         {
             logger.LogError(ex, "Error requesting OTP SMS code");
             ErrorMessage = "Виникла помилка під час надсилання коду.";
+            SetReportableErrorContext("Auth: RequestSmsAsync");
         }
         finally
         {
@@ -264,6 +281,7 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         {
             logger.LogError(ex, "Error verifying OTP SMS code");
             ErrorMessage = "Не вдалося перевірити код. Спробуйте ще раз.";
+            SetReportableErrorContext("Auth: VerifySmsAsync");
         }
         finally
         {
@@ -320,12 +338,29 @@ public sealed class AuthViewModel : BaseViewModel, IQueryAttributable
         {
             logger?.LogError(ex, "Biometric login failed unexpectedly.");
             ErrorMessage = "Помилка біометричного входу. Увійдіть за SMS-кодом.";
+            SetReportableErrorContext("Auth: BiometricLoginAsync");
         }
         finally
         {
             IsBusy = false;
             RefreshCommandStates();
         }
+    }
+
+    private void SetReportableErrorContext(string? context)
+    {
+        reportableErrorContext = context;
+        OnPropertyChanged(nameof(CanReportError));
+        OnPropertyChanged(nameof(CanReportMainError));
+        ((Command)ReportErrorCommand).ChangeCanExecute();
+    }
+
+    private async Task ReportErrorAsync()
+    {
+        if (bugReportService is null)
+            return;
+
+        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Авторизація");
     }
 
     private async Task NavigateAfterAuthAsync()

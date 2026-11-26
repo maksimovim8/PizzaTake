@@ -67,7 +67,7 @@ public sealed class SentryCrashReportingService : ICrashReportingService
         CancellationToken ct = default)
     {
         var summary = string.IsNullOrWhiteSpace(description)
-            ? "Користувач надіслав звіт про помилку з екрана логів."
+            ? "Користувач надіслав звіт про помилку."
             : description.Trim();
 
         var trimmedLogs = recentLogLines
