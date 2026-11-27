@@ -22,6 +22,9 @@ namespace PizzaTake
             GlobalExceptionHandler.Register();
 
             var builder = MauiApp.CreateBuilder();
+            builder.Logging.ClearProviders();
+            builder.Logging.AddSerilog(Log.Logger, dispose: false);
+
             builder
                 .UseMauiApp<App>()
                 .UseSkiaSharp()
@@ -29,11 +32,14 @@ namespace PizzaTake
                 {
                     options.Dsn = ResolveSentryDsn();
                     options.SendDefaultPii = false;
-                    options.TracesSampleRate = 1.0;
+                    options.MinimumBreadcrumbLevel = LogLevel.Information;
+                    options.MinimumEventLevel = LogLevel.None;
 #if DEBUG
+                    options.TracesSampleRate = 1.0;
                     options.Debug = true;
                     options.Environment = "development";
 #else
+                    options.TracesSampleRate = 0.2;
                     options.Environment = "production";
 #endif
                 })
@@ -48,9 +54,6 @@ namespace PizzaTake
                     handlers.AddHandler<AppShell, PizzaTakeShellRenderer>();
 #endif
                 });
-
-            builder.Logging.ClearProviders();
-            builder.Logging.AddSerilog(Log.Logger, dispose: false);
 
             SQLitePCL.Batteries_V2.Init();
             builder.Services.AddSingleton<IAppPathsService, MauiAppPathsService>();

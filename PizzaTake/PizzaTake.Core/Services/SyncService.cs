@@ -135,6 +135,9 @@ public sealed class SyncService : ISyncService
         connectivityService.ConnectivityChanged += OnConnectivityChanged;
         isListening = true;
         logger.LogDebug("SyncService connectivity listener started");
+
+        if (connectivityService.IsConnected)
+            _ = SyncPendingSafeAsync();
     }
 
     public void StopConnectivityListener()

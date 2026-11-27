@@ -18,6 +18,8 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
     private readonly ILogger<PizzaDetailViewModel> logger;
     private readonly ICrashReportingService? crashReporting;
     private readonly IBugReportService? bugReportService;
+    private readonly IMainThreadDispatcher? dispatcher;
+    private readonly SemaphoreSlim loadLock = new(1, 1);
 
     private Product? product;
     private decimal calculatedPrice;
@@ -94,7 +96,8 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
         IDialogService dialogService,
         ILogger<PizzaDetailViewModel>? logger = null,
         ICrashReportingService? crashReporting = null,
-        IBugReportService? bugReportService = null)
+        IBugReportService? bugReportService = null,
+        IMainThreadDispatcher? dispatcher = null)
     {
         this.products = products;
         this.cart = cart;
@@ -104,6 +107,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
         this.logger = logger ?? NullLogger<PizzaDetailViewModel>.Instance;
         this.crashReporting = crashReporting;
         this.bugReportService = bugReportService;
+        this.dispatcher = dispatcher;
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
         ToggleOptionCommand = new RelayCommand<IngredientOption>(ToggleOption);
@@ -119,8 +123,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
         {
             Product = selectedProduct;
             PrepareProduct();
-            _ = LoadOptionsAsync();
-            _ = RefreshFavoriteAsync();
+            _ = LoadAsync();
         }
         else if (query.TryGetValue("id", out value) && int.TryParse(value?.ToString(), out var id))
         {
@@ -133,12 +136,25 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
     private async Task LoadAsync()
     {
         if (Product is null) return;
-        await LoadOptionsAsync();
-        await RefreshFavoriteAsync();
+        await loadLock.WaitAsync();
+        try
+        {
+            await LoadOptionsAsync();
+            await RefreshFavoriteAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load options or favorites for product Id={ProductId}", Product?.Id);
+        }
+        finally
+        {
+            loadLock.Release();
+        }
     }
 
     private async Task LoadProductAsync(int id)
     {
+        await loadLock.WaitAsync();
         try
         {
             Product = await products.GetByIdAsync(id);
@@ -158,6 +174,10 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to load product {ProductId}", id);
+        }
+        finally
+        {
+            loadLock.Release();
         }
     }
 
@@ -179,8 +199,10 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
     private async Task RefreshFavoriteAsync()
     {
         if (Product is null) return;
+        var currentProductId = Product.Id;
         var favoriteProducts = await favorites.GetFavoriteProductsAsync();
-        IsFavorite = favoriteProducts.Any(item => item.Id == Product.Id);
+        var fav = favoriteProducts.Any(item => item.Id == currentProductId);
+        await RunOnMainThreadAsync(() => IsFavorite = fav);
     }
 
     private async Task ToggleFavoriteAsync()
@@ -206,24 +228,36 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
     {
         if (Product is null) return;
         var options = await products.GetOptionsByProductIdAsync(Product.Id);
-        AddOns.Clear();
-        Exclusions.Clear();
-        Replacements.Clear();
-        foreach (var option in options)
+        await RunOnMainThreadAsync(() =>
         {
-            option.IsSelected = selectedOptionIds.Contains(option.Id);
-            switch (option.Kind)
+            AddOns.Clear();
+            Exclusions.Clear();
+            Replacements.Clear();
+            foreach (var option in options)
             {
-                case OptionKind.AddOn: AddOns.Add(option); break;
-                case OptionKind.Exclusion: Exclusions.Add(option); break;
-                case OptionKind.Replacement: Replacements.Add(option); break;
+                option.IsSelected = selectedOptionIds.Contains(option.Id);
+                switch (option.Kind)
+                {
+                    case OptionKind.AddOn: AddOns.Add(option); break;
+                    case OptionKind.Exclusion: Exclusions.Add(option); break;
+                    case OptionKind.Replacement: Replacements.Add(option); break;
+                }
             }
-        }
-        OnPropertyChanged(nameof(HasAddOns));
-        OnPropertyChanged(nameof(HasExclusions));
-        OnPropertyChanged(nameof(HasReplacements));
-        OnPropertyChanged(nameof(HasSelectedOptions));
-        RecalculatePrice();
+            OnPropertyChanged(nameof(HasAddOns));
+            OnPropertyChanged(nameof(HasExclusions));
+            OnPropertyChanged(nameof(HasReplacements));
+            OnPropertyChanged(nameof(HasSelectedOptions));
+            RecalculatePrice();
+        });
+    }
+
+    private Task RunOnMainThreadAsync(Action action)
+    {
+        if (dispatcher is not null)
+            return dispatcher.InvokeOnMainThreadAsync(action);
+
+        action();
+        return Task.CompletedTask;
     }
 
     private void ToggleOption(IngredientOption? option)
