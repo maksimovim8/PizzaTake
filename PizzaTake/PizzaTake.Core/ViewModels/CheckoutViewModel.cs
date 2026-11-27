@@ -389,7 +389,7 @@ public sealed class CheckoutViewModel : BaseViewModel
                 OrderNumber = $"PD-{Random.Shared.Next(1000, 9999)}",
                 UserId = profile?.Id ?? 0,
                 PizzeriaId = appState.SelectedPizzeria.Id,
-                Status = OrderStatus.Preparing,
+                Status = OrderStatus.Pending,
                 DeliveryType = DeliveryType,
                 PaymentMethod = PaymentMethod,
                 DeliveryAddress = DeliveryType == DeliveryType.Pickup ? "Самовивіз із піцерії" : DeliveryAddress.Trim(),

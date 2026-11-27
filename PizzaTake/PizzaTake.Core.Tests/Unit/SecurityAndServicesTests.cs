@@ -87,4 +87,32 @@ public sealed class SecurityAndServicesTests
         dialog.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
         productRepo.Verify(r => r.SaveAsync(It.IsAny<Product>()), Times.Never);
     }
+
+    [Fact]
+    public async Task AuthService_LockSessionAsync_ShouldRemainLockedAfterRestartUntilRestored()
+    {
+        using var apiClient = new HttpApiClient();
+        var profileRepo = new Mock<IUserProfileRepository>();
+        profileRepo.Setup(r => r.GetCurrentAsync()).ReturnsAsync((UserProfile?)null);
+        var secureStore = new InMemorySecureStore();
+        var initialSession = new SessionService(secureStore);
+        var auth = new AuthService(apiClient, profileRepo.Object, secureStore, initialSession);
+
+        (await auth.VerifyOtpAsync("+380991112233", "1234")).Should().BeTrue();
+        await auth.LockSessionAsync();
+
+        // Simulate app restart with a fresh SessionService instance reading the same SecureStorage.
+        var restartedSession = new SessionService(secureStore);
+        await restartedSession.InitializeAsync();
+        var restartedAuth = new AuthService(apiClient, profileRepo.Object, secureStore, restartedSession);
+
+        restartedSession.IsAuthenticated.Should().BeFalse();
+        restartedSession.CurrentRole.Should().BeNull();
+        (await restartedAuth.HasSavedCredentialsAsync()).Should().BeTrue();
+
+        // Unlocking via biometric/saved session clears the lock flag.
+        (await restartedAuth.RestoreSavedSessionAsync()).Should().BeTrue();
+        restartedSession.IsAuthenticated.Should().BeTrue();
+        restartedSession.CurrentRole.Should().Be(UserRole.Customer);
+    }
 }

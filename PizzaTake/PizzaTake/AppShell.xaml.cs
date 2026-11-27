@@ -26,6 +26,7 @@ public partial class AppShell : Shell
     {
         this.appState = appState;
         this.cartRepository = cartRepository;
+        this.appState.RestoreState();
         InitializeComponent();
 
         FlyoutBehavior = FlyoutBehavior.Disabled;
@@ -55,7 +56,7 @@ public partial class AppShell : Shell
         tabs.Items.Add(settingsTab);
         Items.Add(tabs);
 
-        CurrentItem = !authService.IsAuthenticated ? welcomeTab : tabs;
+        CurrentItem = this.appState.SelectedCity is null ? welcomeTab : tabs;
 
         Routing.RegisterRoute("welcome", typeof(WelcomePage));
         Routing.RegisterRoute("cities", typeof(CitySelectionPage));
@@ -117,7 +118,8 @@ public partial class AppShell : Shell
         var hideTabBar =
             location.Contains("welcome", StringComparison.OrdinalIgnoreCase) ||
             location.Contains("cities", StringComparison.OrdinalIgnoreCase) ||
-            location.Contains("pizzerias", StringComparison.OrdinalIgnoreCase);
+            location.Contains("pizzerias", StringComparison.OrdinalIgnoreCase) ||
+            location.Contains("auth", StringComparison.OrdinalIgnoreCase);
 
         Shell.SetTabBarIsVisible(this, !hideTabBar);
         if (CurrentPage is not null)

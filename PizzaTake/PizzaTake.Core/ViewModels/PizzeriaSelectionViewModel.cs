@@ -36,6 +36,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryParameterR
     public IAsyncRelayCommand LoadCommand { get; }
     public IRelayCommand<Pizzeria> SelectPizzeriaCommand { get; }
     public IAsyncRelayCommand ConfirmPizzeriaCommand { get; }
+    public IAsyncRelayCommand OpenMapCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
     public PizzeriaSelectionViewModel(
@@ -52,6 +53,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryParameterR
         LoadCommand = new AsyncRelayCommand(LoadAsync);
         SelectPizzeriaCommand = new RelayCommand<Pizzeria>(pizzeria => SelectedPizzeria = pizzeria);
         ConfirmPizzeriaCommand = new AsyncRelayCommand(ConfirmAsync, () => SelectedPizzeria is not null);
+        OpenMapCommand = new AsyncRelayCommand(() => navigation.GoToAsync("pizzeriasmap"));
         GoBackCommand = new AsyncRelayCommand(() => navigation.GoBackAsync());
     }
 

@@ -26,6 +26,7 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
     private readonly ILogger<OrderDetailViewModel> logger;
 
     private Order? currentOrder;
+    private bool isClosingForLock;
 
     public OrderDetailViewModel(
         IOrderRepository orderRepository,
@@ -87,11 +88,39 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
         sessionService.SessionChanged += OnSessionChanged;
         OnPropertyChanged(nameof(IsAdmin));
         OnPropertyChanged(nameof(CanShowAdminPanel));
+        _ = EnsureSessionAccessAsync();
     }
 
     public void StopSessionMonitoring()
     {
         sessionService.SessionChanged -= OnSessionChanged;
+    }
+
+    public async Task EnsureSessionAccessAsync()
+    {
+        if (isClosingForLock)
+            return;
+
+        try
+        {
+            if (await authService.HasSavedCredentialsAsync() && !sessionService.IsAuthenticated)
+            {
+                isClosingForLock = true;
+                CurrentOrder = null;
+                Items.Clear();
+                RepeatFullOrderCommand.NotifyCanExecuteChanged();
+                logger.LogInformation("Closing order detail view because session is locked.");
+                await navigation.GoBackAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to close order detail view after session lock.");
+        }
+        finally
+        {
+            isClosingForLock = false;
+        }
     }
 
     public Task OpenQualityReportAsync()
@@ -157,6 +186,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
         {
             OnPropertyChanged(nameof(IsAdmin));
             OnPropertyChanged(nameof(CanShowAdminPanel));
+            if (!sessionService.IsAuthenticated)
+                _ = EnsureSessionAccessAsync();
         });
     }
 

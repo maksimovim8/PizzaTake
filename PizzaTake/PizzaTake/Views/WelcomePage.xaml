@@ -10,7 +10,11 @@
         <Label Text="PIZZA.TAKE!" FontSize="32" FontAttributes="Bold" TextColor="#F15A24" HorizontalOptions="Center" />
         <Label Text="Раді тебе бачити!" FontSize="24" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
         <Label Text="Розпочнімо з вибору міста" HorizontalOptions="Center" HorizontalTextAlignment="Center" TextColor="{AppThemeBinding Light=#44403C, Dark=#D6D3D1}" />
-        <Button Text="Почати" BackgroundColor="#FFB400" TextColor="White" CornerRadius="18"
+        <Button Text="Почати"
+                AutomationId="WelcomeStartButton"
+                BackgroundColor="#FFB400"
+                TextColor="White"
+                CornerRadius="18"
                 Command="{Binding StartCommand}" />
     </VerticalStackLayout>
 </ContentPage>

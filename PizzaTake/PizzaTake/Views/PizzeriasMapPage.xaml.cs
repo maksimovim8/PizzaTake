@@ -89,19 +89,31 @@ public partial class PizzeriasMapPage : ContentPage
     {
         if (landscape)
         {
+            PageRootGrid.Padding = new Thickness(14, 8);
+            PageRootGrid.RowSpacing = 6;
             AdaptiveContentGrid.RowDefinitions = [new RowDefinition(GridLength.Star)];
             AdaptiveContentGrid.ColumnDefinitions =
             [
                 new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(new GridLength(310))
+                new ColumnDefinition(new GridLength(320))
             ];
             Grid.SetRow(MapContainer, 0);
             Grid.SetColumn(MapContainer, 0);
             Grid.SetRow(DetailsPanel, 0);
             Grid.SetColumn(DetailsPanel, 1);
+
+            DetailsPanel.VerticalScrollBarVisibility = ScrollBarVisibility.Default;
+            DetailsStack.Spacing = 6;
+            DetailsStack.Padding = new Thickness(0, 0, 0, 8);
+            SelectedPinCard.Padding = new Thickness(12, 8);
+            SelectedPinCardStack.Spacing = 4;
+            SelectedPinSubtitleLabel.MaxLines = 1;
+            OpenExternalMapButton.HeightRequest = 38;
         }
         else
         {
+            PageRootGrid.Padding = new Thickness(16, 12);
+            PageRootGrid.RowSpacing = 10;
             AdaptiveContentGrid.RowDefinitions =
             [
                 new RowDefinition(GridLength.Star),
@@ -112,6 +124,14 @@ public partial class PizzeriasMapPage : ContentPage
             Grid.SetColumn(MapContainer, 0);
             Grid.SetRow(DetailsPanel, 1);
             Grid.SetColumn(DetailsPanel, 0);
+
+            DetailsPanel.VerticalScrollBarVisibility = ScrollBarVisibility.Never;
+            DetailsStack.Spacing = 10;
+            DetailsStack.Padding = new Thickness(0);
+            SelectedPinCard.Padding = new Thickness(14);
+            SelectedPinCardStack.Spacing = 8;
+            SelectedPinSubtitleLabel.MaxLines = 2;
+            OpenExternalMapButton.HeightRequest = 42;
         }
     }
 

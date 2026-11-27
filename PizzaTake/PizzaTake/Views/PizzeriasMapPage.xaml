@@ -9,7 +9,7 @@
              Title="{Binding Title}"
              BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
 
-    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="10">
+    <Grid x:Name="PageRootGrid" RowDefinitions="Auto,*" Padding="16,12" RowSpacing="10">
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <Button Grid.Column="0"
@@ -71,7 +71,7 @@
                         Grid.Row="1"
                         Grid.Column="0"
                         VerticalScrollBarVisibility="Never">
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout x:Name="DetailsStack" Spacing="10">
                     <Label Text="{Binding StatusMessage}"
                            IsVisible="{Binding HasStatusMessage}"
                            FontSize="12"
@@ -105,17 +105,19 @@
                         </HorizontalStackLayout>
                     </ScrollView>
 
-                    <Border IsVisible="{Binding HasSelectedPin}"
+                    <Border x:Name="SelectedPinCard"
+                            IsVisible="{Binding HasSelectedPin}"
                             StrokeShape="RoundRectangle 16"
                             Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
                             Padding="14">
-                        <VerticalStackLayout Spacing="8">
+                        <VerticalStackLayout x:Name="SelectedPinCardStack" Spacing="8">
                             <Label Text="{Binding SelectedPin.Title}"
                                    FontSize="16"
                                    FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                            <Label Text="{Binding SelectedPin.Subtitle}"
+                            <Label x:Name="SelectedPinSubtitleLabel"
+                                   Text="{Binding SelectedPin.Subtitle}"
                                    FontSize="13"
                                    MaxLines="2"
                                    LineBreakMode="TailTruncation"
@@ -123,7 +125,8 @@
                             <Label Text="{Binding SelectedPinCoordinatesText}"
                                    FontSize="12"
                                    TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                            <Button Text="Відкрити на зовнішній карті"
+                            <Button x:Name="OpenExternalMapButton"
+                                    Text="Відкрити на зовнішній карті"
                                     AutomationId="OpenExternalMapButton"
                                     Command="{Binding OpenExternalMapCommand}"
                                     BackgroundColor="#EB5E28"

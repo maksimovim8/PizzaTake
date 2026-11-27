@@ -11,6 +11,7 @@ internal static class AuthStorageKeys
     public const string AuthToken = "pizzatake_auth_token";
     public const string UserRole = "pizzatake_user_role";
     public const string UserPhone = "pizzatake_user_phone";
+    public const string SessionLocked = "pizzatake_session_locked";
 }
 
 /// <summary>
@@ -77,11 +78,13 @@ public sealed class SessionService : ISessionService
         var token = await secureStore.GetAsync(AuthStorageKeys.AuthToken);
         var roleRaw = await secureStore.GetAsync(AuthStorageKeys.UserRole);
         var phone = await secureStore.GetAsync(AuthStorageKeys.UserPhone);
+        var lockedRaw = await secureStore.GetAsync(AuthStorageKeys.SessionLocked);
+        var isLocked = string.Equals(lockedRaw, "true", StringComparison.OrdinalIgnoreCase);
 
         lock (stateLock)
         {
             isHydrated = true;
-            if (!string.IsNullOrWhiteSpace(token))
+            if (!string.IsNullOrWhiteSpace(token) && !isLocked)
             {
                 currentRole = Enum.TryParse<UserRole>(roleRaw, ignoreCase: true, out var parsedRole)
                     ? parsedRole
@@ -97,8 +100,8 @@ public sealed class SessionService : ISessionService
             }
         }
 
-        logger?.LogInformation("Session initialized: IsAuthenticated={IsAuthenticated}, Role={Role}",
-            isAuthenticated, currentRole);
+        logger?.LogInformation("Session initialized: IsAuthenticated={IsAuthenticated}, IsLocked={IsLocked}, Role={Role}",
+            isAuthenticated, isLocked, currentRole);
         SessionChanged?.Invoke(this, EventArgs.Empty);
     }
 

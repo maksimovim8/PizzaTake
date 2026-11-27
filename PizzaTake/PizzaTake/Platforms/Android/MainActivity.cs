@@ -19,6 +19,12 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+        if (OperatingSystem.IsAndroidVersionAtLeast(28) && Window?.Attributes is not null)
+        {
+            var attributes = Window.Attributes;
+            attributes.LayoutInDisplayCutoutMode = Android.Views.LayoutInDisplayCutoutMode.ShortEdges;
+            Window.Attributes = attributes;
+        }
         SyncStatusBarForCurrentTheme();
         if (Microsoft.Maui.Controls.Application.Current is not null)
             Microsoft.Maui.Controls.Application.Current.RequestedThemeChanged += OnAppThemeChanged;

@@ -9,15 +9,28 @@
     Shell.TabBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
     <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <Button Text="‹ Назад"
+                    AutomationId="PizzeriaSelectionBackButton"
                     Command="{Binding GoBackCommand}"
                     BackgroundColor="Transparent"
                     TextColor="{AppThemeBinding Light=#242424, Dark=#F5F5F4}"
                     Padding="0"
                     HorizontalOptions="Start" />
-            <Label Grid.Column="1" Text="Оберіть піцерію" FontSize="26" FontAttributes="Bold"
+            <Label Grid.Column="1" Text="Оберіть піцерію" FontSize="24" FontAttributes="Bold"
                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" VerticalOptions="Center" />
+            <Button Grid.Column="2"
+                    Text="🗺 Карта"
+                    AutomationId="PizzeriaSelectionOpenMapButton"
+                    Command="{Binding OpenMapCommand}"
+                    BackgroundColor="#FDF1D6"
+                    TextColor="#B45309"
+                    FontSize="13"
+                    FontAttributes="Bold"
+                    CornerRadius="16"
+                    HeightRequest="36"
+                    Padding="12,0"
+                    VerticalOptions="Center" />
         </Grid>
 
         <CollectionView Grid.Row="1" ItemsSource="{Binding Pizzerias}" SelectionMode="None">
@@ -69,6 +82,14 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
-        <Button Grid.Row="2" Text="Підтвердити" BackgroundColor="#FFB400" TextColor="#FFFFFF" FontAttributes="Bold" CornerRadius="22" HeightRequest="48" Command="{Binding ConfirmPizzeriaCommand}" />
+        <Button Grid.Row="2"
+                Text="Підтвердити"
+                AutomationId="PizzeriaConfirmButton"
+                BackgroundColor="#FFB400"
+                TextColor="#FFFFFF"
+                FontAttributes="Bold"
+                CornerRadius="22"
+                HeightRequest="48"
+                Command="{Binding ConfirmPizzeriaCommand}" />
     </Grid>
 </ContentPage>

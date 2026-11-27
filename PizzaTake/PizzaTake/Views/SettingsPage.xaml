@@ -39,6 +39,7 @@
                            TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
                     <Label Grid.Row="1" Grid.Column="0"
                            Text="{Binding MaskedPhone}"
+                           AutomationId="SettingsMaskedPhoneLabel"
                            FontSize="18"
                            FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
@@ -54,12 +55,14 @@
                            TextColor="#D97706" />
                     <Label Grid.Row="3" Grid.Column="0"
                            Text="{Binding CurrentRoleText}"
+                           AutomationId="SettingsCurrentRoleLabel"
                            FontSize="13"
                            FontAttributes="Bold"
                            TextColor="#B45309" />
 
                     <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
                             Text="Змінити"
+                            AutomationId="SettingsChangePhoneButton"
                             Command="{Binding ChangePhoneCommand}"
                             BackgroundColor="#FDF1D6"
                             TextColor="#B45309"
@@ -81,12 +84,14 @@
                                FontAttributes="Bold"
                                TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                         <Label Text="{Binding CurrentCityName}"
+                               AutomationId="SettingsCurrentCityLabel"
                                FontSize="14"
                                TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
                     </VerticalStackLayout>
 
                     <Button Grid.Column="1"
                             Text="Змінити"
+                            AutomationId="SettingsChangeCityButton"
                             Command="{Binding ChangeCityCommand}"
                             BackgroundColor="#FDF1D6"
                             TextColor="#B45309"
@@ -394,6 +399,7 @@
                     </VerticalStackLayout>
 
                     <Button Text="Заблокувати сесію"
+                            AutomationId="SettingsLockSessionButton"
                             Command="{Binding LockSessionCommand}"
                             IsVisible="{Binding IsPhoneVerified}"
                             BackgroundColor="#FDF1D6"
@@ -403,6 +409,7 @@
                             HeightRequest="44" />
 
                     <Button Text="Розблокувати сесію (біометрія / вхід)"
+                            AutomationId="SettingsUnlockSessionButton"
                             Command="{Binding UnlockSessionCommand}"
                             IsVisible="{Binding IsSessionLocked}"
                             BackgroundColor="#EB5E28"
@@ -413,6 +420,7 @@
                 </VerticalStackLayout>
             </Border>
             <Button Text="Вийти з облікового запису"
+                    AutomationId="SettingsLogoutButton"
                     Command="{Binding LogoutCommand}"
                     IsVisible="{Binding HasAccountSession}"
                     BackgroundColor="Transparent"

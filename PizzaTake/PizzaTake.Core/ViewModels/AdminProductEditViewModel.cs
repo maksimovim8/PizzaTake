@@ -299,7 +299,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
             product.BasePrice = basePrice;
             product.PromoPrice = promoPrice;
             product.Calories = Math.Max(0, calories);
-            product.IsNew = IsNew;
+            product.IsNew = string.Equals(product.Category, "Новинки", StringComparison.OrdinalIgnoreCase);
 
             await productRepository.SaveAsync(product);
             await syncService.EnqueueAsync("Product", isUpdate ? "Update" : "Insert", new
@@ -309,6 +309,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
                 product.Category,
                 product.BasePrice,
                 product.PromoPrice,
+                product.IsNew,
                 UpdatedAt = DateTime.UtcNow
             });
 

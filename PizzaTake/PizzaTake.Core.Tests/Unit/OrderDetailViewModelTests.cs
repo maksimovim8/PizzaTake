@@ -103,4 +103,26 @@ public sealed class OrderDetailViewModelTests
         syncService.Verify(s => s.EnqueueAsync("Order", "Delete", It.IsAny<object>()), Times.Once);
         navigation.Verify(n => n.GoBackAsync(null), Times.Once);
     }
+
+    [Fact]
+    public async Task EnsureSessionAccessAsync_WhenSessionLocked_ShouldClearOrderAndNavigateBack()
+    {
+        authService.Setup(a => a.HasSavedCredentialsAsync()).ReturnsAsync(true);
+        sessionService.Setup(s => s.IsAuthenticated).Returns(true);
+        var order = new Order { Id = 44, OrderNumber = "PD-4444", Status = OrderStatus.Pending };
+        orderRepo.Setup(r => r.GetItemsByOrderIdAsync(44))
+            .ReturnsAsync([new OrderItem { ProductName = "Чеддерман", Quantity = 1, UnitPrice = 219m }]);
+
+        var sut = CreateSut();
+        await sut.LoadOrderAsync(order);
+        sut.CurrentOrder.Should().NotBeNull();
+        sut.Items.Should().HaveCount(1);
+
+        sessionService.Setup(s => s.IsAuthenticated).Returns(false);
+        await sut.EnsureSessionAccessAsync();
+
+        sut.CurrentOrder.Should().BeNull();
+        sut.Items.Should().BeEmpty();
+        navigation.Verify(n => n.GoBackAsync(null), Times.Once);
+    }
 }
