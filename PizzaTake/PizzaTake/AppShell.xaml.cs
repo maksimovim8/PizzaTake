@@ -9,8 +9,11 @@ public partial class AppShell : Shell
 {
     private static string? coldStartDeepLinkRoute;
 
+    private readonly IAuthService authService;
+    private readonly ISessionService sessionService;
     private readonly IAppStateService appState;
     private readonly ICartRepository cartRepository;
+    private readonly TabBar mainTabs;
     private readonly ShellContent favoritesTab;
     private readonly ShellContent cartTab;
     private readonly ShellContent historyTab;
@@ -21,9 +24,12 @@ public partial class AppShell : Shell
     public AppShell(
         IServiceProvider services,
         IAuthService authService,
+        ISessionService sessionService,
         IAppStateService appState,
         ICartRepository cartRepository)
     {
+        this.authService = authService;
+        this.sessionService = sessionService;
         this.appState = appState;
         this.cartRepository = cartRepository;
         this.appState.RestoreState();
@@ -48,15 +54,15 @@ public partial class AppShell : Shell
         historyTab = CreateTab("Історія", "history", "nav_history.svg", services.GetRequiredService<OrderHistoryPage>());
         settingsTab = CreateTab("Налаштування", "settings", "nav_settings.svg", services.GetRequiredService<SettingsPage>());
 
-        var tabs = new TabBar();
-        tabs.Items.Add(CreateTab("Меню", "menu", "nav_menu.svg", services.GetRequiredService<MenuPage>()));
-        tabs.Items.Add(favoritesTab);
-        tabs.Items.Add(cartTab);
-        tabs.Items.Add(historyTab);
-        tabs.Items.Add(settingsTab);
-        Items.Add(tabs);
+        mainTabs = new TabBar();
+        mainTabs.Items.Add(CreateTab("Меню", "menu", "nav_menu.svg", services.GetRequiredService<MenuPage>()));
+        mainTabs.Items.Add(favoritesTab);
+        mainTabs.Items.Add(cartTab);
+        mainTabs.Items.Add(historyTab);
+        mainTabs.Items.Add(settingsTab);
+        Items.Add(mainTabs);
 
-        CurrentItem = this.appState.SelectedCity is null ? welcomeTab : tabs;
+        CurrentItem = this.appState.SelectedCity is null ? welcomeTab : mainTabs;
 
         Routing.RegisterRoute("welcome", typeof(WelcomePage));
         Routing.RegisterRoute("cities", typeof(CitySelectionPage));
@@ -77,6 +83,11 @@ public partial class AppShell : Shell
         {
             MainThread.BeginInvokeOnMainThread(UpdateTabAvailability);
             _ = RefreshCartBadgeAsync();
+        };
+        this.sessionService.SessionChanged += (_, _) =>
+        {
+            if (!this.sessionService.IsAuthenticated)
+                MainThread.BeginInvokeOnMainThread(() => _ = PopProtectedStacksAsync());
         };
         this.cartRepository.CartChanged += (_, _) => _ = RefreshCartBadgeAsync();
         Loaded += async (_, _) => await TryNavigatePendingDeepLinkAsync();
@@ -118,14 +129,44 @@ public partial class AppShell : Shell
 
         var location = args.Current?.Location.OriginalString ?? string.Empty;
         var hideTabBar =
+            CurrentPage is WelcomePage or CitySelectionPage or PizzeriaSelectionPage or AuthPage ||
             location.Contains("welcome", StringComparison.OrdinalIgnoreCase) ||
             location.Contains("cities", StringComparison.OrdinalIgnoreCase) ||
-            location.Contains("pizzerias", StringComparison.OrdinalIgnoreCase) ||
             location.Contains("auth", StringComparison.OrdinalIgnoreCase);
 
         Shell.SetTabBarIsVisible(this, !hideTabBar);
+        Shell.SetTabBarIsVisible(mainTabs, !hideTabBar);
+        if (CurrentItem is not null)
+            Shell.SetTabBarIsVisible(CurrentItem, !hideTabBar);
+        if (CurrentItem?.CurrentItem is not null)
+            Shell.SetTabBarIsVisible(CurrentItem.CurrentItem, !hideTabBar);
         if (CurrentPage is not null)
             Shell.SetTabBarIsVisible(CurrentPage, !hideTabBar);
+
+        if (CurrentPage is OrderDetailPage && !sessionService.IsAuthenticated)
+            MainThread.BeginInvokeOnMainThread(() => _ = PopProtectedStacksAsync());
+    }
+
+    private async Task PopProtectedStacksAsync()
+    {
+        try
+        {
+            if (sessionService.IsAuthenticated || !await authService.HasSavedCredentialsAsync())
+                return;
+
+            if (historyTab.Parent is ShellSection historySection &&
+                historySection.Navigation.NavigationStack.Count > 1)
+            {
+                await historySection.Navigation.PopToRootAsync(false);
+            }
+
+            if (CurrentPage is OrderDetailPage && Navigation.NavigationStack.Count > 1)
+                await Navigation.PopToRootAsync(false);
+        }
+        catch
+        {
+            // Ignore navigation race if stack is already at root.
+        }
     }
 
     private bool HasSelectedLocation() =>

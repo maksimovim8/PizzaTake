@@ -20,6 +20,8 @@ public sealed class PhoneInputBehavior : Behavior<Entry>
     {
         base.OnAttachedTo(bindable);
         bindable.TextChanged += OnEntryTextChanged;
+        bindable.Focused += OnEntryFocused;
+        bindable.PropertyChanged += OnEntryPropertyChanged;
 
         var normalized = Normalize(bindable.Text);
         if (!string.Equals(bindable.Text, normalized, StringComparison.Ordinal))
@@ -40,7 +42,29 @@ public sealed class PhoneInputBehavior : Behavior<Entry>
     protected override void OnDetachingFrom(Entry bindable)
     {
         bindable.TextChanged -= OnEntryTextChanged;
+        bindable.Focused -= OnEntryFocused;
+        bindable.PropertyChanged -= OnEntryPropertyChanged;
         base.OnDetachingFrom(bindable);
+    }
+
+    private void OnEntryFocused(object? sender, FocusEventArgs e)
+    {
+        if (sender is not Entry entry)
+            return;
+
+        var text = entry.Text ?? string.Empty;
+        if (entry.CursorPosition < CountryPrefix.Length && text.StartsWith(CountryPrefix, StringComparison.Ordinal))
+            entry.CursorPosition = text.Length;
+    }
+
+    private void OnEntryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (isUpdating || e.PropertyName != nameof(Entry.CursorPosition) || sender is not Entry entry)
+            return;
+
+        var text = entry.Text ?? string.Empty;
+        if (entry.CursorPosition < CountryPrefix.Length && text.StartsWith(CountryPrefix, StringComparison.Ordinal))
+            entry.CursorPosition = Math.Max(CountryPrefix.Length, text.Length);
     }
 
     private void OnEntryTextChanged(object? sender, TextChangedEventArgs e)
