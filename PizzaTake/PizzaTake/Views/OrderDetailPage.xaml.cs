@@ -38,6 +38,12 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
         }
     }
 
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
+        _ = viewModel.EnsureSessionAccessAsync();
+    }
+
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
