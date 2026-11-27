@@ -26,6 +26,6 @@ public partial class OrderHistoryPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        logger.LogDebug("Leaving page {PageName}", nameof(OrderHistoryPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(OrderHistoryPage));
     }
 }

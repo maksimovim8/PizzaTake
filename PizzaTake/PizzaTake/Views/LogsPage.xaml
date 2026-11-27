@@ -71,6 +71,19 @@
                         TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Усі|Text'}"
                         BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Усі|Border'}" />
 
+                <Button Text="Debug"
+                        AutomationId="LogsFilterDebugButton"
+                        Command="{Binding SelectLevelCommand}"
+                        CommandParameter="Debug"
+                        CornerRadius="16"
+                        HeightRequest="36"
+                        FontSize="13"
+                        FontAttributes="Bold"
+                        BorderWidth="1"
+                        BackgroundColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Debug|Background'}"
+                        TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Debug|Text'}"
+                        BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Debug|Border'}" />
+
                 <Button Text="Information"
                         AutomationId="LogsFilterInfoButton"
                         Command="{Binding SelectLevelCommand}"
@@ -170,6 +183,16 @@
                             CornerRadius="12"
                             HeightRequest="38" />
                 </Grid>
+
+                <Button Text="🔒 Тест SSL Certificate Pinning"
+                        AutomationId="LogsTestSslPinningButton"
+                        Command="{Binding TestSslPinningCommand}"
+                        BackgroundColor="{AppThemeBinding Light=#E0F2FE, Dark=#1E293B}"
+                        TextColor="{AppThemeBinding Light=#0369A1, Dark=#7DD3FC}"
+                        FontSize="12"
+                        FontAttributes="Bold"
+                        CornerRadius="12"
+                        HeightRequest="38" />
 
                 <Label Text="{Binding StatusMessage}"
                        IsVisible="{Binding HasStatusMessage}"

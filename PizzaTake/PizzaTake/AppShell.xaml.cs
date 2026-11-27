@@ -143,14 +143,27 @@ public partial class AppShell : Shell
         if (CurrentPage is not null)
             Shell.SetTabBarIsVisible(CurrentPage, !hideTabBar);
 
-        if (CurrentPage is OrderDetailPage && !sessionService.IsAuthenticated)
+        if ((CurrentPage is OrderDetailPage && !sessionService.IsAuthenticated) ||
+            (IsAdminOnlyPage(CurrentPage) && !sessionService.IsInRole(Core.Models.UserRole.Administrator)))
+        {
             MainThread.BeginInvokeOnMainThread(() => _ = PopProtectedStacksAsync());
+        }
     }
+
+    private static bool IsAdminOnlyPage(Page? page) =>
+        page is AdminProductEditPage or AdminCategoriesPage or AdminBannersPage or LogsPage;
 
     private async Task PopProtectedStacksAsync()
     {
         try
         {
+            if (IsAdminOnlyPage(CurrentPage) &&
+                !sessionService.IsInRole(Core.Models.UserRole.Administrator) &&
+                Navigation.NavigationStack.Count > 1)
+            {
+                await Navigation.PopToRootAsync(false);
+            }
+
             if (sessionService.IsAuthenticated || !await authService.HasSavedCredentialsAsync())
                 return;
 

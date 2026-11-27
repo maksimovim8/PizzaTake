@@ -125,6 +125,9 @@ public class MainActivity : MauiAppCompatActivity
             return null;
 
         var rawId = data.GetQueryParameter("id");
+        if (string.IsNullOrWhiteSpace(rawId))
+            rawId = data.LastPathSegment;
+
         if (!int.TryParse(rawId, NumberStyles.None, CultureInfo.InvariantCulture, out var entityId) || entityId <= 0)
             return null;
 

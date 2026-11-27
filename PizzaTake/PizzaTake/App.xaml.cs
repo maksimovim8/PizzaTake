@@ -50,6 +50,7 @@ public partial class App : Application
         {
             appState.SaveState();
             services.GetService<ISyncService>()?.StopConnectivityListener();
+            services.GetService<IShakeSensorService>()?.Stop();
             logger.LogInformation("Lifecycle: Application stopped; session and form draft state saved.");
         };
         window.Resumed += (_, _) =>
@@ -62,6 +63,7 @@ public partial class App : Application
         {
             appState.SaveState();
             services.GetService<ISyncService>()?.StopConnectivityListener();
+            services.GetService<IShakeSensorService>()?.Stop();
             logger.LogInformation("Lifecycle: Application window destroying; resources released.");
         };
         return window;

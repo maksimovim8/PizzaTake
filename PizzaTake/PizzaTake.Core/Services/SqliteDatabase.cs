@@ -7,7 +7,7 @@ namespace PizzaTake.Core.Services;
 
 public sealed class SqliteDatabase
 {
-    public const int LatestSchemaVersion = 3;
+    public const int LatestSchemaVersion = 4;
 
     private readonly SQLiteAsyncConnection connection;
     private readonly ILogger<SqliteDatabase> logger;
@@ -91,15 +91,21 @@ public sealed class SqliteDatabase
         {
             await MigrateToV3Async();
             await connection.ExecuteAsync("PRAGMA user_version = 3;");
+            currentVersion = 3;
             logger.LogInformation("Applied SQLite migration to schema v3 (QualityReports table & UserProfiles.Role).");
         }
 
-        await EnsureUserProfileRoleColumnAsync();
-        await EnsureCatalogExtensionTablesAsync();
+        if (currentVersion < 4)
+        {
+            await MigrateToV4Async();
+            await connection.ExecuteAsync("PRAGMA user_version = 4;");
+            logger.LogInformation("Applied SQLite migration to schema v4 (ProductCategories & MenuBanners tables).");
+        }
     }
 
-    private async Task EnsureCatalogExtensionTablesAsync()
+    private async Task MigrateToV4Async()
     {
+        await EnsureUserProfileRoleColumnAsync();
         await connection.CreateTableAsync<ProductCategory>();
         await connection.CreateTableAsync<MenuBanner>();
     }

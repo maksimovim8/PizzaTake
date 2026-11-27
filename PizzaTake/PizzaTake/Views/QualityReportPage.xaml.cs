@@ -28,7 +28,7 @@ public partial class QualityReportPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
-        logger.LogDebug("Leaving page {PageName}", nameof(QualityReportPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(QualityReportPage));
         base.OnDisappearing();
     }
 }

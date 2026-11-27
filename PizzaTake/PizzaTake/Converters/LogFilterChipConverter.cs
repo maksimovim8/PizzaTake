@@ -43,6 +43,7 @@ public sealed class LogFilterChipConverter : IValueConverter
 
     private static Color GetActiveColor(string level) => level switch
     {
+        "Debug" => Color.FromArgb("#57534E"),
         "Information" => Color.FromArgb("#2563EB"),
         "Warning" => Color.FromArgb("#D97706"),
         "Error" => Color.FromArgb("#DC2626"),

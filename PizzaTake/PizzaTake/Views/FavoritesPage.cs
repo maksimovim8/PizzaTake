@@ -25,7 +25,7 @@ public partial class FavoritesPage : ContentPage
 
     protected override void OnDisappearing()
     {
-        logger.LogDebug("Leaving page {PageName}", nameof(FavoritesPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(FavoritesPage));
         base.OnDisappearing();
     }
 }

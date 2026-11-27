@@ -17,7 +17,7 @@ public partial class WelcomePage : ContentPage
 
     protected override void OnDisappearing()
     {
-        logger.LogDebug("Leaving page {PageName}", nameof(WelcomePage));
+        logger.LogInformation("Leaving page {PageName}", nameof(WelcomePage));
         base.OnDisappearing();
     }
 }

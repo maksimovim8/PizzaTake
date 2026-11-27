@@ -211,13 +211,15 @@ public sealed class ProductRepository(SqliteDatabase database, ILogger<ProductRe
     {
         ArgumentNullException.ThrowIfNull(product);
         await database.InitializeAsync();
-        var options = await database.Connection.Table<IngredientOption>()
-            .Where(option => option.ProductId == product.Id)
-            .ToListAsync();
-        foreach (var option in options)
-            await database.Connection.DeleteAsync(option);
-        await database.Connection.DeleteAsync(product);
-        log.LogInformation("Deleted catalog product {ProductName} (Id={ProductId})", product.Name, product.Id);
+        var productId = product.Id;
+        await database.Connection.RunInTransactionAsync(conn =>
+        {
+            conn.Execute("DELETE FROM IngredientOptions WHERE ProductId = ?", productId);
+            conn.Execute("DELETE FROM FavoriteProducts WHERE ProductId = ?", productId);
+            conn.Execute("DELETE FROM CartItems WHERE ProductId = ?", productId);
+            conn.Delete(product);
+        });
+        log.LogInformation("Deleted catalog product {ProductName} (Id={ProductId}) with related records", product.Name, productId);
     }
 }
 

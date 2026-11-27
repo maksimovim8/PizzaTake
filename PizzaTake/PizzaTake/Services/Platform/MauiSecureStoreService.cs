@@ -53,8 +53,13 @@ public sealed class MauiSecureStoreService : ISecureStoreService
         }
         catch (Exception ex)
         {
+#if WINDOWS
             logger?.LogWarning(ex, "SecureStorage.SetAsync failed for key {Key}; using encrypted fallback.", key);
             await WriteToEncryptedFallbackAsync(key, value);
+#else
+            logger?.LogError(ex, "SecureStorage.SetAsync failed for key {Key}.", key);
+            throw;
+#endif
         }
     }
 

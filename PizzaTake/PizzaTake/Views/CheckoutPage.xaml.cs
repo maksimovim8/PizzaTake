@@ -29,6 +29,6 @@ public partial class CheckoutPage : ContentPage
         base.OnDisappearing();
         viewModel.StopConnectivityMonitoring();
         viewModel.SaveDraftState();
-        logger.LogDebug("Leaving page {PageName} (draft saved)", nameof(CheckoutPage));
+        logger.LogInformation("Leaving page {PageName} (draft saved)", nameof(CheckoutPage));
     }
 }

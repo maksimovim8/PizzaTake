@@ -25,7 +25,7 @@ public static class GlobalExceptionHandler
     {
         var ex = exception ?? new InvalidOperationException($"Unknown platform exception from {source}.");
         Log.Fatal(ex, "Unhandled platform exception from {Source}", source);
-        CaptureAndFlushFatal(ex, source);
+        CaptureAndFlushFatal(ex, source, closeLog: false);
     }
 
     private static void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs args)
@@ -38,7 +38,7 @@ public static class GlobalExceptionHandler
             "Unhandled AppDomain exception (IsTerminating={IsTerminating})",
             args.IsTerminating);
 
-        CaptureAndFlushFatal(exception, "AppDomain.UnhandledException");
+        CaptureAndFlushFatal(exception, "AppDomain.UnhandledException", closeLog: args.IsTerminating);
     }
 
     private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs args)
@@ -60,7 +60,7 @@ public static class GlobalExceptionHandler
         args.SetObserved();
     }
 
-    private static void CaptureAndFlushFatal(Exception exception, string handlerTag)
+    private static void CaptureAndFlushFatal(Exception exception, string handlerTag, bool closeLog)
     {
         try
         {
@@ -77,7 +77,8 @@ public static class GlobalExceptionHandler
         }
         finally
         {
-            Log.CloseAndFlush();
+            if (closeLog)
+                Log.CloseAndFlush();
         }
     }
 }

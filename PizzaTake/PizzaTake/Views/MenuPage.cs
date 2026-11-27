@@ -11,6 +11,7 @@ public partial class MenuPage : ContentPage
     private readonly IShakeSensorService? shakeSensorService;
     private readonly IMainThreadDispatcher? mainThreadDispatcher;
     private readonly ILogger<MenuPage> logger;
+    private bool isShakeListening;
 
     public MenuPage(
         MenuViewModel viewModel,
@@ -32,24 +33,26 @@ public partial class MenuPage : ContentPage
         viewModel.StartConnectivityMonitoring();
         viewModel.LoadCommand.Execute(null);
 
-        if (shakeSensorService is not null)
+        if (shakeSensorService is not null && !isShakeListening)
         {
             shakeSensorService.ShakeDetected -= OnShakeDetected;
             shakeSensorService.ShakeDetected += OnShakeDetected;
             shakeSensorService.Start();
+            isShakeListening = true;
         }
     }
 
     protected override void OnDisappearing()
     {
         viewModel.StopConnectivityMonitoring();
-        if (shakeSensorService is not null)
+        if (shakeSensorService is not null && isShakeListening)
         {
             shakeSensorService.ShakeDetected -= OnShakeDetected;
             shakeSensorService.Stop();
+            isShakeListening = false;
         }
 
-        logger.LogDebug("Leaving page {PageName}", nameof(MenuPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(MenuPage));
         base.OnDisappearing();
     }
 
