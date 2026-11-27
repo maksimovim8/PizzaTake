@@ -11,7 +11,7 @@ namespace PizzaTake.Core.ViewModels;
 /// <summary>
 /// ViewModel managing shopping cart items, upsell suggestions, totals, and checkout navigation.
 /// </summary>
-public sealed class CartViewModel : BaseViewModel
+public sealed class CartViewModel : ConnectivityBannerViewModel
 {
     private readonly ICartRepository cartRepository;
     private readonly IProductRepository productRepository;
@@ -19,17 +19,12 @@ public sealed class CartViewModel : BaseViewModel
     private readonly IAppStateService appState;
     private readonly INavigationService navigation;
     private readonly IDialogService dialogService;
-    private readonly IMainThreadDispatcher? dispatcher;
-    private readonly IConnectivityService? connectivityService;
-    private readonly ISyncService? syncService;
     private readonly IBugReportService? bugReportService;
     private readonly ILogger<CartViewModel> logger;
 
     private decimal subtotal;
     private decimal deliveryFee;
     private decimal total;
-    private bool isOffline;
-    private int pendingSyncCount;
 
     public CartViewModel(
         ICartRepository cartRepository,
@@ -43,6 +38,7 @@ public sealed class CartViewModel : BaseViewModel
         ISyncService? syncService = null,
         IBugReportService? bugReportService = null,
         ILogger<CartViewModel>? logger = null)
+        : base(connectivityService, syncService, dispatcher, logger ?? NullLogger<CartViewModel>.Instance)
     {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
@@ -50,9 +46,6 @@ public sealed class CartViewModel : BaseViewModel
         this.appState = appState;
         this.navigation = navigation;
         this.dialogService = dialogService;
-        this.dispatcher = dispatcher;
-        this.connectivityService = connectivityService;
-        this.syncService = syncService;
         this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<CartViewModel>.Instance;
         Title = "Кошик";
@@ -63,52 +56,15 @@ public sealed class CartViewModel : BaseViewModel
         RemoveItemCommand = new AsyncRelayCommand<CartItem?>(RemoveItemAsync);
         ClearCartCommand = new AsyncRelayCommand(ClearCartAsync, () => Items.Count > 0);
         AddUpsellCommand = new AsyncRelayCommand<Product?>(AddUpsellAsync);
-        ProceedCheckoutCommand = new AsyncRelayCommand(ProceedCheckoutAsync, CanProceedCheckout);
+        ProceedCheckoutCommand = new AsyncRelayCommand(ProceedCheckoutAsync, () => Items.Count > 0);
     }
 
-    public ObservableCollection<CartItem> Items { get; } = new();
-    public ObservableCollection<Product> UpsellItems { get; } = new();
+    public ObservableCollection<CartItem> Items { get; } = [];
+    public ObservableCollection<Product> UpsellItems { get; } = [];
 
-    public bool IsOffline
-    {
-        get => isOffline;
-        private set
-        {
-            if (SetProperty(ref isOffline, value))
-                OnPropertyChanged(nameof(OfflineBannerText));
-        }
-    }
-
-    public int PendingSyncCount
-    {
-        get => pendingSyncCount;
-        private set
-        {
-            if (SetProperty(ref pendingSyncCount, value))
-                OnPropertyChanged(nameof(OfflineBannerText));
-        }
-    }
-
-    public string OfflineBannerText => $"Офлайн-режим (у черзі: {PendingSyncCount})";
-
-    public decimal Subtotal
-    {
-        get => subtotal;
-        private set => SetProperty(ref subtotal, value);
-    }
-
-    public decimal DeliveryFee
-    {
-        get => deliveryFee;
-        private set => SetProperty(ref deliveryFee, value);
-    }
-
-    public decimal Total
-    {
-        get => total;
-        private set => SetProperty(ref total, value);
-    }
-
+    public decimal Subtotal { get => subtotal; private set => SetProperty(ref subtotal, value); }
+    public decimal DeliveryFee { get => deliveryFee; private set => SetProperty(ref deliveryFee, value); }
+    public decimal Total { get => total; private set => SetProperty(ref total, value); }
     public bool IsEmpty => Items.Count == 0;
     public bool HasItems => Items.Count > 0;
 
@@ -120,80 +76,13 @@ public sealed class CartViewModel : BaseViewModel
     public IAsyncRelayCommand<Product?> AddUpsellCommand { get; }
     public IAsyncRelayCommand ProceedCheckoutCommand { get; }
 
-    public void StartConnectivityMonitoring()
-    {
-        if (connectivityService is not null)
-        {
-            connectivityService.StartMonitoring();
-            IsOffline = !connectivityService.IsConnected;
-            connectivityService.ConnectivityChanged -= OnConnectivityChanged;
-            connectivityService.ConnectivityChanged += OnConnectivityChanged;
-        }
-
-        if (syncService is not null)
-        {
-            syncService.SyncCompleted -= OnSyncCompleted;
-            syncService.SyncCompleted += OnSyncCompleted;
-        }
-
-        _ = RefreshPendingSyncCountAsync();
-    }
-
-    public void StopConnectivityMonitoring()
-    {
-        if (connectivityService is not null)
-            connectivityService.ConnectivityChanged -= OnConnectivityChanged;
-
-        if (syncService is not null)
-            syncService.SyncCompleted -= OnSyncCompleted;
-    }
-
-    private void OnConnectivityChanged(object? sender, bool isConnected)
-    {
-        if (dispatcher is not null)
-            dispatcher.BeginInvokeOnMainThread(() => IsOffline = !isConnected);
-        else
-            IsOffline = !isConnected;
-        _ = RefreshPendingSyncCountAsync();
-    }
-
-    private void OnSyncCompleted(object? sender, EventArgs e)
-    {
-        _ = RefreshPendingSyncCountAsync();
-    }
-
-    private async Task RefreshPendingSyncCountAsync()
-    {
-        if (syncService is null)
-            return;
-
-        try
-        {
-            var count = await syncService.GetPendingCountAsync();
-            if (dispatcher is not null)
-                dispatcher.BeginInvokeOnMainThread(() => PendingSyncCount = count);
-            else
-                PendingSyncCount = count;
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Failed to refresh pending sync count on CartPage");
-        }
-    }
-
     public async Task LoadCartAsync()
     {
-        if (IsBusy)
-            return;
-
+        if (IsBusy) return;
         IsBusy = true;
         try
         {
-            var cartItems = await cartRepository.GetAllAsync();
-            Items.Clear();
-            foreach (var item in cartItems)
-                Items.Add(item);
-
+            ReplaceCollection(Items, await cartRepository.GetAllAsync());
             await LoadUpsellItemsAsync();
             RecalculateTotals();
             logger.LogInformation("Cart loaded with {ItemCount} line(s), Total={Total}", Items.Count, Total);
@@ -202,23 +91,20 @@ public sealed class CartViewModel : BaseViewModel
         {
             logger.LogError(ex, "Failed to load shopping cart");
         }
-        finally
-        {
-            IsBusy = false;
-        }
+        finally { IsBusy = false; }
     }
 
     private async Task LoadUpsellItemsAsync()
     {
         var allProducts = await productRepository.GetAllAsync();
-        var upsellProducts = allProducts
+        var upsells = allProducts
             .Where(p => p.Category is "Закуски" or "Соуси" or "Напої" or "Десерти")
             .Take(6)
             .ToList();
 
-        if (upsellProducts.Count == 0)
+        if (upsells.Count == 0)
         {
-            upsellProducts =
+            upsells =
             [
                 new Product { Id = -1, Name = "Картопля фрі", Category = "Закуски", WeightGrams = 150, SizeName = "Стандарт", BasePrice = 59m },
                 new Product { Id = -2, Name = "Курячі стріпси", Category = "Закуски", WeightGrams = 180, SizeName = "Стандарт", BasePrice = 89m },
@@ -226,16 +112,12 @@ public sealed class CartViewModel : BaseViewModel
             ];
         }
 
-        UpsellItems.Clear();
-        foreach (var product in upsellProducts)
-            UpsellItems.Add(product);
+        ReplaceCollection(UpsellItems, upsells);
     }
 
     private async Task UpdateQtyAsync(CartItem? item, int delta)
     {
-        if (item is null)
-            return;
-
+        if (item is null) return;
         try
         {
             var nextQty = item.Quantity + delta;
@@ -245,7 +127,7 @@ public sealed class CartViewModel : BaseViewModel
                 return;
             }
 
-            var updatedItem = new CartItem
+            var updated = new CartItem
             {
                 Id = item.Id,
                 ProductId = item.ProductId,
@@ -254,14 +136,11 @@ public sealed class CartViewModel : BaseViewModel
                 UnitPrice = item.UnitPrice,
                 OptionsSummary = item.OptionsSummary
             };
-            await cartRepository.SaveAsync(updatedItem);
+            await cartRepository.SaveAsync(updated);
 
             var index = Items.IndexOf(item);
             if (index >= 0)
-            {
-                Items.RemoveAt(index);
-                Items.Insert(index, updatedItem);
-            }
+                Items[index] = updated;
 
             RecalculateTotals();
         }
@@ -274,9 +153,7 @@ public sealed class CartViewModel : BaseViewModel
 
     private async Task RemoveItemAsync(CartItem? item)
     {
-        if (item is null)
-            return;
-
+        if (item is null) return;
         try
         {
             await cartRepository.DeleteAsync(item);
@@ -292,9 +169,7 @@ public sealed class CartViewModel : BaseViewModel
 
     private async Task ClearCartAsync()
     {
-        if (Items.Count == 0)
-            return;
-
+        if (Items.Count == 0) return;
         try
         {
             await cartRepository.ClearAsync();
@@ -310,9 +185,7 @@ public sealed class CartViewModel : BaseViewModel
 
     private async Task AddUpsellAsync(Product? product)
     {
-        if (product is null)
-            return;
-
+        if (product is null) return;
         try
         {
             var existing = Items.FirstOrDefault(i => i.ProductId == product.Id && i.ProductName == product.Name);
@@ -330,7 +203,6 @@ public sealed class CartViewModel : BaseViewModel
                 UnitPrice = product.GetEffectivePrice(),
                 OptionsSummary = string.IsNullOrWhiteSpace(product.SizeName) ? "Стандарт" : product.SizeName
             };
-
             await cartRepository.SaveAsync(newItem);
             Items.Add(newItem);
             RecalculateTotals();
@@ -342,35 +214,23 @@ public sealed class CartViewModel : BaseViewModel
         }
     }
 
-    private Task ShowCartErrorAsync(string message, string context)
-    {
-        if (bugReportService is not null)
-            return bugReportService.ShowErrorWithReportOptionAsync("Помилка кошика", message, context);
-
-        return dialogService.AlertAsync("Помилка кошика", message);
-    }
-
-    private bool CanProceedCheckout() => Items.Count > 0;
+    private Task ShowCartErrorAsync(string message, string context) =>
+        bugReportService is not null
+            ? bugReportService.ShowErrorWithReportOptionAsync("Помилка кошика", message, context)
+            : dialogService.AlertAsync("Помилка кошика", message);
 
     private async Task ProceedCheckoutAsync()
     {
-        if (!CanProceedCheckout())
-            return;
+        if (Items.Count == 0) return;
 
         if (appState.SelectedPizzeria is null)
         {
             await dialogService.AlertAsync("Оберіть піцерію", "Перед оформленням замовлення оберіть піцерію.", "Обрати");
-            var selectionRoute = appState.SelectedCity is null
-                ? "cities?returnTo=cart"
-                : "pizzerias?returnTo=cart";
-            await navigation.GoToAsync(selectionRoute);
+            await navigation.GoToAsync(appState.SelectedCity is null ? "cities?returnTo=cart" : "pizzerias?returnTo=cart");
             return;
         }
 
-        var route = authService.IsAuthenticated
-            ? "checkout"
-            : "auth?next=checkout";
-        await navigation.GoToAsync(route);
+        await navigation.GoToAsync(authService.IsAuthenticated ? "checkout" : "auth?next=checkout");
     }
 
     private void RecalculateTotals()
@@ -378,7 +238,6 @@ public sealed class CartViewModel : BaseViewModel
         Subtotal = Items.Sum(i => i.CalculateSubtotal());
         DeliveryFee = 0m;
         Total = Subtotal + DeliveryFee;
-
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasItems));
         ClearCartCommand.NotifyCanExecuteChanged();

@@ -15,227 +15,102 @@
 
     <Grid RowDefinitions="Auto,*">
         <Grid Grid.Row="0" Padding="20,14,20,8">
-            <Button Text="‹ Назад"
-                    Command="{Binding GoBackCommand}"
-                    HorizontalOptions="Start"
-                    BackgroundColor="Transparent"
-                    TextColor="#EB5E28"
-                    FontSize="16"
-                    FontAttributes="Bold"
-                    Padding="0" />
+            <Button Text="‹ Назад" Command="{Binding GoBackCommand}" HorizontalOptions="Start"
+                    BackgroundColor="Transparent" TextColor="#EB5E28" FontSize="16" FontAttributes="Bold" Padding="0" />
         </Grid>
 
         <ScrollView Grid.Row="1" Padding="20,4,20,28">
             <VerticalStackLayout Spacing="16">
                 <VerticalStackLayout Spacing="4">
-                    <Label Text="Банери меню"
-                           FontSize="26"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                    <Label Text="Керування промо-банерами на головному екрані (лише адміністратор)"
-                           FontSize="14"
-                           TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                    <Label Text="Банери меню" FontSize="26" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                    <Label Text="Керування промо-банерами на головному екрані (лише адміністратор)" FontSize="14" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
                 </VerticalStackLayout>
 
-                <!-- Editor Form -->
-                <Border StrokeShape="RoundRectangle 18"
-                        Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        Padding="16">
+                <Border Style="{StaticResource CardBorder}">
                     <VerticalStackLayout Spacing="12">
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="НАДПИС ЗВЕРХУ (EYEBROW)"
-                                   FontSize="11"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                            <Border StrokeShape="RoundRectangle 12"
-                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                    Padding="12,4">
-                                <Entry Text="{Binding Eyebrow, Mode=TwoWay}"
-                                       Placeholder="АКЦІЯ · НОВИНКА"
-                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                       FontSize="14" />
+                            <Label Text="НАДПИС ЗВЕРХУ (EYEBROW)" Style="{StaticResource FieldLabel}" />
+                            <Border Style="{StaticResource InputBorder}">
+                                <Entry Text="{Binding Eyebrow, Mode=TwoWay}" Style="{StaticResource FormEntry}" FontSize="14" Placeholder="АКЦІЯ · НОВИНКА" />
                             </Border>
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="ЗАГОЛОВОК БАНЕРА *"
-                                   FontSize="11"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                            <Border StrokeShape="RoundRectangle 12"
-                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                    Padding="12,4">
-                                <Entry Text="{Binding BannerTitle, Mode=TwoWay}"
-                                       AutomationId="AdminBannerTitleEntry"
-                                       Placeholder="Наприклад: 2+1 на всі піци"
-                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                       FontSize="15" />
+                            <Label Text="ЗАГОЛОВОК БАНЕРА *" Style="{StaticResource FieldLabel}" />
+                            <Border Style="{StaticResource InputBorder}">
+                                <Entry Text="{Binding BannerTitle, Mode=TwoWay}" AutomationId="AdminBannerTitleEntry" Style="{StaticResource FormEntry}" Placeholder="Наприклад: 2+1 на всі піци" />
                             </Border>
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="4">
-                            <Label Text="ПІДЗАГОЛОВОК / ОПИС"
-                                   FontSize="11"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                            <Border StrokeShape="RoundRectangle 12"
-                                    Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                    BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                    Padding="12,4">
-                                <Entry Text="{Binding Subtitle, Mode=TwoWay}"
-                                       Placeholder="Короткий опис пропозиції"
-                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                       FontSize="14" />
+                            <Label Text="ПІДЗАГОЛОВОК / ОПИС" Style="{StaticResource FieldLabel}" />
+                            <Border Style="{StaticResource InputBorder}">
+                                <Entry Text="{Binding Subtitle, Mode=TwoWay}" Style="{StaticResource FormEntry}" FontSize="14" Placeholder="Короткий опис пропозиції" />
                             </Border>
                         </VerticalStackLayout>
 
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <VerticalStackLayout Grid.Column="0" Spacing="4">
-                                <Label Text="ТЕКСТ БЕЙДЖА"
-                                       FontSize="11"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                                <Border StrokeShape="RoundRectangle 12"
-                                        Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                        BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                        Padding="10,2">
-                                    <Entry Text="{Binding BadgeText, Mode=TwoWay}"
-                                           Placeholder="219 ₴ / Замовити"
-                                           TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                           FontSize="14" />
+                                <Label Text="ТЕКСТ БЕЙДЖА" Style="{StaticResource FieldLabel}" />
+                                <Border Style="{StaticResource InputBorder}" Padding="10,2">
+                                    <Entry Text="{Binding BadgeText, Mode=TwoWay}" Style="{StaticResource FormEntry}" FontSize="14" Placeholder="219 ₴ / Замовити" />
                                 </Border>
                             </VerticalStackLayout>
-
                             <VerticalStackLayout Grid.Column="1" Spacing="4">
-                                <Label Text="КОЛЬОРОВА ТЕМА"
-                                       FontSize="11"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                                <Border StrokeShape="RoundRectangle 12"
-                                        Stroke="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}"
-                                        BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
-                                        Padding="10,2">
-                                    <Picker ItemsSource="{Binding AvailableThemeNames}"
-                                            SelectedItem="{Binding SelectedThemeName, Mode=TwoWay}"
-                                            TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                                            FontSize="14" />
+                                <Label Text="КОЛЬОРОВА ТЕМА" Style="{StaticResource FieldLabel}" />
+                                <Border Style="{StaticResource InputBorder}" Padding="10,2">
+                                    <Picker ItemsSource="{Binding AvailableThemeNames}" SelectedItem="{Binding SelectedThemeName, Mode=TwoWay}"
+                                            TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" FontSize="14" />
                                 </Border>
                             </VerticalStackLayout>
                         </Grid>
 
                         <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Показувати банер у Меню"
-                                   FontSize="14"
-                                   VerticalOptions="Center"
-                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                            <Switch Grid.Column="1"
-                                    IsToggled="{Binding IsActive, Mode=TwoWay}"
-                                    OnColor="#EB5E28" />
+                            <Label Text="Показувати банер у Меню" FontSize="14" VerticalOptions="Center" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                            <Switch Grid.Column="1" IsToggled="{Binding IsActive, Mode=TwoWay}" OnColor="#EB5E28" />
                         </Grid>
 
-                        <Label Text="{Binding ErrorMessage}"
-                               IsVisible="{Binding HasError}"
-                               TextColor="#DC2626"
-                               FontSize="13" />
-
-                        <Label Text="{Binding StatusMessage}"
-                               IsVisible="{Binding HasStatusMessage}"
-                               TextColor="#16A34A"
-                               FontSize="13"
-                               FontAttributes="Bold" />
+                        <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="#DC2626" FontSize="13" />
+                        <Label Text="{Binding StatusMessage}" IsVisible="{Binding HasStatusMessage}" TextColor="#16A34A" FontSize="13" FontAttributes="Bold" />
 
                         <HorizontalStackLayout Spacing="10">
-                            <Button Text="{Binding SaveButtonText}"
-                                    AutomationId="AdminBannerSaveButton"
-                                    Command="{Binding SaveBannerCommand}"
-                                    BackgroundColor="#EB5E28"
-                                    TextColor="#FFFFFF"
-                                    FontSize="14"
-                                    FontAttributes="Bold"
-                                    CornerRadius="18"
-                                    HeightRequest="42"
-                                    Padding="18,0" />
-                            <Button Text="Новий банер"
-                                    IsVisible="{Binding IsEditing}"
-                                    Command="{Binding NewBannerCommand}"
-                                    BackgroundColor="Transparent"
-                                    BorderColor="#A8A29E"
-                                    BorderWidth="1"
-                                    TextColor="{AppThemeBinding Light=#78716C, Dark=#D6D3D1}"
-                                    FontSize="13"
-                                    CornerRadius="18"
-                                    HeightRequest="42"
-                                    Padding="14,0" />
+                            <Button Text="{Binding SaveButtonText}" AutomationId="AdminBannerSaveButton" Command="{Binding SaveBannerCommand}"
+                                    BackgroundColor="#EB5E28" TextColor="#FFFFFF" FontSize="14" FontAttributes="Bold" CornerRadius="18" HeightRequest="42" Padding="18,0" />
+                            <Button Text="Новий банер" IsVisible="{Binding IsEditing}" Command="{Binding NewBannerCommand}"
+                                    BackgroundColor="Transparent" BorderColor="#A8A29E" BorderWidth="1"
+                                    TextColor="{AppThemeBinding Light=#78716C, Dark=#D6D3D1}" FontSize="13" CornerRadius="18" HeightRequest="42" Padding="14,0" />
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Existing Banners List -->
                 <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Banners}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:MenuBanner">
-                            <Border StrokeShape="RoundRectangle 18"
-                                    StrokeThickness="0"
-                                    BackgroundColor="{Binding BackgroundHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#2460A0'}"
-                                    Padding="14">
+                            <Border StrokeShape="RoundRectangle 18" StrokeThickness="0"
+                                    BackgroundColor="{Binding BackgroundHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#2460A0'}" Padding="14">
                                 <VerticalStackLayout Spacing="6">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <Label Text="{Binding Eyebrow}"
-                                               FontSize="11"
-                                               FontAttributes="Bold"
-                                               TextColor="#F3F4F6" />
-                                        <Border Grid.Column="1"
-                                                BackgroundColor="#33000000"
-                                                StrokeThickness="0"
-                                                StrokeShape="RoundRectangle 10"
-                                                Padding="8,2">
-                                            <Label Text="{Binding StatusBadgeText}"
-                                                   FontSize="11"
-                                                   FontAttributes="Bold"
-                                                   TextColor="#FFFFFF" />
+                                        <Label Text="{Binding Eyebrow}" FontSize="11" FontAttributes="Bold" TextColor="#F3F4F6" />
+                                        <Border Grid.Column="1" BackgroundColor="#33000000" StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="8,2">
+                                            <Label Text="{Binding StatusBadgeText}" FontSize="11" FontAttributes="Bold" TextColor="#FFFFFF" />
                                         </Border>
                                     </Grid>
-                                    <Label Text="{Binding Title}"
-                                           FontSize="20"
-                                           FontAttributes="Bold"
+                                    <Label Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
                                            TextColor="{Binding TitleColorHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#FFFFFF'}" />
-                                    <Label Text="{Binding Subtitle}"
-                                           FontSize="13"
-                                           TextColor="#F3F4F6" />
+                                    <Label Text="{Binding Subtitle}" FontSize="13" TextColor="#F3F4F6" />
                                     <HorizontalStackLayout Spacing="8" Margin="0,6,0,0">
                                         <Button Text="Редагувати"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminBannersViewModel}}, Path=EditBannerCommand}"
-                                                CommandParameter="{Binding .}"
-                                                BackgroundColor="#FFFFFF"
-                                                TextColor="#1C1917"
-                                                FontSize="12"
-                                                FontAttributes="Bold"
-                                                CornerRadius="14"
-                                                HeightRequest="34"
-                                                Padding="12,0" />
+                                                CommandParameter="{Binding .}" BackgroundColor="#FFFFFF" TextColor="#1C1917"
+                                                FontSize="12" FontAttributes="Bold" CornerRadius="14" HeightRequest="34" Padding="12,0" />
                                         <Button Text="Увімк/Вимк"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminBannersViewModel}}, Path=ToggleActiveCommand}"
-                                                CommandParameter="{Binding .}"
-                                                BackgroundColor="#33000000"
-                                                TextColor="#FFFFFF"
-                                                FontSize="12"
-                                                FontAttributes="Bold"
-                                                CornerRadius="14"
-                                                HeightRequest="34"
-                                                Padding="12,0" />
+                                                CommandParameter="{Binding .}" BackgroundColor="#33000000" TextColor="#FFFFFF"
+                                                FontSize="12" FontAttributes="Bold" CornerRadius="14" HeightRequest="34" Padding="12,0" />
                                         <Button Text="Видалити"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminBannersViewModel}}, Path=DeleteBannerCommand}"
-                                                CommandParameter="{Binding .}"
-                                                BackgroundColor="#DC2626"
-                                                TextColor="#FFFFFF"
-                                                FontSize="12"
-                                                FontAttributes="Bold"
-                                                CornerRadius="14"
-                                                HeightRequest="34"
-                                                Padding="12,0" />
+                                                CommandParameter="{Binding .}" BackgroundColor="#DC2626" TextColor="#FFFFFF"
+                                                FontSize="12" FontAttributes="Bold" CornerRadius="14" HeightRequest="34" Padding="12,0" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
                             </Border>

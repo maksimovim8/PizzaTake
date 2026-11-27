@@ -11,7 +11,7 @@ namespace PizzaTake.Core.ViewModels;
 /// <summary>
 /// Administrator-only ViewModel for creating, editing, toggling, and deleting promotional banners on MenuPage.
 /// </summary>
-public sealed class AdminBannersViewModel : BaseViewModel
+public sealed class AdminBannersViewModel : FormFeedbackViewModel
 {
     public sealed record BannerThemePreset(string Name, string BackgroundHex, string TitleColorHex, string BadgeColorHex, string BadgeTextColorHex);
 
@@ -38,8 +38,6 @@ public sealed class AdminBannersViewModel : BaseViewModel
     private string badgeText = string.Empty;
     private string selectedThemeName = ThemePresets[0].Name;
     private bool isActive = true;
-    private string errorMessage = string.Empty;
-    private string statusMessage = string.Empty;
 
     public AdminBannersViewModel(
         IMenuBannerRepository bannerRepository,
@@ -70,77 +68,16 @@ public sealed class AdminBannersViewModel : BaseViewModel
 
     public ObservableCollection<MenuBanner> Banners { get; } = [];
     public string[] AvailableThemeNames { get; }
-
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
     public bool IsEditing => editingBanner is not null;
     public string SaveButtonText => IsEditing ? "Оновити банер" : "Додати банер";
 
-    public string Eyebrow
-    {
-        get => eyebrow;
-        set => SetProperty(ref eyebrow, value);
-    }
-
-    public string BannerTitle
-    {
-        get => bannerTitle;
-        set
-        {
-            if (SetProperty(ref bannerTitle, value))
-            {
-                ErrorMessage = string.Empty;
-                SaveBannerCommand.NotifyCanExecuteChanged();
-            }
-        }
-    }
-
-    public string Subtitle
-    {
-        get => subtitle;
-        set => SetProperty(ref subtitle, value);
-    }
-
-    public string BadgeText
-    {
-        get => badgeText;
-        set => SetProperty(ref badgeText, value);
-    }
-
-    public string SelectedThemeName
-    {
-        get => selectedThemeName;
-        set => SetProperty(ref selectedThemeName, value);
-    }
-
-    public bool IsActive
-    {
-        get => isActive;
-        set => SetProperty(ref isActive, value);
-    }
-
-    public string ErrorMessage
-    {
-        get => errorMessage;
-        private set
-        {
-            if (SetProperty(ref errorMessage, value))
-                OnPropertyChanged(nameof(HasError));
-        }
-    }
-
-    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
-
-    public string StatusMessage
-    {
-        get => statusMessage;
-        private set
-        {
-            if (SetProperty(ref statusMessage, value))
-                OnPropertyChanged(nameof(HasStatusMessage));
-        }
-    }
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+    public string Eyebrow { get => eyebrow; set => SetProperty(ref eyebrow, value); }
+    public string BannerTitle { get => bannerTitle; set => SetInput(ref bannerTitle, value, SaveBannerCommand); }
+    public string Subtitle { get => subtitle; set => SetProperty(ref subtitle, value); }
+    public string BadgeText { get => badgeText; set => SetProperty(ref badgeText, value); }
+    public string SelectedThemeName { get => selectedThemeName; set => SetProperty(ref selectedThemeName, value); }
+    public bool IsActive { get => isActive; set => SetProperty(ref isActive, value); }
 
     public IAsyncRelayCommand LoadCommand { get; }
     public IRelayCommand NewBannerCommand { get; }
@@ -152,10 +89,8 @@ public sealed class AdminBannersViewModel : BaseViewModel
 
     public async Task LoadAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminBannersViewModel)))
         {
-            logger.LogWarning("Access denied for role {Role} on {ViewModel}", sessionService.CurrentRole, nameof(AdminBannersViewModel));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
             await navigation.GoBackAsync();
             return;
         }
@@ -164,23 +99,14 @@ public sealed class AdminBannersViewModel : BaseViewModel
         try
         {
             var list = await bannerRepository.GetAllAsync();
-            await dispatcher.InvokeOnMainThreadAsync(() =>
-            {
-                Banners.Clear();
-                foreach (var item in list)
-                    Banners.Add(item);
-            });
+            await dispatcher.InvokeOnMainThreadAsync(() => ReplaceCollection(Banners, list));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to load admin banners");
             ErrorMessage = "Не вдалося завантажити банери.";
         }
-        finally
-        {
-            IsBusy = false;
-            SaveBannerCommand.NotifyCanExecuteChanged();
-        }
+        finally { IsBusy = false; SaveBannerCommand.NotifyCanExecuteChanged(); }
     }
 
     private void SelectForEdit(MenuBanner? banner)
@@ -192,56 +118,41 @@ public sealed class AdminBannersViewModel : BaseViewModel
         Subtitle = banner.Subtitle;
         BadgeText = banner.BadgeText;
         IsActive = banner.IsActive;
-        var matchedPreset = ThemePresets.FirstOrDefault(p =>
-            string.Equals(p.BackgroundHex, banner.BackgroundHex, StringComparison.OrdinalIgnoreCase));
-        SelectedThemeName = matchedPreset?.Name ?? ThemePresets[0].Name;
-        ErrorMessage = string.Empty;
-        StatusMessage = string.Empty;
-        OnPropertyChanged(nameof(IsEditing));
-        OnPropertyChanged(nameof(SaveButtonText));
+        SelectedThemeName = ThemePresets.FirstOrDefault(p =>
+            string.Equals(p.BackgroundHex, banner.BackgroundHex, StringComparison.OrdinalIgnoreCase))?.Name ?? ThemePresets[0].Name;
+        ErrorMessage = StatusMessage = string.Empty;
+        NotifyEditState();
     }
 
     private void ResetForm()
     {
         editingBanner = null;
-        Eyebrow = string.Empty;
-        BannerTitle = string.Empty;
-        Subtitle = string.Empty;
-        BadgeText = string.Empty;
+        Eyebrow = BannerTitle = Subtitle = BadgeText = ErrorMessage = string.Empty;
         SelectedThemeName = ThemePresets[0].Name;
         IsActive = true;
-        ErrorMessage = string.Empty;
+        NotifyEditState();
+    }
+
+    private void NotifyEditState()
+    {
         OnPropertyChanged(nameof(IsEditing));
         OnPropertyChanged(nameof(SaveButtonText));
     }
 
     private async Task SaveBannerAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(SaveBannerCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(SaveBannerCommand)))
             return;
-        }
 
-        if (string.IsNullOrWhiteSpace(BannerTitle))
-        {
-            ErrorMessage = "Вкажіть заголовок банера.";
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(BannerTitle)) { ErrorMessage = "Вкажіть заголовок банера."; return; }
 
         var preset = ThemePresets.FirstOrDefault(p => p.Name == SelectedThemeName) ?? ThemePresets[0];
-
         IsBusy = true;
-        ErrorMessage = string.Empty;
-        StatusMessage = string.Empty;
+        ErrorMessage = StatusMessage = string.Empty;
         try
         {
             var isUpdate = editingBanner is not null;
-            var banner = editingBanner ?? new MenuBanner
-            {
-                SortOrder = Banners.Count > 0 ? Banners.Max(b => b.SortOrder) + 1 : 0
-            };
+            var banner = editingBanner ?? new MenuBanner { SortOrder = Banners.Count > 0 ? Banners.Max(b => b.SortOrder) + 1 : 0 };
 
             banner.Eyebrow = string.IsNullOrWhiteSpace(Eyebrow) ? "АКЦІЯ" : Eyebrow.Trim();
             banner.Title = BannerTitle.Trim();
@@ -263,24 +174,13 @@ public sealed class AdminBannersViewModel : BaseViewModel
             logger.LogError(ex, "Failed to save menu banner");
             ErrorMessage = "Не вдалося зберегти банер.";
         }
-        finally
-        {
-            IsBusy = false;
-            SaveBannerCommand.NotifyCanExecuteChanged();
-        }
+        finally { IsBusy = false; SaveBannerCommand.NotifyCanExecuteChanged(); }
     }
 
     private async Task ToggleActiveAsync(MenuBanner? banner)
     {
-        if (banner is null || IsBusy)
+        if (banner is null || IsBusy || !await RequireAdminAsync(sessionService, dialogService, logger, nameof(ToggleActiveCommand)))
             return;
-
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(ToggleActiveCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
-            return;
-        }
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -297,32 +197,17 @@ public sealed class AdminBannersViewModel : BaseViewModel
             ErrorMessage = "Не вдалося оновити статус банера.";
             return;
         }
-        finally
-        {
-            IsBusy = false;
-        }
+        finally { IsBusy = false; }
 
         await LoadAsync();
     }
 
     private async Task DeleteBannerAsync(MenuBanner? banner)
     {
-        if (banner is null || IsBusy)
+        if (banner is null || IsBusy || !await RequireAdminAsync(sessionService, dialogService, logger, nameof(DeleteBannerCommand)))
             return;
 
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(DeleteBannerCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
-            return;
-        }
-
-        var confirmed = await dialogService.ConfirmAsync(
-            "Видалення банера",
-            $"Видалити банер «{banner.Title}»?",
-            "Видалити",
-            "Скасувати");
-        if (!confirmed)
+        if (!await dialogService.ConfirmAsync("Видалення банера", $"Видалити банер «{banner.Title}»?", "Видалити", "Скасувати"))
             return;
 
         IsBusy = true;
@@ -330,8 +215,7 @@ public sealed class AdminBannersViewModel : BaseViewModel
         try
         {
             await bannerRepository.DeleteAsync(banner);
-            if (editingBanner?.Id == banner.Id)
-                ResetForm();
+            if (editingBanner?.Id == banner.Id) ResetForm();
             StatusMessage = $"Банер «{banner.Title}» видалено.";
         }
         catch (Exception ex)
@@ -340,10 +224,7 @@ public sealed class AdminBannersViewModel : BaseViewModel
             ErrorMessage = "Не вдалося видалити банер.";
             return;
         }
-        finally
-        {
-            IsBusy = false;
-        }
+        finally { IsBusy = false; }
 
         await LoadAsync();
     }

@@ -12,7 +12,7 @@ namespace PizzaTake.Core.ViewModels;
 /// <summary>
 /// ViewModel for creating and reviewing order quality reports with camera/gallery photos and GPS coordinates.
 /// </summary>
-public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterReceiver
+public sealed class QualityReportViewModel : FormFeedbackViewModel, IQueryParameterReceiver
 {
     private readonly IQualityReportRepository qualityReportRepository;
     private readonly IPermissionService permissionService;
@@ -31,8 +31,6 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
     private string photoPath = string.Empty;
     private double? latitude;
     private double? longitude;
-    private string statusMessage = string.Empty;
-    private string errorMessage = string.Empty;
 
     public QualityReportViewModel(
         IQualityReportRepository qualityReportRepository,
@@ -75,118 +73,40 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
         };
     }
 
-    public ObservableCollection<QualityReport> SavedReports { get; } = new();
+    public ObservableCollection<QualityReport> SavedReports { get; } = [];
 
-    public int? OrderId
-    {
-        get => orderId;
-        private set
-        {
-            if (SetProperty(ref orderId, value))
-                OnPropertyChanged(nameof(HasOrderContext));
-        }
-    }
+    public int? OrderId { get => orderId; private set { if (SetProperty(ref orderId, value)) OnPropertyChanged(nameof(HasOrderContext)); } }
 
     public string OrderNumber
     {
         get => orderNumber;
-        set
-        {
-            if (SetProperty(ref orderNumber, value))
-            {
-                OnPropertyChanged(nameof(HasOrderContext));
-                OnPropertyChanged(nameof(OrderContextText));
-            }
-        }
+        set { if (SetProperty(ref orderNumber, value)) { OnPropertyChanged(nameof(HasOrderContext)); OnPropertyChanged(nameof(OrderContextText)); } }
     }
 
     public bool HasOrderContext => !string.IsNullOrWhiteSpace(OrderNumber);
-    public string OrderContextText => HasOrderContext
-        ? $"Прив'язано до замовлення №{OrderNumber}"
-        : "Загальне звернення щодо якості";
-
-    public string Description
-    {
-        get => description;
-        set
-        {
-            if (SetProperty(ref description, value))
-            {
-                ErrorMessage = string.Empty;
-                SaveReportCommand.NotifyCanExecuteChanged();
-            }
-        }
-    }
-
-    public string PhotoPath
-    {
-        get => photoPath;
-        private set
-        {
-            if (SetProperty(ref photoPath, value))
-                OnPropertyChanged(nameof(HasPhoto));
-        }
-    }
-
+    public string OrderContextText => HasOrderContext ? $"Прив'язано до замовлення №{OrderNumber}" : "Загальне звернення щодо якості";
+    public string Description { get => description; set => SetInput(ref description, value, SaveReportCommand); }
+    public string PhotoPath { get => photoPath; private set { if (SetProperty(ref photoPath, value)) OnPropertyChanged(nameof(HasPhoto)); } }
     public bool HasPhoto => !string.IsNullOrWhiteSpace(PhotoPath);
 
     public double? Latitude
     {
         get => latitude;
-        private set
-        {
-            if (SetProperty(ref latitude, value))
-            {
-                OnPropertyChanged(nameof(HasCoordinates));
-                OnPropertyChanged(nameof(CoordinatesText));
-            }
-        }
+        private set { if (SetProperty(ref latitude, value)) { OnPropertyChanged(nameof(HasCoordinates)); OnPropertyChanged(nameof(CoordinatesText)); } }
     }
 
     public double? Longitude
     {
         get => longitude;
-        private set
-        {
-            if (SetProperty(ref longitude, value))
-            {
-                OnPropertyChanged(nameof(HasCoordinates));
-                OnPropertyChanged(nameof(CoordinatesText));
-            }
-        }
+        private set { if (SetProperty(ref longitude, value)) { OnPropertyChanged(nameof(HasCoordinates)); OnPropertyChanged(nameof(CoordinatesText)); } }
     }
 
-    public bool HasCoordinates =>
-        Latitude.HasValue && Longitude.HasValue &&
-        (Math.Abs(Latitude.Value) > 0.00001 || Math.Abs(Longitude.Value) > 0.00001);
+    public bool HasCoordinates => GeoMath.HasValidCoordinates(Latitude, Longitude);
 
     public string CoordinatesText => HasCoordinates
         ? string.Format(CultureInfo.InvariantCulture, "GPS: {0:F5}, {1:F5}", Latitude!.Value, Longitude!.Value)
         : "Координати ще не визначено";
 
-    public string StatusMessage
-    {
-        get => statusMessage;
-        private set
-        {
-            if (SetProperty(ref statusMessage, value))
-                OnPropertyChanged(nameof(HasStatusMessage));
-        }
-    }
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
-
-    public string ErrorMessage
-    {
-        get => errorMessage;
-        private set
-        {
-            if (SetProperty(ref errorMessage, value))
-                OnPropertyChanged(nameof(HasError));
-        }
-    }
-
-    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
     public bool HasSavedReports => SavedReports.Count > 0;
     public bool HasNoSavedReports => SavedReports.Count == 0;
 
@@ -210,7 +130,6 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
 
         if (query.TryGetValue("OrderId", out var idObj) && int.TryParse(idObj?.ToString(), out var parsedId))
             OrderId = parsedId;
-
         if (query.TryGetValue("OrderNumber", out var numObj) && numObj is not null)
             OrderNumber = numObj.ToString() ?? string.Empty;
     }
@@ -220,12 +139,7 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
         try
         {
             var reports = await qualityReportRepository.GetAllAsync();
-            await dispatcher.InvokeOnMainThreadAsync(() =>
-            {
-                SavedReports.Clear();
-                foreach (var report in reports)
-                    SavedReports.Add(report);
-            });
+            await dispatcher.InvokeOnMainThreadAsync(() => ReplaceCollection(SavedReports, reports));
             logger.LogInformation("Loaded {ReportCount} saved quality report(s)", reports.Count);
         }
         catch (Exception ex)
@@ -235,117 +149,83 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
         }
     }
 
-    public async Task TakePhotoAsync()
-    {
-        if (IsBusy)
-            return;
+    public Task TakePhotoAsync() => AcquirePhotoAsync(
+        requireCameraPermission: true,
+        () => mediaService.CapturePhotoAsync("report"),
+        "Фото успішно додано.",
+        "Зйомку фото скасовано.",
+        "Не вдалося зробити фото.",
+        "Сталася помилка під час роботи з камерою.");
 
-        ErrorMessage = string.Empty;
-        StatusMessage = string.Empty;
+    public Task PickPhotoAsync() => AcquirePhotoAsync(
+        requireCameraPermission: false,
+        () => mediaService.PickPhotoAsync("report"),
+        "Фото обрано з галереї.",
+        "Вибір фото скасовано.",
+        "Не вдалося обрати фото.",
+        "Сталася помилка під час вибору фото.");
+
+    private async Task AcquirePhotoAsync(
+        bool requireCameraPermission,
+        Func<Task<MediaCaptureResult>> action,
+        string successMsg,
+        string cancelMsg,
+        string failMsg,
+        string errorMsg)
+    {
+        if (IsBusy) return;
+        ErrorMessage = StatusMessage = string.Empty;
         IsBusy = true;
         RefreshCommandStates();
         try
         {
-            var granted = await permissionService.EnsureGrantedAsync(
-                AppPermission.Camera,
-                "Дозвіл на камеру",
-                "Камера потрібна, щоб сфотографувати піцу або стан доставки для акту якості.");
-
-            if (!granted)
+            if (requireCameraPermission && !await permissionService.EnsureGrantedAsync(
+                    AppPermission.Camera,
+                    "Дозвіл на камеру",
+                    "Камера потрібна, щоб сфотографувати піцу або стан доставки для акту якості."))
             {
                 logger.LogWarning("Camera permission denied while creating quality report");
                 ErrorMessage = "Дозвіл на камеру не надано. Ви можете обрати фото з галереї.";
                 return;
             }
 
-            var result = await mediaService.CapturePhotoAsync("report");
+            var result = await action();
             if (result.IsSuccess)
             {
                 PhotoPath = result.SavedFilePath!;
-                StatusMessage = "Фото успішно додано.";
-                return;
+                StatusMessage = successMsg;
             }
-
-            if (result.FailureReason == HardwareFailureReason.Cancelled)
+            else if (result.FailureReason == HardwareFailureReason.Cancelled)
             {
-                StatusMessage = result.ErrorMessage ?? "Зйомку фото скасовано.";
+                StatusMessage = result.ErrorMessage ?? cancelMsg;
             }
             else
             {
-                logger.LogWarning("Photo capture failed with reason {Reason}: {Message}", result.FailureReason, result.ErrorMessage);
-                ErrorMessage = result.ErrorMessage ?? "Не вдалося зробити фото.";
+                logger.LogWarning("Photo operation failed with reason {Reason}: {Message}", result.FailureReason, result.ErrorMessage);
+                ErrorMessage = result.ErrorMessage ?? failMsg;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error in TakePhotoAsync");
-            ErrorMessage = "Сталася помилка під час роботи з камерою.";
+            logger.LogError(ex, "Unexpected error while acquiring quality report photo");
+            ErrorMessage = errorMsg;
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
-    }
-
-    public async Task PickPhotoAsync()
-    {
-        if (IsBusy)
-            return;
-
-        ErrorMessage = string.Empty;
-        StatusMessage = string.Empty;
-        IsBusy = true;
-        RefreshCommandStates();
-        try
-        {
-            var result = await mediaService.PickPhotoAsync("report");
-            if (result.IsSuccess)
-            {
-                PhotoPath = result.SavedFilePath!;
-                StatusMessage = "Фото обрано з галереї.";
-                return;
-            }
-
-            if (result.FailureReason == HardwareFailureReason.Cancelled)
-            {
-                StatusMessage = result.ErrorMessage ?? "Вибір фото скасовано.";
-            }
-            else
-            {
-                logger.LogWarning("Photo pick failed with reason {Reason}: {Message}", result.FailureReason, result.ErrorMessage);
-                ErrorMessage = result.ErrorMessage ?? "Не вдалося обрати фото.";
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Unexpected error in PickPhotoAsync");
-            ErrorMessage = "Сталася помилка під час вибору фото.";
-        }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     public async Task GetLocationAsync()
     {
-        if (IsBusy)
-            return;
-
+        if (IsBusy) return;
         ErrorMessage = string.Empty;
         StatusMessage = "Визначаємо координати...";
         IsBusy = true;
         RefreshCommandStates();
         try
         {
-            var granted = await permissionService.EnsureGrantedAsync(
-                AppPermission.LocationWhenInUse,
-                "Дозвіл на геолокацію",
-                "Геолокація потрібна для фіксації координат у зверненні щодо якості.");
-
-            if (!granted)
+            if (!await permissionService.EnsureGrantedAsync(
+                    AppPermission.LocationWhenInUse,
+                    "Дозвіл на геолокацію",
+                    "Геолокація потрібна для фіксації координат у зверненні щодо якості."))
             {
                 logger.LogWarning("Location permission denied while creating quality report");
                 StatusMessage = string.Empty;
@@ -372,31 +252,19 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
             logger.LogError(ex, "Unexpected error in GetLocationAsync");
             ErrorMessage = "Не вдалося отримати координати GPS.";
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
-    private bool CanSaveReport() =>
-        !IsBusy && !string.IsNullOrWhiteSpace(Description) && Description.Trim().Length >= 3;
+    private bool CanSaveReport() => !IsBusy && !string.IsNullOrWhiteSpace(Description) && Description.Trim().Length >= 3;
 
     public async Task SaveReportAsync()
     {
-        if (!CanSaveReport())
-            return;
-
+        if (!CanSaveReport()) return;
         var trimmedDescription = Description.Trim();
-        if (trimmedDescription.Length < 3)
-        {
-            ErrorMessage = "Опишіть проблему детальніше (щонайменше 3 символи).";
-            return;
-        }
+        if (trimmedDescription.Length < 3) { ErrorMessage = "Опишіть проблему детальніше (щонайменше 3 символи)."; return; }
 
         IsBusy = true;
-        ErrorMessage = string.Empty;
-        StatusMessage = string.Empty;
+        ErrorMessage = StatusMessage = string.Empty;
         RefreshCommandStates();
         try
         {
@@ -414,14 +282,8 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
             await qualityReportRepository.SaveAsync(report);
             await syncService.EnqueueAsync("QualityReport", "Insert", new
             {
-                report.Id,
-                report.OrderId,
-                report.OrderNumber,
-                report.Description,
-                report.PhotoPath,
-                report.Latitude,
-                report.Longitude,
-                UpdatedAt = report.CreatedAtUtc
+                report.Id, report.OrderId, report.OrderNumber, report.Description,
+                report.PhotoPath, report.Latitude, report.Longitude, UpdatedAt = report.CreatedAtUtc
             });
 
             crashReporting?.TrackEvent(CrashEventNames.QualityReportCreated, new Dictionary<string, string>
@@ -432,12 +294,9 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
             });
 
             SavedReports.Insert(0, report);
-            Description = string.Empty;
-            PhotoPath = string.Empty;
-            Latitude = null;
-            Longitude = null;
+            Description = PhotoPath = string.Empty;
+            Latitude = Longitude = null;
             StatusMessage = "Звернення щодо якості збережено.";
-
             logger.LogInformation("Created quality report Id={ReportId} (HasPhoto={HasPhoto}, HasCoords={HasCoords})",
                 report.Id, report.HasPhoto, report.HasCoordinates);
         }
@@ -447,34 +306,19 @@ public sealed class QualityReportViewModel : BaseViewModel, IQueryParameterRecei
             crashReporting?.CaptureException(ex, "QualityReportViewModel.SaveReportAsync");
             ErrorMessage = "Не вдалося зберегти звернення. Спробуйте ще раз.";
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     private async Task DeleteReportAsync(QualityReport? report)
     {
-        if (report is null || IsBusy)
-            return;
-
-        var confirmed = await dialogService.ConfirmAsync(
-            "Видалення звернення",
-            "Видалити це звернення щодо якості?",
-            "Видалити",
-            "Скасувати");
-        if (!confirmed)
+        if (report is null || IsBusy || !await dialogService.ConfirmAsync(
+                "Видалення звернення", "Видалити це звернення щодо якості?", "Видалити", "Скасувати"))
             return;
 
         try
         {
             await qualityReportRepository.DeleteAsync(report);
-            await syncService.EnqueueAsync("QualityReport", "Delete", new
-            {
-                report.Id,
-                UpdatedAt = DateTime.UtcNow
-            });
+            await syncService.EnqueueAsync("QualityReport", "Delete", new { report.Id, UpdatedAt = DateTime.UtcNow });
             SavedReports.Remove(report);
             StatusMessage = "Звернення видалено.";
         }

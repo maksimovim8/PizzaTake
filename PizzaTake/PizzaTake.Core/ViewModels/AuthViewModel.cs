@@ -8,12 +8,11 @@ namespace PizzaTake.Core.ViewModels;
 /// <summary>
 /// ViewModel for phone-based OTP authentication, biometric unlock of saved sessions, and SMS verification modal flow.
 /// </summary>
-public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
+public sealed class AuthViewModel : FormFeedbackViewModel, IQueryParameterReceiver
 {
     private readonly IAuthService authService;
     private readonly IBiometricAuthService biometricAuthService;
     private readonly INavigationService navigation;
-    private readonly IBugReportService? bugReportService;
     private readonly ILogger<AuthViewModel> logger;
 
     private string phoneInput = PhoneNumberNormalizer.CountryPrefix;
@@ -23,8 +22,6 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
     private bool isBiometricLoginVisible;
     private bool isSessionLocked;
     private string biometricStatusMessage = string.Empty;
-    private string errorMessage = string.Empty;
-    private string? reportableErrorContext;
     private string? nextRoute;
 
     public AuthViewModel(
@@ -33,11 +30,11 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
         INavigationService navigation,
         IBugReportService? bugReportService = null,
         ILogger<AuthViewModel>? logger = null)
+        : base(bugReportService, "Авторизація")
     {
         this.authService = authService;
         this.biometricAuthService = biometricAuthService;
         this.navigation = navigation;
-        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<AuthViewModel>.Instance;
         Title = "Авторизація";
 
@@ -45,7 +42,6 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
         RequestSmsCommand = new AsyncRelayCommand(RequestSmsAsync, CanRequestSms);
         VerifySmsCommand = new AsyncRelayCommand(VerifySmsAsync, CanVerifySms);
         BiometricLoginCommand = new AsyncRelayCommand(BiometricLoginAsync, () => !IsBusy);
-        ReportErrorCommand = new AsyncRelayCommand(ReportErrorAsync, () => CanReportError);
         CloseSmsPopupCommand = new RelayCommand(() => IsSmsPopupVisible = false);
         GoBackCommand = new AsyncRelayCommand(() => navigation.GoBackAsync());
     }
@@ -53,70 +49,24 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
     public string PhoneInput
     {
         get => phoneInput;
-        set
-        {
-            var normalized = PhoneNumberNormalizer.Normalize(value);
-            if (SetProperty(ref phoneInput, normalized))
-            {
-                ErrorMessage = string.Empty;
-                RequestSmsCommand.NotifyCanExecuteChanged();
-            }
-        }
+        set => SetInput(ref phoneInput, PhoneNumberNormalizer.Normalize(value), RequestSmsCommand);
     }
 
-    public string SmsOtpCode
-    {
-        get => smsOtpCode;
-        set
-        {
-            if (SetProperty(ref smsOtpCode, value))
-            {
-                ErrorMessage = string.Empty;
-                VerifySmsCommand.NotifyCanExecuteChanged();
-            }
-        }
-    }
-
-    public bool IsPolicyAccepted
-    {
-        get => isPolicyAccepted;
-        set
-        {
-            if (SetProperty(ref isPolicyAccepted, value))
-                RequestSmsCommand.NotifyCanExecuteChanged();
-        }
-    }
+    public string SmsOtpCode { get => smsOtpCode; set => SetInput(ref smsOtpCode, value, VerifySmsCommand); }
+    public bool IsPolicyAccepted { get => isPolicyAccepted; set { if (SetProperty(ref isPolicyAccepted, value)) RequestSmsCommand.NotifyCanExecuteChanged(); } }
 
     public bool IsSmsPopupVisible
     {
         get => isSmsPopupVisible;
-        set
-        {
-            if (SetProperty(ref isSmsPopupVisible, value))
-            {
-                OnPropertyChanged(nameof(HasMainError));
-                OnPropertyChanged(nameof(CanReportMainError));
-            }
-        }
+        set { if (SetProperty(ref isSmsPopupVisible, value)) { OnPropertyChanged(nameof(HasMainError)); OnPropertyChanged(nameof(CanReportMainError)); } }
     }
 
-    public bool IsBiometricLoginVisible
-    {
-        get => isBiometricLoginVisible;
-        private set => SetProperty(ref isBiometricLoginVisible, value);
-    }
+    public bool IsBiometricLoginVisible { get => isBiometricLoginVisible; private set => SetProperty(ref isBiometricLoginVisible, value); }
 
     public bool IsSessionLocked
     {
         get => isSessionLocked;
-        private set
-        {
-            if (SetProperty(ref isSessionLocked, value))
-            {
-                OnPropertyChanged(nameof(HeaderTitle));
-                OnPropertyChanged(nameof(SubtitleText));
-            }
-        }
+        private set { if (SetProperty(ref isSessionLocked, value)) { OnPropertyChanged(nameof(HeaderTitle)); OnPropertyChanged(nameof(SubtitleText)); } }
     }
 
     public string HeaderTitle => IsSessionLocked ? "Сесію заблоковано" : "Приєднуйся до";
@@ -128,55 +78,31 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
     public string BiometricStatusMessage
     {
         get => biometricStatusMessage;
-        private set
-        {
-            if (SetProperty(ref biometricStatusMessage, value))
-                OnPropertyChanged(nameof(HasBiometricStatusMessage));
-        }
+        private set { if (SetProperty(ref biometricStatusMessage, value)) OnPropertyChanged(nameof(HasBiometricStatusMessage)); }
     }
 
     public bool HasBiometricStatusMessage => !string.IsNullOrEmpty(BiometricStatusMessage);
-
-    public string ErrorMessage
-    {
-        get => errorMessage;
-        private set
-        {
-            if (SetProperty(ref errorMessage, value))
-            {
-                if (string.IsNullOrEmpty(value))
-                    SetReportableErrorContext(null);
-                OnPropertyChanged(nameof(HasError));
-                OnPropertyChanged(nameof(HasMainError));
-                OnPropertyChanged(nameof(CanReportError));
-                OnPropertyChanged(nameof(CanReportMainError));
-            }
-        }
-    }
-
-    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
     public bool HasMainError => HasError && !IsSmsPopupVisible;
-    public bool CanReportError => HasError && !string.IsNullOrEmpty(reportableErrorContext) && bugReportService is not null;
     public bool CanReportMainError => CanReportError && !IsSmsPopupVisible;
 
     public IAsyncRelayCommand InitializeCommand { get; }
     public IAsyncRelayCommand RequestSmsCommand { get; }
     public IAsyncRelayCommand VerifySmsCommand { get; }
     public IAsyncRelayCommand BiometricLoginCommand { get; }
-    public IAsyncRelayCommand ReportErrorCommand { get; }
     public IRelayCommand CloseSmsPopupCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
+    protected override void OnErrorMessageChanged()
+    {
+        OnPropertyChanged(nameof(HasMainError));
+        OnPropertyChanged(nameof(CanReportMainError));
+    }
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        if (query.TryGetValue("next", out var nextObj))
-            nextRoute = nextObj?.ToString();
-
-        if (query.TryGetValue("locked", out var lockedObj) &&
-            bool.TryParse(lockedObj?.ToString(), out var locked))
-        {
+        if (query.TryGetValue("next", out var nextObj)) nextRoute = nextObj?.ToString();
+        if (query.TryGetValue("locked", out var lockedObj) && bool.TryParse(lockedObj?.ToString(), out var locked))
             IsSessionLocked = locked;
-        }
     }
 
     public async Task InitializeAsync()
@@ -206,35 +132,21 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
         }
     }
 
-    private bool CanRequestSms()
-    {
-        if (!IsPolicyAccepted || IsBusy)
-            return false;
+    private bool CanRequestSms() => IsPolicyAccepted && !IsBusy && HttpApiClient.IsValidPhone(PhoneInput ?? string.Empty);
 
-        return HttpApiClient.IsValidPhone(PhoneInput ?? string.Empty);
-    }
-
-    private bool CanVerifySms()
-    {
-        if (IsBusy || string.IsNullOrWhiteSpace(SmsOtpCode))
-            return false;
-
-        var trimmed = SmsOtpCode.Trim();
-        return trimmed.Length == 4 && trimmed.All(char.IsDigit);
-    }
+    private bool CanVerifySms() =>
+        !IsBusy && !string.IsNullOrWhiteSpace(SmsOtpCode) &&
+        SmsOtpCode.Trim() is { Length: 4 } trimmed && trimmed.All(char.IsDigit);
 
     private async Task RequestSmsAsync()
     {
-        if (!CanRequestSms())
-            return;
-
+        if (!CanRequestSms()) return;
         IsBusy = true;
         ErrorMessage = string.Empty;
         RefreshCommandStates();
         try
         {
-            var sent = await authService.SendOtpAsync(PhoneInput.Trim());
-            if (!sent)
+            if (!await authService.SendOtpAsync(PhoneInput.Trim()))
             {
                 logger.LogWarning("OTP SMS request failed in AuthViewModel");
                 ErrorMessage = "Не вдалося надіслати код. Введіть номер у форматі +380XXXXXXXXX.";
@@ -250,25 +162,18 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
             ErrorMessage = "Виникла помилка під час надсилання коду.";
             SetReportableErrorContext("Auth: RequestSmsAsync");
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     private async Task VerifySmsAsync()
     {
-        if (!CanVerifySms())
-            return;
-
+        if (!CanVerifySms()) return;
         IsBusy = true;
         ErrorMessage = string.Empty;
         RefreshCommandStates();
         try
         {
-            var verified = await authService.VerifyOtpAsync(PhoneInput.Trim(), SmsOtpCode.Trim());
-            if (!verified)
+            if (!await authService.VerifyOtpAsync(PhoneInput.Trim(), SmsOtpCode.Trim()))
             {
                 logger.LogWarning("OTP SMS code verification failed in AuthViewModel");
                 ErrorMessage = "Невірний код підтвердження. Введіть коректний 4-значний код.";
@@ -285,33 +190,21 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
             ErrorMessage = "Не вдалося перевірити код. Спробуйте ще раз.";
             SetReportableErrorContext("Auth: VerifySmsAsync");
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     private async Task BiometricLoginAsync()
     {
-        if (IsBusy)
-            return;
-
+        if (IsBusy) return;
         IsBusy = true;
         ErrorMessage = string.Empty;
         RefreshCommandStates();
         try
         {
-            var hasSavedToken = await authService.HasSavedCredentialsAsync();
-            if (!hasSavedToken)
-            {
-                ErrorMessage = "Збережений токен відсутній. Увійдіть за номером телефону.";
-                IsBiometricLoginVisible = false;
-                return;
-            }
+            if (!await authService.HasSavedCredentialsAsync())
+            { ErrorMessage = "Збережений токен відсутній. Увійдіть за номером телефону."; IsBiometricLoginVisible = false; return; }
 
-            var isAvailable = await biometricAuthService.IsAvailableAsync();
-            if (!isAvailable)
+            if (!await biometricAuthService.IsAvailableAsync())
             {
                 logger.LogWarning("Biometric login attempted, but biometrics are not available on this device.");
                 ErrorMessage = "Біометрична автентифікація недоступна на цьому пристрої.";
@@ -320,18 +213,10 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
             }
 
             var authResult = await biometricAuthService.AuthenticateAsync("Підтвердіть особу для повторного входу в PizzaTake");
-            if (!authResult.IsSuccess)
-            {
-                ErrorMessage = authResult.ErrorMessage ?? "Біометричну автентифікацію не пройдено.";
-                return;
-            }
+            if (!authResult.IsSuccess) { ErrorMessage = authResult.ErrorMessage ?? "Біометричну автентифікацію не пройдено."; return; }
 
-            var restored = await authService.RestoreSavedSessionAsync();
-            if (!restored)
-            {
-                ErrorMessage = "Не вдалося відновити сесію. Увійдіть за SMS-кодом.";
-                return;
-            }
+            if (!await authService.RestoreSavedSessionAsync())
+            { ErrorMessage = "Не вдалося відновити сесію. Увійдіть за SMS-кодом."; return; }
 
             logger.LogInformation("Biometric login succeeded; session restored.");
             await NavigateAfterAuthAsync();
@@ -342,36 +227,11 @@ public sealed class AuthViewModel : BaseViewModel, IQueryParameterReceiver
             ErrorMessage = "Помилка біометричного входу. Увійдіть за SMS-кодом.";
             SetReportableErrorContext("Auth: BiometricLoginAsync");
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
-    private void SetReportableErrorContext(string? context)
-    {
-        reportableErrorContext = context;
-        OnPropertyChanged(nameof(CanReportError));
-        OnPropertyChanged(nameof(CanReportMainError));
-        ReportErrorCommand.NotifyCanExecuteChanged();
-    }
-
-    private async Task ReportErrorAsync()
-    {
-        if (bugReportService is null)
-            return;
-
-        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Авторизація");
-    }
-
-    private async Task NavigateAfterAuthAsync()
-    {
-        if (!string.IsNullOrWhiteSpace(nextRoute))
-            await navigation.GoToAsync($"../{nextRoute}");
-        else
-            await navigation.GoBackAsync();
-    }
+    private Task NavigateAfterAuthAsync() =>
+        !string.IsNullOrWhiteSpace(nextRoute) ? navigation.GoToAsync($"../{nextRoute}") : navigation.GoBackAsync();
 
     private void RefreshCommandStates()
     {

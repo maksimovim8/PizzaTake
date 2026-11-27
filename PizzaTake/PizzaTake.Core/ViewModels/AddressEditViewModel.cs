@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,7 +12,7 @@ namespace PizzaTake.Core.ViewModels;
 /// ViewModel for creating, editing, and deleting saved delivery addresses with query-parameter return navigation
 /// and draft persistence across app lifecycle transitions.
 /// </summary>
-public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceiver
+public sealed class AddressEditViewModel : FormFeedbackViewModel, IQueryParameterReceiver
 {
     private const string DraftPrefix = "addressEdit.";
     private const string DraftLabelKey = "addressEdit.label";
@@ -26,7 +27,6 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     private readonly INavigationService navigation;
     private readonly ILocationService? locationService;
     private readonly IPermissionService? permissionService;
-    private readonly IBugReportService? bugReportService;
     private readonly ILogger<AddressEditViewModel> logger;
 
     private UserAddress? editingAddress;
@@ -35,9 +35,6 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     private string notes = string.Empty;
     private double latitude;
     private double longitude;
-    private string statusMessage = string.Empty;
-    private string errorMessage = string.Empty;
-    private string? reportableErrorContext;
     private bool isEditMode;
     private bool suppressDraftSync;
     private bool isDraftCleared;
@@ -52,6 +49,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         IPermissionService? permissionService = null,
         IBugReportService? bugReportService = null,
         ILogger<AddressEditViewModel>? logger = null)
+        : base(bugReportService, "Редагування адреси")
     {
         this.addressRepository = addressRepository;
         this.userProfileRepository = userProfileRepository;
@@ -60,14 +58,12 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         this.navigation = navigation;
         this.locationService = locationService;
         this.permissionService = permissionService;
-        this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<AddressEditViewModel>.Instance;
         Title = "Нова адреса";
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, CanSave);
         DeleteCommand = new AsyncRelayCommand(DeleteAsync, CanDelete);
         GetMyCoordinatesCommand = new AsyncRelayCommand(GetMyCoordinatesAsync, () => !IsBusy);
-        ReportErrorCommand = new AsyncRelayCommand(ReportErrorAsync, () => CanReportError);
         GoBackCommand = new AsyncRelayCommand(GoBackAsync);
     }
 
@@ -76,13 +72,8 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         get => label;
         set
         {
-            if (SetProperty(ref label, value))
-            {
-                if (!suppressDraftSync)
-                    appState.SetDraftValue(DraftLabelKey, value);
-                ErrorMessage = string.Empty;
-                SaveCommand.NotifyCanExecuteChanged();
-            }
+            if (SetInput(ref label, value, SaveCommand) && !suppressDraftSync)
+                appState.SetDraftValue(DraftLabelKey, value);
         }
     }
 
@@ -91,24 +82,15 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         get => addressText;
         set
         {
-            if (SetProperty(ref addressText, value))
-            {
-                if (!suppressDraftSync)
-                    appState.SetDraftValue(DraftTextKey, value);
-                ErrorMessage = string.Empty;
-                SaveCommand.NotifyCanExecuteChanged();
-            }
+            if (SetInput(ref addressText, value, SaveCommand) && !suppressDraftSync)
+                appState.SetDraftValue(DraftTextKey, value);
         }
     }
 
     public string Notes
     {
         get => notes;
-        set
-        {
-            if (SetProperty(ref notes, value) && !suppressDraftSync)
-                appState.SetDraftValue(DraftNotesKey, value);
-        }
+        set { if (SetProperty(ref notes, value) && !suppressDraftSync) appState.SetDraftValue(DraftNotesKey, value); }
     }
 
     public bool IsEditMode
@@ -127,68 +109,24 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     public double Latitude
     {
         get => latitude;
-        private set
-        {
-            if (SetProperty(ref latitude, value))
-            {
-                OnPropertyChanged(nameof(HasCoordinates));
-                OnPropertyChanged(nameof(CoordinatesText));
-            }
-        }
+        private set { if (SetProperty(ref latitude, value)) { OnPropertyChanged(nameof(HasCoordinates)); OnPropertyChanged(nameof(CoordinatesText)); } }
     }
 
     public double Longitude
     {
         get => longitude;
-        private set
-        {
-            if (SetProperty(ref longitude, value))
-            {
-                OnPropertyChanged(nameof(HasCoordinates));
-                OnPropertyChanged(nameof(CoordinatesText));
-            }
-        }
+        private set { if (SetProperty(ref longitude, value)) { OnPropertyChanged(nameof(HasCoordinates)); OnPropertyChanged(nameof(CoordinatesText)); } }
     }
 
-    public bool HasCoordinates => Math.Abs(Latitude) > 0.00001 || Math.Abs(Longitude) > 0.00001;
+    public bool HasCoordinates => GeoMath.HasValidCoordinates(Latitude, Longitude);
 
     public string CoordinatesText => HasCoordinates
-        ? string.Format(System.Globalization.CultureInfo.InvariantCulture, "GPS: {0:F5}, {1:F5}", Latitude, Longitude)
+        ? string.Format(CultureInfo.InvariantCulture, "GPS: {0:F5}, {1:F5}", Latitude, Longitude)
         : "Координати не визначено";
-
-    public string StatusMessage
-    {
-        get => statusMessage;
-        private set
-        {
-            if (SetProperty(ref statusMessage, value))
-                OnPropertyChanged(nameof(HasStatusMessage));
-        }
-    }
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
-
-    public string ErrorMessage
-    {
-        get => errorMessage;
-        private set
-        {
-            if (SetProperty(ref errorMessage, value))
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    SetReportableErrorContext(null);
-                OnPropertyChanged(nameof(HasError));
-            }
-        }
-    }
-
-    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
-    public bool CanReportError => HasError && !string.IsNullOrEmpty(reportableErrorContext) && bugReportService is not null;
 
     public IAsyncRelayCommand SaveCommand { get; }
     public IAsyncRelayCommand DeleteCommand { get; }
     public IAsyncRelayCommand GetMyCoordinatesCommand { get; }
-    public IAsyncRelayCommand ReportErrorCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -197,85 +135,55 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         suppressDraftSync = true;
         try
         {
+            var draftId = appState.GetDraftValue(DraftIdKey);
             if (query.TryGetValue("Address", out var value) && value is UserAddress address)
             {
                 editingAddress = address;
                 IsEditMode = address.Id > 0;
                 Latitude = address.Latitude;
                 Longitude = address.Longitude;
-
-                var draftId = appState.GetDraftValue(DraftIdKey);
-                if (string.Equals(draftId, address.Id.ToString(), StringComparison.Ordinal))
-                {
-                    Label = appState.GetDraftValue(DraftLabelKey) ?? address.Label;
-                    AddressText = appState.GetDraftValue(DraftTextKey) ?? address.Text;
-                    Notes = appState.GetDraftValue(DraftNotesKey) ?? address.Notes;
-                }
-                else
-                {
-                    Label = address.Label;
-                    AddressText = address.Text;
-                    Notes = address.Notes;
-                }
+                var useDraft = string.Equals(draftId, address.Id.ToString(), StringComparison.Ordinal);
+                Label = useDraft ? appState.GetDraftValue(DraftLabelKey) ?? address.Label : address.Label;
+                AddressText = useDraft ? appState.GetDraftValue(DraftTextKey) ?? address.Text : address.Text;
+                Notes = useDraft ? appState.GetDraftValue(DraftNotesKey) ?? address.Notes : address.Notes;
             }
             else
             {
                 editingAddress = null;
                 IsEditMode = false;
-                Latitude = 0;
-                Longitude = 0;
-                var draftId = appState.GetDraftValue(DraftIdKey);
-                if (string.IsNullOrEmpty(draftId) || draftId == "0")
-                {
-                    Label = appState.GetDraftValue(DraftLabelKey) ?? string.Empty;
-                    AddressText = appState.GetDraftValue(DraftTextKey) ?? string.Empty;
-                    Notes = appState.GetDraftValue(DraftNotesKey) ?? string.Empty;
-                }
-                else
-                {
-                    Label = string.Empty;
-                    AddressText = string.Empty;
-                    Notes = string.Empty;
-                }
+                Latitude = Longitude = 0;
+                var useDraft = string.IsNullOrEmpty(draftId) || draftId == "0";
+                Label = useDraft ? appState.GetDraftValue(DraftLabelKey) ?? string.Empty : string.Empty;
+                AddressText = useDraft ? appState.GetDraftValue(DraftTextKey) ?? string.Empty : string.Empty;
+                Notes = useDraft ? appState.GetDraftValue(DraftNotesKey) ?? string.Empty : string.Empty;
             }
         }
-        finally
-        {
-            suppressDraftSync = false;
-        }
+        finally { suppressDraftSync = false; }
 
-        appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
-        appState.SetDraftValue(DraftLabelKey, Label);
-        appState.SetDraftValue(DraftTextKey, AddressText);
-        appState.SetDraftValue(DraftNotesKey, Notes);
-
-        StatusMessage = string.Empty;
-        ErrorMessage = string.Empty;
+        WriteDraftValues();
+        StatusMessage = ErrorMessage = string.Empty;
         RefreshCommandStates();
     }
 
     public void SaveDraftState()
     {
-        if (isDraftCleared)
-            return;
+        if (isDraftCleared) return;
+        WriteDraftValues();
+        appState.SaveState();
+    }
 
+    private void WriteDraftValues()
+    {
         appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
         appState.SetDraftValue(DraftLabelKey, Label);
         appState.SetDraftValue(DraftTextKey, AddressText);
         appState.SetDraftValue(DraftNotesKey, Notes);
-        appState.SaveState();
     }
 
     private async Task GetMyCoordinatesAsync()
     {
-        if (IsBusy)
-            return;
-
-        if (locationService is null)
-        {
-            ErrorMessage = "Сервіс геолокації недоступний.";
-            return;
-        }
+        if (IsBusy) return;
+        if (locationService is null) { ErrorMessage = "Сервіс геолокації недоступний."; return; }
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -283,18 +191,14 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
         RefreshCommandStates();
         try
         {
-            if (permissionService is not null)
-            {
-                var granted = await permissionService.EnsureGrantedAsync(
+            if (permissionService is not null && !await permissionService.EnsureGrantedAsync(
                     AppPermission.LocationWhenInUse,
                     "Дозвіл на геолокацію",
-                    "Геолокація потрібна, щоб зберегти точні координати вашої адреси доставки.");
-                if (!granted)
-                {
-                    StatusMessage = string.Empty;
-                    ErrorMessage = "Дозвіл на геолокацію не надано.";
-                    return;
-                }
+                    "Геолокація потрібна, щоб зберегти точні координати вашої адреси доставки."))
+            {
+                StatusMessage = string.Empty;
+                ErrorMessage = "Дозвіл на геолокацію не надано.";
+                return;
             }
 
             var result = await locationService.GetCurrentLocationAsync(TimeSpan.FromSeconds(10));
@@ -318,11 +222,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
             logger.LogError(ex, "Unexpected error while detecting coordinates for address");
             ErrorMessage = "Не вдалося визначити координати.";
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     private async Task GoBackAsync()
@@ -339,68 +239,40 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
     }
 
     private bool CanSave() => !IsBusy && !string.IsNullOrWhiteSpace(AddressText);
-
     private bool CanDelete() => !IsBusy && IsEditMode && editingAddress is not null;
 
     private async Task SaveAsync()
     {
-        if (!CanSave())
-            return;
-
+        if (!CanSave()) return;
         var trimmedText = AddressText.Trim();
-        if (trimmedText.Length < 4)
-        {
-            ErrorMessage = "Введіть повну адресу доставки (щонайменше 4 символи).";
-            return;
-        }
+        if (trimmedText.Length < 4) { ErrorMessage = "Введіть повну адресу доставки (щонайменше 4 символи)."; return; }
 
         IsBusy = true;
         RefreshCommandStates();
         try
         {
             var profile = await userProfileRepository.GetCurrentAsync();
-            var address = editingAddress is not null
-                ? new UserAddress
-                {
-                    Id = editingAddress.Id,
-                    UserId = editingAddress.UserId != 0 ? editingAddress.UserId : profile?.Id ?? 0,
-                    Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
-                    Text = trimmedText,
-                    Notes = Notes.Trim(),
-                    Latitude = Latitude,
-                    Longitude = Longitude,
-                    LastUsedAt = DateTime.UtcNow
-                }
-                : new UserAddress
-                {
-                    UserId = profile?.Id ?? 0,
-                    Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
-                    Text = trimmedText,
-                    Notes = Notes.Trim(),
-                    Latitude = Latitude,
-                    Longitude = Longitude,
-                    LastUsedAt = DateTime.UtcNow
-                };
+            var address = new UserAddress
+            {
+                Id = editingAddress?.Id ?? 0,
+                UserId = editingAddress is { UserId: > 0 } ? editingAddress.UserId : profile?.Id ?? 0,
+                Label = string.IsNullOrWhiteSpace(Label) ? "Доставка" : Label.Trim(),
+                Text = trimmedText,
+                Notes = Notes.Trim(),
+                Latitude = Latitude,
+                Longitude = Longitude,
+                LastUsedAt = DateTime.UtcNow
+            };
 
             var operation = address.Id == 0 ? "Insert" : "Update";
             await addressRepository.SaveAsync(address);
             await syncService.EnqueueAsync("UserAddress", operation, new
             {
-                address.Id,
-                address.Label,
-                address.Text,
-                address.Notes,
-                address.Latitude,
-                address.Longitude,
-                UpdatedAt = address.LastUsedAt
+                address.Id, address.Label, address.Text, address.Notes, address.Latitude, address.Longitude, UpdatedAt = address.LastUsedAt
             });
             ClearDraft();
-
             logger.LogInformation("Address {Operation} succeeded (Id={AddressId})", operation, address.Id);
-            await navigation.GoBackAsync(new Dictionary<string, object>
-            {
-                ["UpdatedAddress"] = address
-            });
+            await navigation.GoBackAsync(new Dictionary<string, object> { ["UpdatedAddress"] = address });
         }
         catch (Exception ex)
         {
@@ -408,36 +280,22 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
             ErrorMessage = "Не вдалося зберегти адресу. Спробуйте ще раз.";
             SetReportableErrorContext("AddressEdit: SaveAsync");
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     private async Task DeleteAsync()
     {
-        if (!CanDelete() || editingAddress is null)
-            return;
-
+        if (!CanDelete() || editingAddress is null) return;
         IsBusy = true;
         RefreshCommandStates();
         try
         {
             var deletedId = editingAddress.Id;
             await addressRepository.DeleteAsync(editingAddress);
-            await syncService.EnqueueAsync("UserAddress", "Delete", new
-            {
-                Id = deletedId,
-                UpdatedAt = DateTime.UtcNow
-            });
+            await syncService.EnqueueAsync("UserAddress", "Delete", new { Id = deletedId, UpdatedAt = DateTime.UtcNow });
             ClearDraft();
-
             logger.LogInformation("Address deleted (Id={AddressId})", deletedId);
-            await navigation.GoBackAsync(new Dictionary<string, object>
-            {
-                ["DeletedAddressId"] = deletedId
-            });
+            await navigation.GoBackAsync(new Dictionary<string, object> { ["DeletedAddressId"] = deletedId });
         }
         catch (Exception ex)
         {
@@ -445,26 +303,7 @@ public sealed class AddressEditViewModel : BaseViewModel, IQueryParameterReceive
             ErrorMessage = "Не вдалося видалити адресу. Спробуйте ще раз.";
             SetReportableErrorContext("AddressEdit: DeleteAsync");
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshCommandStates();
-        }
-    }
-
-    private void SetReportableErrorContext(string? context)
-    {
-        reportableErrorContext = context;
-        OnPropertyChanged(nameof(CanReportError));
-        ReportErrorCommand.NotifyCanExecuteChanged();
-    }
-
-    private async Task ReportErrorAsync()
-    {
-        if (bugReportService is null)
-            return;
-
-        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Редагування адреси");
+        finally { IsBusy = false; RefreshCommandStates(); }
     }
 
     private void RefreshCommandStates()

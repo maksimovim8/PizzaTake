@@ -216,12 +216,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
 
     private async Task AdvanceOrderStatusAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(AdvanceOrderStatusCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdvanceOrderStatusCommand)))
             return;
-        }
 
         if (CurrentOrder is null || IsBusy)
             return;
@@ -264,12 +260,8 @@ public sealed class OrderDetailViewModel : BaseViewModel, IQueryParameterReceive
 
     private async Task DeleteOrderAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(DeleteOrderCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(DeleteOrderCommand)))
             return;
-        }
 
         if (CurrentOrder is null || IsBusy)
             return;

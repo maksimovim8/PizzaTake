@@ -1,4 +1,5 @@
 using System.Globalization;
+using PizzaTake.Core.Services;
 using SQLite;
 
 namespace PizzaTake.Core.Models;
@@ -24,9 +25,7 @@ public class QualityReport
     public bool HasPhoto => !string.IsNullOrWhiteSpace(PhotoPath);
 
     [Ignore]
-    public bool HasCoordinates =>
-        Latitude.HasValue && Longitude.HasValue &&
-        (Math.Abs(Latitude.Value) > 0.00001 || Math.Abs(Longitude.Value) > 0.00001);
+    public bool HasCoordinates => GeoMath.HasValidCoordinates(Latitude, Longitude);
 
     [Ignore]
     public string CoordinatesText => HasCoordinates

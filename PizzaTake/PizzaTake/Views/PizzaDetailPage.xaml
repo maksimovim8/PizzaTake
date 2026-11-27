@@ -6,6 +6,30 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Core.Models;assembly=PizzaTake.Core"
     Title="Деталі піци">
+    <ContentPage.Resources>
+        <DataTemplate x:Key="IngredientOptionTemplate" x:DataType="models:IngredientOption">
+            <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFF7E6, Dark=#3A2D1E}" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <Grid ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="46">
+                    <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                    <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
+                    <Button Grid.Column="2" Text="{Binding ActionSymbol}" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
+                            CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="BackgroundColor" Value="#EB5E28" />
+                                <Setter Property="TextColor" Value="#FFFFFF" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </ContentPage.Resources>
     <Grid RowDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark=#181411}">
         <ScrollView Grid.Row="0">
             <VerticalStackLayout Padding="20,12,20,18" Spacing="12">
@@ -36,86 +60,11 @@
                     </VerticalStackLayout>
                 </Border>
                 <Label Text="Рекомендовані добавки" IsVisible="{Binding HasAddOns}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout IsVisible="{Binding HasAddOns}" BindableLayout.ItemsSource="{Binding AddOns}" Spacing="4">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="models:IngredientOption">
-                            <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFF7E6, Dark=#3A2D1E}" />
-                                    </DataTrigger>
-                                </Border.Triggers>
-                                <Grid ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="46">
-                                    <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                                    <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
-                                    <Button Grid.Column="2" Text="{Binding ActionSymbol}" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
-                                            CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0">
-                                        <Button.Triggers>
-                                            <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="#EB5E28" />
-                                                <Setter Property="TextColor" Value="#FFFFFF" />
-                                            </DataTrigger>
-                                        </Button.Triggers>
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                <VerticalStackLayout IsVisible="{Binding HasAddOns}" BindableLayout.ItemsSource="{Binding AddOns}" BindableLayout.ItemTemplate="{StaticResource IngredientOptionTemplate}" Spacing="4" />
                 <Label Text="Виключити інгредієнти" IsVisible="{Binding HasExclusions}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout IsVisible="{Binding HasExclusions}" BindableLayout.ItemsSource="{Binding Exclusions}" Spacing="4">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="models:IngredientOption">
-                            <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFF7E6, Dark=#3A2D1E}" />
-                                    </DataTrigger>
-                                </Border.Triggers>
-                                <Grid ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="46">
-                                    <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                                    <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
-                                    <Button Grid.Column="2" Text="{Binding ActionSymbol}" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
-                                            CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0">
-                                        <Button.Triggers>
-                                            <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="#EB5E28" />
-                                                <Setter Property="TextColor" Value="#FFFFFF" />
-                                            </DataTrigger>
-                                        </Button.Triggers>
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                <VerticalStackLayout IsVisible="{Binding HasExclusions}" BindableLayout.ItemsSource="{Binding Exclusions}" BindableLayout.ItemTemplate="{StaticResource IngredientOptionTemplate}" Spacing="4" />
                 <Label Text="Заміна інгредієнтів" IsVisible="{Binding HasReplacements}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout IsVisible="{Binding HasReplacements}" BindableLayout.ItemsSource="{Binding Replacements}" Spacing="4">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="models:IngredientOption">
-                            <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFF7E6, Dark=#3A2D1E}" />
-                                    </DataTrigger>
-                                </Border.Triggers>
-                                <Grid ColumnDefinitions="*,76,44" ColumnSpacing="8" MinimumHeightRequest="46">
-                                    <Label Text="{Binding Name}" VerticalOptions="Center" LineBreakMode="WordWrap" MaxLines="2" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                                    <Label Grid.Column="1" Text="{Binding Price, StringFormat='{}{0:0.00} ₴'}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" VerticalOptions="Center" HorizontalTextAlignment="End" FontSize="12" />
-                                    <Button Grid.Column="2" Text="{Binding ActionSymbol}" Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleOptionCommand}"
-                                            CommandParameter="{Binding .}" BackgroundColor="#FFF2D4" TextColor="#F05A24" WidthRequest="40" HeightRequest="40" CornerRadius="20" Padding="0">
-                                        <Button.Triggers>
-                                            <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
-                                                <Setter Property="BackgroundColor" Value="#EB5E28" />
-                                                <Setter Property="TextColor" Value="#FFFFFF" />
-                                            </DataTrigger>
-                                        </Button.Triggers>
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                <VerticalStackLayout IsVisible="{Binding HasReplacements}" BindableLayout.ItemsSource="{Binding Replacements}" BindableLayout.ItemTemplate="{StaticResource IngredientOptionTemplate}" Spacing="4" />
                 <Label Text="{Binding SelectedOptionsSummary}" IsVisible="{Binding HasSelectedOptions}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
             </VerticalStackLayout>
         </ScrollView>

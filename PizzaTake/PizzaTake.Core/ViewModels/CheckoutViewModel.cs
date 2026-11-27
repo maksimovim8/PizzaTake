@@ -12,7 +12,7 @@ namespace PizzaTake.Core.ViewModels;
 /// <summary>
 /// ViewModel for order checkout, saved address selection, draft persistence, and offline queue submission.
 /// </summary>
-public sealed class CheckoutViewModel : BaseViewModel
+public sealed class CheckoutViewModel : ConnectivityBannerViewModel
 {
     private const string DraftPrefix = "checkout.";
     private const string DraftAddressKey = "checkout.address";
@@ -29,7 +29,6 @@ public sealed class CheckoutViewModel : BaseViewModel
     private readonly INavigationService navigation;
     private readonly ISettingsService settings;
     private readonly IConnectivityService connectivityService;
-    private readonly IMainThreadDispatcher dispatcher;
     private readonly ILogger<CheckoutViewModel> logger;
     private readonly ICrashReportingService? crashReporting;
     private readonly IBugReportService? bugReportService;
@@ -39,8 +38,6 @@ public sealed class CheckoutViewModel : BaseViewModel
     private PaymentMethod paymentMethod = PaymentMethod.CardOnline;
     private decimal totalAmount;
     private int itemsCount;
-    private bool isOffline;
-    private int pendingSyncCount;
     private string errorMessage = string.Empty;
     private string? reportableErrorContext;
     private bool isOrderSubmitted;
@@ -59,6 +56,7 @@ public sealed class CheckoutViewModel : BaseViewModel
         ILogger<CheckoutViewModel>? logger = null,
         ICrashReportingService? crashReporting = null,
         IBugReportService? bugReportService = null)
+        : base(connectivityService, syncService, dispatcher, logger ?? NullLogger<CheckoutViewModel>.Instance)
     {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
@@ -69,22 +67,21 @@ public sealed class CheckoutViewModel : BaseViewModel
         this.navigation = navigation;
         this.settings = settings;
         this.connectivityService = connectivityService;
-        this.dispatcher = dispatcher;
         this.logger = logger ?? NullLogger<CheckoutViewModel>.Instance;
         this.crashReporting = crashReporting;
         this.bugReportService = bugReportService;
         Title = "Оплата замовлення";
 
         LoadCheckoutCommand = new AsyncRelayCommand(LoadCheckoutAsync);
-        SelectAddressCommand = new RelayCommand<UserAddress?>(SelectAddress);
-        SelectDeliveryTypeCommand = new RelayCommand<string?>(SelectDeliveryType);
-        SelectPaymentMethodCommand = new RelayCommand<string?>(SelectPaymentMethod);
+        SelectAddressCommand = new RelayCommand<UserAddress?>(a => { if (a is not null) DeliveryAddress = a.Text; });
+        SelectDeliveryTypeCommand = new RelayCommand<string?>(t => { if (Enum.TryParse<DeliveryType>(t, true, out var parsed)) DeliveryType = parsed; });
+        SelectPaymentMethodCommand = new RelayCommand<string?>(m => { if (Enum.TryParse<PaymentMethod>(m, true, out var parsed)) PaymentMethod = parsed; });
         ConfirmPaymentCommand = new AsyncRelayCommand(ConfirmPaymentAsync, CanConfirmPayment);
         ReportErrorCommand = new AsyncRelayCommand(ReportErrorAsync, () => CanReportError);
         GoBackCommand = new AsyncRelayCommand(() => navigation.GoBackAsync());
     }
 
-    public ObservableCollection<UserAddress> SavedAddresses { get; } = new();
+    public ObservableCollection<UserAddress> SavedAddresses { get; } = [];
 
     public string DeliveryAddress
     {
@@ -136,44 +133,15 @@ public sealed class CheckoutViewModel : BaseViewModel
     public bool IsCardOnline => PaymentMethod == PaymentMethod.CardOnline;
     public bool IsCardOnDelivery => PaymentMethod == PaymentMethod.CardOnDelivery;
     public bool IsCash => PaymentMethod == PaymentMethod.Cash;
-
-    public decimal TotalAmount
-    {
-        get => totalAmount;
-        private set => SetProperty(ref totalAmount, value);
-    }
+    public decimal TotalAmount { get => totalAmount; private set => SetProperty(ref totalAmount, value); }
 
     public int ItemsCount
     {
         get => itemsCount;
-        private set
-        {
-            if (SetProperty(ref itemsCount, value))
-                ConfirmPaymentCommand.NotifyCanExecuteChanged();
-        }
+        private set { if (SetProperty(ref itemsCount, value)) ConfirmPaymentCommand.NotifyCanExecuteChanged(); }
     }
 
-    public bool IsOffline
-    {
-        get => isOffline;
-        private set
-        {
-            if (SetProperty(ref isOffline, value))
-                OnPropertyChanged(nameof(OfflineBannerText));
-        }
-    }
-
-    public int PendingSyncCount
-    {
-        get => pendingSyncCount;
-        private set
-        {
-            if (SetProperty(ref pendingSyncCount, value))
-                OnPropertyChanged(nameof(OfflineBannerText));
-        }
-    }
-
-    public string OfflineBannerText =>
+    public override string OfflineBannerText =>
         $"Офлайн-режим (у черзі: {PendingSyncCount}) — замовлення збережеться локально та синхронізується автоматично.";
 
     public string ErrorMessage
@@ -203,9 +171,7 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     public async Task LoadCheckoutAsync()
     {
-        if (IsBusy)
-            return;
-
+        if (IsBusy) return;
         isOrderSubmitted = false;
         IsBusy = true;
         try
@@ -217,11 +183,7 @@ public sealed class CheckoutViewModel : BaseViewModel
             ItemsCount = cartItems.Sum(i => i.Quantity);
             TotalAmount = cartItems.Sum(i => i.CalculateSubtotal());
 
-            var addresses = await addressRepository.GetAllAsync();
-            SavedAddresses.Clear();
-            foreach (var address in addresses)
-                SavedAddresses.Add(address);
-
+            ReplaceCollection(SavedAddresses, await addressRepository.GetAllAsync());
             RestoreDraftState();
 
             if (string.IsNullOrWhiteSpace(DeliveryAddress) && SavedAddresses.Count > 0)
@@ -244,54 +206,11 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     public void SaveDraftState()
     {
-        if (isOrderSubmitted)
-            return;
-
+        if (isOrderSubmitted) return;
         appState.SetDraftValue(DraftAddressKey, DeliveryAddress);
         appState.SetDraftValue(DraftDeliveryTypeKey, DeliveryType.ToString());
         appState.SetDraftValue(DraftPaymentMethodKey, PaymentMethod.ToString());
         appState.SaveState();
-    }
-
-    public void StartConnectivityMonitoring()
-    {
-        connectivityService.StartMonitoring();
-        IsOffline = !connectivityService.IsConnected;
-        connectivityService.ConnectivityChanged -= OnConnectivityChanged;
-        connectivityService.ConnectivityChanged += OnConnectivityChanged;
-        syncService.SyncCompleted -= OnSyncCompleted;
-        syncService.SyncCompleted += OnSyncCompleted;
-        _ = RefreshPendingSyncCountAsync();
-    }
-
-    public void StopConnectivityMonitoring()
-    {
-        connectivityService.ConnectivityChanged -= OnConnectivityChanged;
-        syncService.SyncCompleted -= OnSyncCompleted;
-    }
-
-    private void OnConnectivityChanged(object? sender, bool isConnected)
-    {
-        dispatcher.BeginInvokeOnMainThread(() => IsOffline = !isConnected);
-        _ = RefreshPendingSyncCountAsync();
-    }
-
-    private void OnSyncCompleted(object? sender, EventArgs e)
-    {
-        _ = RefreshPendingSyncCountAsync();
-    }
-
-    private async Task RefreshPendingSyncCountAsync()
-    {
-        try
-        {
-            var count = await syncService.GetPendingCountAsync();
-            dispatcher.BeginInvokeOnMainThread(() => PendingSyncCount = count);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Failed to refresh pending sync count on CheckoutPage");
-        }
     }
 
     private void RestoreDraftState()
@@ -300,56 +219,30 @@ public sealed class CheckoutViewModel : BaseViewModel
         var savedDeliveryType = appState.GetDraftValue(DraftDeliveryTypeKey);
         var savedPaymentMethod = appState.GetDraftValue(DraftPaymentMethodKey);
 
-        if (!string.IsNullOrWhiteSpace(savedAddress))
-            DeliveryAddress = savedAddress;
-        if (Enum.TryParse<DeliveryType>(savedDeliveryType, true, out var parsedDelivery))
-            DeliveryType = parsedDelivery;
-        if (Enum.TryParse<PaymentMethod>(savedPaymentMethod, true, out var parsedPayment))
-            PaymentMethod = parsedPayment;
+        if (!string.IsNullOrWhiteSpace(savedAddress)) DeliveryAddress = savedAddress;
+        if (Enum.TryParse<DeliveryType>(savedDeliveryType, true, out var parsedDelivery)) DeliveryType = parsedDelivery;
+        if (Enum.TryParse<PaymentMethod>(savedPaymentMethod, true, out var parsedPayment)) PaymentMethod = parsedPayment;
 
         if (!string.IsNullOrWhiteSpace(savedAddress) || !string.IsNullOrWhiteSpace(savedDeliveryType))
             return;
 
         var raw = settings.GetString(LegacyDraftPreferenceKey, string.Empty);
-        if (string.IsNullOrWhiteSpace(raw))
-            return;
+        if (string.IsNullOrWhiteSpace(raw)) return;
 
         try
         {
-            var draft = JsonSerializer.Deserialize<CheckoutDraft>(raw);
-            if (draft is null)
-                return;
-
-            if (!string.IsNullOrWhiteSpace(draft.DeliveryAddress))
-                DeliveryAddress = draft.DeliveryAddress;
-            DeliveryType = draft.DeliveryType;
-            PaymentMethod = draft.PaymentMethod;
+            if (JsonSerializer.Deserialize<CheckoutDraft>(raw) is { } draft)
+            {
+                if (!string.IsNullOrWhiteSpace(draft.DeliveryAddress)) DeliveryAddress = draft.DeliveryAddress;
+                DeliveryType = draft.DeliveryType;
+                PaymentMethod = draft.PaymentMethod;
+            }
         }
         catch (JsonException ex)
         {
             logger.LogWarning(ex, "Corrupt checkout draft state cleared");
             settings.Remove(LegacyDraftPreferenceKey);
         }
-    }
-
-    private void SelectAddress(UserAddress? address)
-    {
-        if (address is null)
-            return;
-
-        DeliveryAddress = address.Text;
-    }
-
-    private void SelectDeliveryType(string? typeName)
-    {
-        if (Enum.TryParse<DeliveryType>(typeName, true, out var parsed))
-            DeliveryType = parsed;
-    }
-
-    private void SelectPaymentMethod(string? methodName)
-    {
-        if (Enum.TryParse<PaymentMethod>(methodName, true, out var parsed))
-            PaymentMethod = parsed;
     }
 
     private bool CanConfirmPayment() =>
@@ -360,8 +253,7 @@ public sealed class CheckoutViewModel : BaseViewModel
 
     private async Task ConfirmPaymentAsync()
     {
-        if (!CanConfirmPayment())
-            return;
+        if (!CanConfirmPayment()) return;
 
         if (appState.SelectedPizzeria is null)
         {
@@ -432,10 +324,7 @@ public sealed class CheckoutViewModel : BaseViewModel
 
             logger.LogInformation(
                 "Order {OrderNumber} placed successfully (Total={TotalAmount}, DeliveryType={DeliveryType}, PaymentMethod={PaymentMethod})",
-                order.OrderNumber,
-                order.TotalAmount,
-                order.DeliveryType,
-                order.PaymentMethod);
+                order.OrderNumber, order.TotalAmount, order.DeliveryType, order.PaymentMethod);
 
             crashReporting?.TrackEvent(CrashEventNames.OrderPlaced, new Dictionary<string, string>
             {
@@ -471,18 +360,14 @@ public sealed class CheckoutViewModel : BaseViewModel
         ReportErrorCommand.NotifyCanExecuteChanged();
     }
 
-    private async Task ReportErrorAsync()
-    {
-        if (bugReportService is null)
-            return;
-
-        await bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Оплата замовлення");
-    }
+    private Task ReportErrorAsync() =>
+        bugReportService is null
+            ? Task.CompletedTask
+            : bugReportService.PromptAndSendAsync(reportableErrorContext ?? "Оплата замовлення");
 
     private async Task PersistRecentAddressAsync(int userId, string addressText)
     {
-        if (string.IsNullOrWhiteSpace(addressText))
-            return;
+        if (string.IsNullOrWhiteSpace(addressText)) return;
 
         var existing = SavedAddresses.FirstOrDefault(a =>
             string.Equals(a.Text.Trim(), addressText, StringComparison.OrdinalIgnoreCase));
@@ -494,14 +379,13 @@ public sealed class CheckoutViewModel : BaseViewModel
             return;
         }
 
-        var address = new UserAddress
+        await addressRepository.SaveAsync(new UserAddress
         {
             UserId = userId,
             Label = "Доставка",
             Text = addressText,
             LastUsedAt = DateTime.UtcNow
-        };
-        await addressRepository.SaveAsync(address);
+        });
     }
 
     private sealed record CheckoutDraft(string DeliveryAddress, DeliveryType DeliveryType, PaymentMethod PaymentMethod);

@@ -11,7 +11,7 @@ namespace PizzaTake.Core.ViewModels;
 /// <summary>
 /// Administrator-only ViewModel for managing catalog categories (add, rename, reorder, delete).
 /// </summary>
-public sealed class AdminCategoriesViewModel : BaseViewModel
+public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
 {
     private readonly ICategoryRepository categoryRepository;
     private readonly IProductRepository productRepository;
@@ -23,8 +23,6 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
 
     private string newCategoryName = string.Empty;
     private ProductCategory? editingCategory;
-    private string errorMessage = string.Empty;
-    private string statusMessage = string.Empty;
 
     public AdminCategoriesViewModel(
         ICategoryRepository categoryRepository,
@@ -58,43 +56,7 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
     public bool IsEditing => editingCategory is not null;
     public string SaveButtonText => IsEditing ? "Оновити категорію" : "Додати категорію";
-
-    public string NewCategoryName
-    {
-        get => newCategoryName;
-        set
-        {
-            if (SetProperty(ref newCategoryName, value))
-            {
-                ErrorMessage = string.Empty;
-                SaveCategoryCommand.NotifyCanExecuteChanged();
-            }
-        }
-    }
-
-    public string ErrorMessage
-    {
-        get => errorMessage;
-        private set
-        {
-            if (SetProperty(ref errorMessage, value))
-                OnPropertyChanged(nameof(HasError));
-        }
-    }
-
-    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
-
-    public string StatusMessage
-    {
-        get => statusMessage;
-        private set
-        {
-            if (SetProperty(ref statusMessage, value))
-                OnPropertyChanged(nameof(HasStatusMessage));
-        }
-    }
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+    public string NewCategoryName { get => newCategoryName; set => SetInput(ref newCategoryName, value, SaveCategoryCommand); }
 
     public IAsyncRelayCommand LoadCommand { get; }
     public IAsyncRelayCommand SaveCategoryCommand { get; }
@@ -107,10 +69,8 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
 
     public async Task LoadAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminCategoriesViewModel)))
         {
-            logger.LogWarning("Access denied for role {Role} on {ViewModel}", sessionService.CurrentRole, nameof(AdminCategoriesViewModel));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
             await navigation.GoBackAsync();
             return;
         }
@@ -119,23 +79,14 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
         try
         {
             var items = await categoryRepository.GetAllAsync();
-            await dispatcher.InvokeOnMainThreadAsync(() =>
-            {
-                Categories.Clear();
-                foreach (var item in items)
-                    Categories.Add(item);
-            });
+            await dispatcher.InvokeOnMainThreadAsync(() => ReplaceCollection(Categories, items));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to load admin categories");
             ErrorMessage = "Не вдалося завантажити категорії.";
         }
-        finally
-        {
-            IsBusy = false;
-            SaveCategoryCommand.NotifyCanExecuteChanged();
-        }
+        finally { IsBusy = false; SaveCategoryCommand.NotifyCanExecuteChanged(); }
     }
 
     private void StartEdit(ProductCategory? category)
@@ -143,48 +94,36 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
         if (category is null) return;
         editingCategory = category;
         NewCategoryName = category.Name;
-        StatusMessage = string.Empty;
-        ErrorMessage = string.Empty;
-        OnPropertyChanged(nameof(IsEditing));
-        OnPropertyChanged(nameof(SaveButtonText));
+        StatusMessage = ErrorMessage = string.Empty;
+        NotifyEditState();
     }
 
     private void CancelEdit()
     {
         editingCategory = null;
-        NewCategoryName = string.Empty;
-        ErrorMessage = string.Empty;
+        NewCategoryName = ErrorMessage = string.Empty;
+        NotifyEditState();
+    }
+
+    private void NotifyEditState()
+    {
         OnPropertyChanged(nameof(IsEditing));
         OnPropertyChanged(nameof(SaveButtonText));
     }
 
     private async Task SaveCategoryAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(SaveCategoryCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(SaveCategoryCommand)))
             return;
-        }
 
         var trimmed = NewCategoryName.Trim();
-        if (trimmed.Length < 2)
-        {
-            ErrorMessage = "Назва категорії має містити щонайменше 2 символи.";
-            return;
-        }
-
-        if (Categories.Any(c =>
-                string.Equals(c.Name, trimmed, StringComparison.OrdinalIgnoreCase) &&
+        if (trimmed.Length < 2) { ErrorMessage = "Назва категорії має містити щонайменше 2 символи."; return; }
+        if (Categories.Any(c => string.Equals(c.Name, trimmed, StringComparison.OrdinalIgnoreCase) &&
                 (editingCategory is null || c.Id != editingCategory.Id)))
-        {
-            ErrorMessage = "Категорія з такою назвою вже існує.";
-            return;
-        }
+        { ErrorMessage = "Категорія з такою назвою вже існує."; return; }
 
         IsBusy = true;
-        ErrorMessage = string.Empty;
-        StatusMessage = string.Empty;
+        ErrorMessage = StatusMessage = string.Empty;
         try
         {
             if (editingCategory is not null)
@@ -192,17 +131,12 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
                 await categoryRepository.RenameAsync(editingCategory, trimmed);
                 StatusMessage = $"Категорію перейменовано на «{trimmed}».";
                 editingCategory = null;
-                OnPropertyChanged(nameof(IsEditing));
-                OnPropertyChanged(nameof(SaveButtonText));
+                NotifyEditState();
             }
             else
             {
                 var nextOrder = Categories.Count > 0 ? Categories.Max(c => c.SortOrder) + 1 : 0;
-                await categoryRepository.SaveAsync(new ProductCategory
-                {
-                    Name = trimmed,
-                    SortOrder = nextOrder
-                });
+                await categoryRepository.SaveAsync(new ProductCategory { Name = trimmed, SortOrder = nextOrder });
                 StatusMessage = $"Категорію «{trimmed}» додано.";
             }
 
@@ -214,29 +148,17 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
             logger.LogError(ex, "Failed to save category {CategoryName}", trimmed);
             ErrorMessage = "Не вдалося зберегти категорію.";
         }
-        finally
-        {
-            IsBusy = false;
-            SaveCategoryCommand.NotifyCanExecuteChanged();
-        }
+        finally { IsBusy = false; SaveCategoryCommand.NotifyCanExecuteChanged(); }
     }
 
     private async Task MoveCategoryAsync(ProductCategory? category, int delta)
     {
-        if (category is null || IsBusy)
+        if (category is null || IsBusy || !await RequireAdminAsync(sessionService, dialogService, logger, "MoveCategory"))
             return;
-
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on category reorder", sessionService.CurrentRole);
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
-            return;
-        }
 
         var index = Categories.IndexOf(category);
         var targetIndex = index + delta;
-        if (index < 0 || targetIndex < 0 || targetIndex >= Categories.Count)
-            return;
+        if (index < 0 || targetIndex < 0 || targetIndex >= Categories.Count) return;
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -245,10 +167,7 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
             var other = Categories[targetIndex];
             (category.SortOrder, other.SortOrder) = (other.SortOrder, category.SortOrder);
             if (category.SortOrder == other.SortOrder)
-            {
-                category.SortOrder = targetIndex;
-                other.SortOrder = index;
-            }
+                (category.SortOrder, other.SortOrder) = (targetIndex, index);
 
             await categoryRepository.SaveAsync(category);
             await categoryRepository.SaveAsync(other);
@@ -259,25 +178,15 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
             ErrorMessage = "Не вдалося змінити порядок категорій.";
             return;
         }
-        finally
-        {
-            IsBusy = false;
-        }
+        finally { IsBusy = false; }
 
         await LoadAsync();
     }
 
     private async Task DeleteCategoryAsync(ProductCategory? category)
     {
-        if (category is null || IsBusy)
+        if (category is null || IsBusy || !await RequireAdminAsync(sessionService, dialogService, logger, nameof(DeleteCategoryCommand)))
             return;
-
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(DeleteCategoryCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
-            return;
-        }
 
         IsBusy = true;
         ErrorMessage = string.Empty;
@@ -290,17 +199,11 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
                 return;
             }
 
-            var confirmed = await dialogService.ConfirmAsync(
-                "Видалення категорії",
-                $"Видалити категорію «{category.Name}»?",
-                "Видалити",
-                "Скасувати");
-            if (!confirmed)
+            if (!await dialogService.ConfirmAsync("Видалення категорії", $"Видалити категорію «{category.Name}»?", "Видалити", "Скасувати"))
                 return;
 
             await categoryRepository.DeleteAsync(category);
-            if (editingCategory?.Id == category.Id)
-                CancelEdit();
+            if (editingCategory?.Id == category.Id) CancelEdit();
             StatusMessage = $"Категорію «{category.Name}» видалено.";
         }
         catch (Exception ex)
@@ -309,10 +212,7 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
             ErrorMessage = "Не вдалося видалити категорію.";
             return;
         }
-        finally
-        {
-            IsBusy = false;
-        }
+        finally { IsBusy = false; }
 
         await LoadAsync();
     }

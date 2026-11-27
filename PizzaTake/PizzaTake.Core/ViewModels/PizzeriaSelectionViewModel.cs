@@ -42,7 +42,7 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryParameterR
                 ConfirmPizzeriaCommand.NotifyCanExecuteChanged();
                 OpenExternalMapCommand.NotifyCanExecuteChanged();
                 MapDataUpdated?.Invoke(this, EventArgs.Empty);
-                if (value is not null && (Math.Abs(value.Latitude) > 0.00001 || Math.Abs(value.Longitude) > 0.00001))
+                if (value is not null && GeoMath.HasValidCoordinates(value.Latitude, value.Longitude))
                     FocusRequested?.Invoke(this, new GeoPoint(value.Latitude, value.Longitude));
             }
         }
@@ -179,8 +179,8 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryParameterR
                     result.Location.Longitude);
 
                 var nearest = Pizzerias
-                    .Where(p => Math.Abs(p.Latitude) > 0.00001 || Math.Abs(p.Longitude) > 0.00001)
-                    .OrderBy(p => DistanceKm(result.Location.Latitude, result.Location.Longitude, p.Latitude, p.Longitude))
+                    .Where(p => GeoMath.HasValidCoordinates(p.Latitude, p.Longitude))
+                    .OrderBy(p => GeoMath.DistanceKm(result.Location.Latitude, result.Location.Longitude, p.Latitude, p.Longitude))
                     .FirstOrDefault();
                 if (nearest is not null)
                     SelectedPizzeria = nearest;
@@ -225,22 +225,6 @@ public sealed class PizzeriaSelectionViewModel : BaseViewModel, IQueryParameterR
         appState.SelectedPizzeria = SelectedPizzeria;
         appState.SaveState();
         logger.LogInformation("Confirmed pizzeria {StoreNumber} ({Address})", SelectedPizzeria.StoreNumber, SelectedPizzeria.Address);
-        await navigation.GoToAsync(returnTo switch
-        {
-            "settings" => "///settings",
-            "cart" => "///cart",
-            _ => "///menu"
-        });
-    }
-
-    private static double DistanceKm(double lat1, double lon1, double lat2, double lon2)
-    {
-        const double earthRadiusKm = 6371;
-        var dLat = (lat2 - lat1) * Math.PI / 180;
-        var dLon = (lon2 - lon1) * Math.PI / 180;
-        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
-            + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180)
-            * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-        return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        await navigation.GoToAsync($"///{returnTo ?? "menu"}");
     }
 }

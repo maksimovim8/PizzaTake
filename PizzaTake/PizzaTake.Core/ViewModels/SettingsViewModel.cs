@@ -289,12 +289,8 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
 
     private async Task OpenLogsAsync()
     {
-        if (!sessionService.IsInRole(UserRole.Administrator))
-        {
-            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenLogsCommand));
-            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(OpenLogsCommand)))
             return;
-        }
 
         logger.LogInformation("Opening local logs diagnostics screen");
         await navigation.GoToAsync("logs");

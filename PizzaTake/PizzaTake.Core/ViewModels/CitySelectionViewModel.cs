@@ -113,15 +113,8 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
         }
     }
 
-    private Task ReplaceCitiesAsync(IEnumerable<City> values)
-    {
-        return dispatcher.InvokeOnMainThreadAsync(() =>
-        {
-            Cities.Clear();
-            foreach (var city in values)
-                Cities.Add(city);
-        });
-    }
+    private Task ReplaceCitiesAsync(IEnumerable<City> values) =>
+        dispatcher.InvokeOnMainThreadAsync(() => ReplaceCollection(Cities, values));
 
     private async Task SelectCityAsync(City? city)
     {
@@ -131,53 +124,37 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
         appState.SelectedCity = city;
         appState.SaveState();
         logger.LogInformation("Selected delivery city {CityName} (Id={CityId})", city.Name, city.Id);
-        if (userProfile is not null)
-        {
-            var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
-            profile.CityName = city.Name;
-            profile.UpdatedAt = DateTime.UtcNow;
-            await userProfile.SaveAsync(profile);
-            if (syncService is not null)
-            {
-                await syncService.EnqueueAsync("UserProfile", "Update", new
-                {
-                    profile.Id,
-                    profile.CityName,
-                    UpdatedAt = profile.UpdatedAt
-                });
-            }
-        }
+        await SaveProfileCityAsync(city.Name);
+
         if (appState.SelectedPizzeria is null || appState.SelectedDeliveryType == DeliveryType.Pickup)
-        {
-            var pizzeriaReturnTo = returnTo ?? "menu";
-            await navigation.GoToAsync($"pizzerias?returnTo={pizzeriaReturnTo}");
-        }
-        else if (returnTo is not null)
-        {
-            await navigation.GoToAsync($"///{returnTo}");
-        }
+            await navigation.GoToAsync($"pizzerias?returnTo={returnTo ?? "menu"}");
         else
-        {
-            await navigation.GoToAsync("///menu");
-        }
+            await navigation.GoToAsync($"///{returnTo ?? "menu"}");
+    }
+
+    private async Task SaveProfileCityAsync(string cityName)
+    {
+        if (userProfile is null) return;
+        var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
+        profile.CityName = cityName;
+        profile.UpdatedAt = DateTime.UtcNow;
+        await userProfile.SaveAsync(profile);
+        if (syncService is not null)
+            await syncService.EnqueueAsync("UserProfile", "Update", new { profile.Id, profile.CityName, UpdatedAt = profile.UpdatedAt });
     }
 
     private async Task FindNearbyAsync()
     {
         try
         {
-            if (permissionService is not null)
-            {
-                var granted = await permissionService.EnsureGrantedAsync(
+            if (permissionService is not null && !await permissionService.EnsureGrantedAsync(
                     AppPermission.LocationWhenInUse,
                     "Дозвіл на геолокацію",
-                    "Геолокація потрібна для автоматичного визначення найближчого міста з піцеріями PizzaTake.");
-                if (!granted)
-                {
-                    logger.LogWarning("Location permission denied while searching for nearby city");
-                    StatusMessage = "Надайте застосунку дозвіл на геолокацію.";
-                    return;
-                }
+                    "Геолокація потрібна для автоматичного визначення найближчого міста з піцеріями PizzaTake."))
+            {
+                logger.LogWarning("Location permission denied while searching for nearby city");
+                StatusMessage = "Надайте застосунку дозвіл на геолокацію.";
+                return;
             }
 
             var result = await locationService.GetCurrentLocationAsync(TimeSpan.FromSeconds(10));
@@ -188,10 +165,9 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
                 return;
             }
 
-            var allCities = await cities.GetAllAsync();
-            var nearest = allCities
-                .Where(city => city.Latitude != 0 || city.Longitude != 0)
-                .OrderBy(city => DistanceKm(result.Location.Latitude, result.Location.Longitude, city.Latitude, city.Longitude))
+            var nearest = (await cities.GetAllAsync())
+                .Where(c => GeoMath.HasValidCoordinates(c.Latitude, c.Longitude))
+                .OrderBy(c => GeoMath.DistanceKm(result.Location.Latitude, result.Location.Longitude, c.Latitude, c.Longitude))
                 .FirstOrDefault();
 
             if (nearest is null)
@@ -204,8 +180,8 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
             {
                 var cityPizzerias = await pizzerias.GetByCityIdAsync(nearest.Id);
                 var nearestPizzeria = cityPizzerias
-                    .Where(p => p.Latitude != 0 || p.Longitude != 0)
-                    .OrderBy(p => DistanceKm(result.Location.Latitude, result.Location.Longitude, p.Latitude, p.Longitude))
+                    .Where(p => GeoMath.HasValidCoordinates(p.Latitude, p.Longitude))
+                    .OrderBy(p => GeoMath.DistanceKm(result.Location.Latitude, result.Location.Longitude, p.Latitude, p.Longitude))
                     .FirstOrDefault() ?? cityPizzerias.FirstOrDefault();
 
                 if (nearestPizzeria is not null)
@@ -213,28 +189,8 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
                     appState.SelectedCity = nearest;
                     appState.SelectedPizzeria = nearestPizzeria;
                     appState.SaveState();
-                    logger.LogInformation(
-                        "Auto-selected nearest city {CityName} and pizzeria {StoreNumber} via GPS",
-                        nearest.Name,
-                        nearestPizzeria.StoreNumber);
-
-                    if (userProfile is not null)
-                    {
-                        var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
-                        profile.CityName = nearest.Name;
-                        profile.UpdatedAt = DateTime.UtcNow;
-                        await userProfile.SaveAsync(profile);
-                        if (syncService is not null)
-                        {
-                            await syncService.EnqueueAsync("UserProfile", "Update", new
-                            {
-                                profile.Id,
-                                profile.CityName,
-                                UpdatedAt = profile.UpdatedAt
-                            });
-                        }
-                    }
-
+                    logger.LogInformation("Auto-selected nearest city {CityName} and pizzeria {StoreNumber} via GPS", nearest.Name, nearestPizzeria.StoreNumber);
+                    await SaveProfileCityAsync(nearest.Name);
                     await navigation.GoToAsync($"///{returnTo ?? "menu"}");
                     return;
                 }
@@ -249,24 +205,5 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
         }
     }
 
-    private static double DistanceKm(double lat1, double lon1, double lat2, double lon2)
-    {
-        const double earthRadiusKm = 6371;
-        var dLat = DegreesToRadians(lat2 - lat1);
-        var dLon = DegreesToRadians(lon2 - lon1);
-        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
-            + Math.Cos(DegreesToRadians(lat1)) * Math.Cos(DegreesToRadians(lat2))
-            * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-        return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-    }
-
-    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
-
-    private static string? NormalizeReturnRoute(string? route) => route switch
-    {
-        "menu" => "menu",
-        "settings" => "settings",
-        "cart" => "cart",
-        _ => null
-    };
+    private static string? NormalizeReturnRoute(string? route) => route is "menu" or "settings" or "cart" ? route : null;
 }

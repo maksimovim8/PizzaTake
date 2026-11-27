@@ -408,4 +408,30 @@
         <Setter Property="SelectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
     </Style>
 
+    <Style x:Key="CardBorder" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 18" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <Style x:Key="InputBorder" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light=#E7E5E4, Dark=#3D342C}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F9F7F2, Dark=#181411}" />
+        <Setter Property="Padding" Value="12,4" />
+    </Style>
+
+    <Style x:Key="FieldLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+    </Style>
+
+    <Style x:Key="FormEntry" TargetType="Entry">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#A8A29E, Dark=#78716C}" />
+    </Style>
+
 </ResourceDictionary>
