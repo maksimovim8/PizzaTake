@@ -9,16 +9,19 @@ public partial class MenuPage : ContentPage
 {
     private readonly MenuViewModel viewModel;
     private readonly IShakeSensorService? shakeSensorService;
+    private readonly IMainThreadDispatcher? mainThreadDispatcher;
     private readonly ILogger<MenuPage> logger;
 
     public MenuPage(
         MenuViewModel viewModel,
         IShakeSensorService? shakeSensorService = null,
+        IMainThreadDispatcher? mainThreadDispatcher = null,
         ILogger<MenuPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
         this.shakeSensorService = shakeSensorService;
+        this.mainThreadDispatcher = mainThreadDispatcher;
         this.logger = logger ?? NullLogger<MenuPage>.Instance;
         BindingContext = viewModel;
     }
@@ -52,17 +55,21 @@ public partial class MenuPage : ContentPage
 
     private void OnShakeDetected(object? sender, EventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(async () =>
+        Action openReport = async () =>
         {
             try
             {
-                if (Shell.Current is not null)
-                    await Shell.Current.GoToAsync("qualityreport");
+                await viewModel.OpenQualityReportCommand.ExecuteAsync(null);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to navigate to QualityReportPage on shake from MenuPage");
             }
-        });
+        };
+
+        if (mainThreadDispatcher is not null)
+            mainThreadDispatcher.BeginInvokeOnMainThread(openReport);
+        else
+            MainThread.BeginInvokeOnMainThread(openReport);
     }
 }

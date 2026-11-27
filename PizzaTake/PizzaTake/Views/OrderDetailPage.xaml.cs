@@ -9,16 +9,19 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
 {
     private readonly OrderDetailViewModel viewModel;
     private readonly IShakeSensorService? shakeSensorService;
+    private readonly IMainThreadDispatcher? mainThreadDispatcher;
     private readonly ILogger<OrderDetailPage> logger;
 
     public OrderDetailPage(
         OrderDetailViewModel viewModel,
         IShakeSensorService? shakeSensorService = null,
+        IMainThreadDispatcher? mainThreadDispatcher = null,
         ILogger<OrderDetailPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
         this.shakeSensorService = shakeSensorService;
+        this.mainThreadDispatcher = mainThreadDispatcher;
         BindingContext = viewModel;
         this.logger = logger ?? NullLogger<OrderDetailPage>.Instance;
     }
@@ -53,7 +56,7 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
 
     private void OnShakeDetected(object? sender, EventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(async () =>
+        Action openReport = async () =>
         {
             try
             {
@@ -63,6 +66,11 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
             {
                 logger.LogWarning(ex, "Failed to open QualityReportPage on shake from OrderDetailPage");
             }
-        });
+        };
+
+        if (mainThreadDispatcher is not null)
+            mainThreadDispatcher.BeginInvokeOnMainThread(openReport);
+        else
+            MainThread.BeginInvokeOnMainThread(openReport);
     }
 }
