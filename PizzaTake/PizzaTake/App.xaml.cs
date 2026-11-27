@@ -50,20 +50,21 @@ public partial class App : Application
         {
             appState.SaveState();
             services.GetService<ISyncService>()?.StopConnectivityListener();
-            services.GetService<IShakeSensorService>()?.Stop();
+            (services.GetService<IShakeSensorService>() as Services.Platform.MauiShakeSensorService)?.Pause();
             logger.LogInformation("Lifecycle: Application stopped; session and form draft state saved.");
         };
         window.Resumed += (_, _) =>
         {
             appState.RestoreState();
             services.GetService<ISyncService>()?.StartConnectivityListener();
+            (services.GetService<IShakeSensorService>() as Services.Platform.MauiShakeSensorService)?.Resume();
             logger.LogInformation("Lifecycle: Application resumed; session and form draft state restored.");
         };
         window.Destroying += (_, _) =>
         {
             appState.SaveState();
             services.GetService<ISyncService>()?.StopConnectivityListener();
-            services.GetService<IShakeSensorService>()?.Stop();
+            (services.GetService<IShakeSensorService>() as Services.Platform.MauiShakeSensorService)?.ForceStop();
             logger.LogInformation("Lifecycle: Application window destroying; resources released.");
         };
         return window;

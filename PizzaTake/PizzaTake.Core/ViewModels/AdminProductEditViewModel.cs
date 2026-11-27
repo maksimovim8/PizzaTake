@@ -136,13 +136,20 @@ public sealed class AdminProductEditViewModel : FormFeedbackViewModel, IQueryPar
 
     private async Task EnsureAdminAccessAndLoadAsync()
     {
-        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminProductEditViewModel)))
+        try
         {
-            await navigation.GoBackAsync();
-            return;
-        }
+            if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminProductEditViewModel)))
+            {
+                await navigation.GoBackAsync();
+                return;
+            }
 
-        await LoadCategoriesAsync();
+            await LoadCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to verify admin access or load categories on AdminProductEditPage");
+        }
     }
 
     private void OnSessionChanged(object? sender, EventArgs e) =>

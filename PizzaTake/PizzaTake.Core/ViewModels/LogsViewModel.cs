@@ -286,8 +286,9 @@ public sealed class LogsViewModel : BaseViewModel
         UpdateCommandStates();
         try
         {
-            var client = httpApiClient ?? new HttpApiClient();
-            var rejected = client.VerifySpoofedCertificateRejected();
+            using var fallbackClient = httpApiClient is null ? new HttpApiClient() : null;
+            var client = httpApiClient ?? fallbackClient!;
+            var rejected = await Task.Run(client.VerifySpoofedCertificateRejected);
             if (rejected)
             {
                 logger.LogError("SSL certificate pinning diagnostic check: spoofed self-signed certificate was rejected as expected.");
