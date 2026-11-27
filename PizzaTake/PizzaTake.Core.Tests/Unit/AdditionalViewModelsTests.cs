@@ -292,8 +292,8 @@ public sealed class AdditionalViewModelsTests
     [InlineData(259, null, false, 0, "")]
     [InlineData(259, 259, false, 0, "")]
     public void Product_PromoDiscountFormula_ShouldComputePercentageAndBadge(
-        decimal basePrice,
-        double? promoPrice,
+        int basePrice,
+        int? promoPrice,
         bool expectedHasPromo,
         int expectedPercent,
         string expectedBadge)
@@ -301,7 +301,7 @@ public sealed class AdditionalViewModelsTests
         var product = new Product
         {
             BasePrice = basePrice,
-            PromoPrice = promoPrice.HasValue ? (decimal)promoPrice.Value : null
+            PromoPrice = promoPrice
         };
 
         product.HasPromo.Should().Be(expectedHasPromo);
