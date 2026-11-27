@@ -24,20 +24,19 @@ public sealed class PizzaTakeUiTests : IClassFixture<AppiumDriverFixture>
 
         // Navigate to Settings tab and open AuthPage.
         fixture.WaitForText("Налаштування").Click();
-        fixture.WaitForAutomationId("SettingsChangePhoneButton").Click();
+        fixture.ClickAutomationId("SettingsChangePhoneButton");
 
         // Enter phone number, accept policy, and request SMS OTP.
-        var phoneEntry = fixture.WaitForAutomationId("AuthPhoneEntry");
-        phoneEntry.Clear();
-        phoneEntry.SendKeys("+380991112233");
+        fixture.TypeViaIme("AuthPhoneEntry", "991112233");
+        fixture.TryHideKeyboard();
 
-        fixture.WaitForAutomationId("AuthPolicyCheckBox").Click();
-        fixture.WaitForAutomationId("AuthRequestSmsButton").Click();
+        fixture.ClickAutomationId("AuthPolicyCheckBox");
+        fixture.ClickAutomationId("AuthRequestSmsButton");
 
         // Enter valid 4-digit OTP and confirm.
-        var otpEntry = fixture.WaitForAutomationId("AuthOtpEntry");
-        otpEntry.SendKeys("1234");
-        fixture.WaitForAutomationId("AuthVerifySmsButton").Click();
+        fixture.TypeText("AuthOtpEntry", "1234");
+        fixture.TryHideKeyboard();
+        fixture.ClickAutomationId("AuthVerifySmsButton");
 
         // Verify authenticated main UI (Settings phone display or Menu search bar).
         var menuOrProfile = fixture.TryFindByAutomationId("MenuSearchBar", TimeSpan.FromSeconds(10))
@@ -53,24 +52,17 @@ public sealed class PizzaTakeUiTests : IClassFixture<AppiumDriverFixture>
 
         // Open Settings and tap "+ Додати" to create a new saved address.
         fixture.WaitForText("Налаштування").Click();
-        fixture.WaitForAutomationId("SettingsAddAddressButton").Click();
+        fixture.ClickAutomationId("SettingsAddAddressButton");
 
         const string addressLabel = "Офіс QA";
         const string addressText = "вул. Хрещатик, 22";
 
-        var labelEntry = fixture.WaitForAutomationId("AddressLabelEntry");
-        labelEntry.Clear();
-        labelEntry.SendKeys(addressLabel);
+        fixture.TypeText("AddressLabelEntry", addressLabel, clearFirst: true);
+        fixture.TypeText("AddressTextEntry", addressText, clearFirst: true);
+        fixture.TypeText("AddressNotesEntry", "Під'їзд 1", clearFirst: true);
+        fixture.TryHideKeyboard();
 
-        var textEntry = fixture.WaitForAutomationId("AddressTextEntry");
-        textEntry.Clear();
-        textEntry.SendKeys(addressText);
-
-        var notesEntry = fixture.WaitForAutomationId("AddressNotesEntry");
-        notesEntry.Clear();
-        notesEntry.SendKeys("Під'їзд 1");
-
-        fixture.WaitForAutomationId("AddressSaveButton").Click();
+        fixture.ClickAutomationId("AddressSaveButton");
 
         // Verify the newly created address appears on SettingsPage.
         var savedAddressLabel = fixture.WaitForText(addressLabel, TimeSpan.FromSeconds(10));

@@ -49,12 +49,10 @@ public sealed class PhoneInputBehavior : Behavior<Entry>
 
     private void OnEntryFocused(object? sender, FocusEventArgs e)
     {
-        if (sender is not Entry entry)
+        if (isUpdating || sender is not Entry entry)
             return;
 
-        var text = entry.Text ?? string.Empty;
-        if (entry.CursorPosition < CountryPrefix.Length && text.StartsWith(CountryPrefix, StringComparison.Ordinal))
-            entry.CursorPosition = text.Length;
+        ClampCursorAfterPrefix(entry);
     }
 
     private void OnEntryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -62,9 +60,31 @@ public sealed class PhoneInputBehavior : Behavior<Entry>
         if (isUpdating || e.PropertyName != nameof(Entry.CursorPosition) || sender is not Entry entry)
             return;
 
+        ClampCursorAfterPrefix(entry);
+    }
+
+    private void ClampCursorAfterPrefix(Entry entry)
+    {
         var text = entry.Text ?? string.Empty;
-        if (entry.CursorPosition < CountryPrefix.Length && text.StartsWith(CountryPrefix, StringComparison.Ordinal))
-            entry.CursorPosition = Math.Max(CountryPrefix.Length, text.Length);
+        if (!text.StartsWith(CountryPrefix, StringComparison.Ordinal))
+            return;
+
+        if (entry.CursorPosition >= CountryPrefix.Length)
+            return;
+
+        var targetPosition = Math.Max(CountryPrefix.Length, text.Length);
+        if (entry.CursorPosition == targetPosition)
+            return;
+
+        isUpdating = true;
+        try
+        {
+            entry.CursorPosition = targetPosition;
+        }
+        finally
+        {
+            isUpdating = false;
+        }
     }
 
     private void OnEntryTextChanged(object? sender, TextChangedEventArgs e)
