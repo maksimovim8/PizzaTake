@@ -52,8 +52,7 @@ PizzaTake/
 ├── PizzaTake.Core.Tests/            # xUnit + Moq + FluentAssertions + coverlet
 │   ├── Unit/                        # 13 тестових класів (57 тестових методів / [Fact] + [Theory])
 │   └── Integration/                 # 3 інтеграційних класи на реальній тимчасовій SQLite БД (9 тестів)
-├── PizzaTake.UiTests/               # xUnit + Appium.WebDriver (2 E2E-сценарії за AutomationId)
-└── docs/LAB9_DEFENSE_QA.md          # Відповіді на контрольні питання та сценарій захисту
+└── PizzaTake.UiTests/               # xUnit + Appium.WebDriver (2 E2E-сценарії за AutomationId)
 ```
 
 ```mermaid
@@ -77,7 +76,7 @@ flowchart LR
     UITEST -.->|"AutomationId E2E"| UI
 ```
 
-### Підтверджені архітектурні обмеження (Аудит ЛР №9)
+### Архітектурні принципи
 - **`0` посилань на `Microsoft.Maui.*`** та статичні MAUI API у `PizzaTake.Core`.
 - **`0` бізнес-логіки**, звернень до репозиторіїв, `Clicked`-навігації або `Shell.Current` у `Views/*.xaml.cs` (включно з обробниками акселерометра — навігація йде через `IMainThreadDispatcher` → команда ViewModel → `INavigationService`).
 - **`0` викликів `Debug.WriteLine`** — усе логування уніфіковано через `ILogger<T>` (Serilog).
@@ -276,18 +275,17 @@ erDiagram
 
 ---
 
-## 5. Таблиця відповідності вимогам ЛР №1–8 (п. 1.2 ЛР №9)
+## 5. Карта модулів та ключових файлів
 
-| ЛР | Вимога / підсистема | Ключові класи та файли реалізації |
+| Підсистема | Опис функціональності | Ключові класи та файли реалізації |
 |---|---|---|
-| **ЛР №1–2** | Навігація Shell, MVVM-інфраструктура, каталог, деталі товару, обране, кошик, чекаут, теми, адаптивна верстка | `PizzaTake/AppShell.xaml.cs`, `PizzaTake/Views/{Welcome,CitySelection,PizzeriaSelection,Menu,PizzaDetail,Favorites,Cart,Checkout,OrderHistory,OrderDetail,Settings}Page.xaml`, `PizzaTake/Resources/Styles/{Colors,Styles}.xaml`, `PizzaTake.Core/ViewModels/*` |
-| **ЛР №3** | SQLite БД, репозиторії, міграції `user_version`, офлайн-черга `SyncQueue` і LWW-синхронізація | `PizzaTake.Core/Services/SqliteDatabase.cs`, `PizzaTake.Core/Services/SyncService.cs`, `PizzaTake.Core/Repositories/{SqliteRepositoryBase,CatalogRepositories,CartRepository,OrderRepository,AddressRepository,UserProfileRepository,SyncQueueRepository}.cs` |
-| **ЛР №4** | OTP-автентифікація, шифрування AES-256 у БД, Deep Links (`pizzaapp://`), збереження стану | `PizzaTake.Core/Services/{AuthService,AesEncryptionService,AppStateService}.cs`, `PizzaTake/Platforms/Android/MainActivity.cs` (`pizzaapp://pizza`, `pizzaapp://order`) |
-| **ЛР №5** | Serilog (Debug + File 7-денна ротація), структурований `ILogger<T>`, глобальні обробники крашів, Sentry.Maui (`SendDefaultPii = false`), `LogsPage`, «Повідомити про помилку» | `PizzaTake/MauiProgram.cs`, `PizzaTake/Services/Platform/{GlobalExceptionHandler,SentryCrashReportingService,SerilogLogReaderService}.cs`, `PizzaTake/Platforms/Android/MainApplication.cs`, `PizzaTake.Core/Services/BugReportService.cs`, `PizzaTake.Core/ViewModels/LogsViewModel.cs`, `PizzaTake/Views/LogsPage.xaml` |
-| **ЛР №6** | Ролі `UserRole`, `ISessionService`, 2-рівневий RBAC, `SecureStorage`, біометрія, SSL Certificate Pinning (SHA-256), адмін-панель | `PizzaTake.Core/Models/Enums.cs`, `PizzaTake.Core/Services/{SessionService,AuthService,HttpApiClient}.cs`, `PizzaTake/Services/Platform/{MauiSecureStoreService,MauiBiometricAuthService}.cs`, `PizzaTake.Core/ViewModels/{BaseViewModel,AdminProductEditViewModel,AdminCategoriesViewModel,AdminBannersViewModel}.cs`, `PizzaTake/Views/{AdminProductEdit,AdminCategories,AdminBanners}Page.xaml` |
-| **ЛР №7** | Дозволи Android з rationale, `QualityReport` + міграція `v2 → v3`, камера/галерея, GPS, карта OpenStreetMap (`Mapsui.Maui` + external map fallback), акселерометр (Shake), моніторинг мережі | `PizzaTake/Platforms/Android/AndroidManifest.xml`, `PizzaTake.Core/Models/QualityReport.cs`, `PizzaTake.Core/Repositories/QualityReportRepository.cs`, `PizzaTake.Core/Services/{HardwareContracts,GeoMath}.cs`, `PizzaTake/Services/Platform/{MauiPermissionService,MauiMediaService,MauiLocationService,MauiMapLauncherService,MauiShakeSensorService,MauiConnectivityService,OsmMapRenderer}.cs`, `PizzaTake/Views/{QualityReportPage,PizzeriasMapPage,PizzeriaSelectionPage}.*` |
-| **ЛР №8** | Виділене ядро `PizzaTake.Core` (0 MAUI), ≥12 Unit + ≥3 Integration тестів, покриття ViewModel ≥60%, `AutomationId` + Appium UI-тести (≥2), GitHub Actions CI (`test-core` + `build-android` APK) | `PizzaTake.Core/PizzaTake.Core.csproj`, `PizzaTake.Core.Tests/Unit/*.cs` (57 тестових методів), `PizzaTake.Core.Tests/Integration/*.cs` (9 тестів), `PizzaTake.UiTests/{AppiumDriverFixture,PizzaTakeUiTests}.cs` (2 E2E-тести), `.github/workflows/ci.yml` |
-| **ЛР №9** | Рефакторинг і аудит «анти-штрафів», `README.md`, ER/архітектурні діаграми, відповіді на контрольні питання, QA Win+Android, реліз `v1.0` | `README.md`, `PizzaTake/docs/LAB9_DEFENSE_QA.md`, гілка `lab9`, тег `v1.0` |
+| **Навігація та UI (MVVM)** | Навігація Shell, каталог, деталі товару, обране, кошик, чекаут, історія, теми, адаптивна верстка | `PizzaTake/AppShell.xaml.cs`, `PizzaTake/Views/{Welcome,CitySelection,PizzeriaSelection,Menu,PizzaDetail,Favorites,Cart,Checkout,OrderHistory,OrderDetail,Settings}Page.xaml`, `PizzaTake/Resources/Styles/{Colors,Styles}.xaml`, `PizzaTake.Core/ViewModels/*` |
+| **Локальна БД та синхронізація** | SQLite БД, репозиторії, міграції `user_version`, офлайн-черга `SyncQueue` і LWW-синхронізація | `PizzaTake.Core/Services/SqliteDatabase.cs`, `PizzaTake.Core/Services/SyncService.cs`, `PizzaTake.Core/Repositories/{SqliteRepositoryBase,CatalogRepositories,CartRepository,OrderRepository,AddressRepository,UserProfileRepository,SyncQueueRepository}.cs` |
+| **Автентифікація та Deep Links** | OTP-автентифікація, шифрування AES-256 у БД, Deep Links (`pizzaapp://`), збереження стану | `PizzaTake.Core/Services/{AuthService,AesEncryptionService,AppStateService}.cs`, `PizzaTake/Platforms/Android/MainActivity.cs` (`pizzaapp://pizza`, `pizzaapp://order`) |
+| **Логування та краш-репортинг** | Serilog (Debug + File 7-денна ротація), структурований `ILogger<T>`, глобальні обробники винятків, Sentry.Maui (`SendDefaultPii = false`), `LogsPage`, «Повідомити про помилку» | `PizzaTake/MauiProgram.cs`, `PizzaTake/Services/Platform/{GlobalExceptionHandler,SentryCrashReportingService,SerilogLogReaderService}.cs`, `PizzaTake/Platforms/Android/MainApplication.cs`, `PizzaTake.Core/Services/BugReportService.cs`, `PizzaTake.Core/ViewModels/LogsViewModel.cs`, `PizzaTake/Views/LogsPage.xaml` |
+| **Безпека та RBAC** | Ролі `UserRole`, `ISessionService`, 2-рівневий RBAC, `SecureStorage`, біометрія, SSL Certificate Pinning (SHA-256), адмін-панель | `PizzaTake.Core/Models/Enums.cs`, `PizzaTake.Core/Services/{SessionService,AuthService,HttpApiClient}.cs`, `PizzaTake/Services/Platform/{MauiSecureStoreService,MauiBiometricAuthService}.cs`, `PizzaTake.Core/ViewModels/{BaseViewModel,AdminProductEditViewModel,AdminCategoriesViewModel,AdminBannersViewModel}.cs`, `PizzaTake/Views/{AdminProductEdit,AdminCategories,AdminBanners}Page.xaml` |
+| **Апаратні функції та OpenStreetMap** | Дозволи Android з rationale, `QualityReport` + міграція `v2 → v3`, камера/галерея, GPS, карта OpenStreetMap (`Mapsui.Maui` + зовнішня карта), акселерометр (Shake), моніторинг мережі | `PizzaTake/Platforms/Android/AndroidManifest.xml`, `PizzaTake.Core/Models/QualityReport.cs`, `PizzaTake.Core/Repositories/QualityReportRepository.cs`, `PizzaTake.Core/Services/{HardwareContracts,GeoMath}.cs`, `PizzaTake/Services/Platform/{MauiPermissionService,MauiMediaService,MauiLocationService,MauiMapLauncherService,MauiShakeSensorService,MauiConnectivityService,OsmMapRenderer}.cs`, `PizzaTake/Views/{QualityReportPage,PizzeriasMapPage,PizzeriaSelectionPage}.*` |
+| **Ядро, тестування та CI/CD** | Виділене ядро `PizzaTake.Core` (0 MAUI), Unit + SQLite Integration тести, покриття ViewModel >70%, `AutomationId` + Appium UI-тести, GitHub Actions CI (`test-core` + `build-android` APK) | `PizzaTake.Core/PizzaTake.Core.csproj`, `PizzaTake.Core.Tests/Unit/*.cs`, `PizzaTake.Core.Tests/Integration/*.cs`, `PizzaTake.UiTests/{AppiumDriverFixture,PizzaTakeUiTests}.cs`, `.github/workflows/ci.yml` |
 
 ---
 
