@@ -67,4 +67,62 @@ public sealed class SyncServiceTests
         syncRepo.Verify(r => r.EnqueueAsync(It.Is<SyncQueueItem>(i => i.EntityType == "Order" && i.Operation == "Insert")), Times.Once);
         syncRepo.Verify(r => r.GetAllPendingAsync(), Times.Never);
     }
+
+    [Fact]
+    public async Task SyncPendingAsync_WithCaseInsensitiveUpdatedAtUtcAndNonUtcTimestamps_ShouldNormalizeToUtcForLww()
+    {
+        var syncRepo = new Mock<ISyncQueueRepository>();
+        var connectivity = new Mock<IConnectivityService>();
+        connectivity.Setup(c => c.IsConnected).Returns(true);
+
+        using var apiClient = new HttpApiClient();
+        var remoteTimeUtc = new DateTime(2026, 11, 27, 12, 0, 0, DateTimeKind.Utc);
+        var seedItem = new SyncQueueItem
+        {
+            Id = 1,
+            EntityType = "Order",
+            Operation = "Insert",
+            PayloadJson = $"{{\"Id\":88,\"UpdatedAt\":\"{remoteTimeUtc:O}\"}}",
+            CreatedAt = remoteTimeUtc
+        };
+        await apiClient.PushSyncItemAsync(seedItem, "88", remoteTimeUtc);
+
+        // Local offset +02:00 -> 13:30+02:00 is 11:30Z (older than 12:00Z), even though CreatedAt is newer.
+        var staleLocalItem = new SyncQueueItem
+        {
+            Id = 2,
+            EntityType = "Order",
+            Operation = "Update",
+            PayloadJson = "{\"id\":88,\"updatedAtUtc\":\"2026-11-27T13:30:00+02:00\"}",
+            CreatedAt = remoteTimeUtc.AddHours(3)
+        };
+
+        syncRepo.Setup(r => r.GetAllPendingAsync()).ReturnsAsync([staleLocalItem]);
+
+        var sut = new SyncService(syncRepo.Object, apiClient, connectivity.Object);
+        await sut.SyncPendingAsync();
+
+        var remoteAfterStale = await apiClient.GetRemoteUpdatedAtAsync("Order", "88");
+        remoteAfterStale.Should().Be(remoteTimeUtc);
+        syncRepo.Verify(r => r.DeleteAsync(staleLocalItem), Times.Once);
+
+        // Unspecified timestamp without offset should be treated as UTC -> 12:30:00Z (newer than 12:00:00Z).
+        var newerUnspecifiedItem = new SyncQueueItem
+        {
+            Id = 3,
+            EntityType = "Order",
+            Operation = "Update",
+            PayloadJson = "{\"id\":88,\"updatedAtUtc\":\"2026-11-27T12:30:00\"}",
+            CreatedAt = remoteTimeUtc.AddHours(-5)
+        };
+        syncRepo.Setup(r => r.GetAllPendingAsync()).ReturnsAsync([newerUnspecifiedItem]);
+
+        await sut.SyncPendingAsync();
+
+        var expectedNewerUtc = new DateTime(2026, 11, 27, 12, 30, 0, DateTimeKind.Utc);
+        var remoteAfterNewer = await apiClient.GetRemoteUpdatedAtAsync("Order", "88");
+        remoteAfterNewer.Should().Be(expectedNewerUtc);
+        remoteAfterNewer!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        syncRepo.Verify(r => r.DeleteAsync(newerUnspecifiedItem), Times.Once);
+    }
 }

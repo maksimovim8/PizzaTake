@@ -16,6 +16,7 @@ public sealed class MauiShakeSensorService : IShakeSensorService
     private readonly object syncRoot = new();
     private DateTime lastShakeUtc = DateTime.MinValue;
     private bool isSubscribed;
+    private int activeStartCount;
 
     public MauiShakeSensorService(ILogger<MauiShakeSensorService>? logger = null)
     {
@@ -65,6 +66,7 @@ public sealed class MauiShakeSensorService : IShakeSensorService
 
         lock (syncRoot)
         {
+            activeStartCount++;
             try
             {
                 if (!isSubscribed)
@@ -81,10 +83,12 @@ public sealed class MauiShakeSensorService : IShakeSensorService
             }
             catch (FeatureNotSupportedException ex)
             {
+                activeStartCount = Math.Max(0, activeStartCount - 1);
                 logger.LogWarning(ex, "Accelerometer shake monitoring is not supported");
             }
             catch (Exception ex)
             {
+                activeStartCount = Math.Max(0, activeStartCount - 1);
                 logger.LogWarning(ex, "Failed to start accelerometer shake monitoring");
             }
         }
@@ -94,6 +98,19 @@ public sealed class MauiShakeSensorService : IShakeSensorService
     {
         lock (syncRoot)
         {
+            if (activeStartCount <= 0)
+            {
+                activeStartCount = 0;
+                return;
+            }
+
+            activeStartCount--;
+            if (activeStartCount > 0)
+            {
+                logger.LogDebug("Accelerometer shake monitoring kept active (ActiveListeners={Count})", activeStartCount);
+                return;
+            }
+
             try
             {
                 if (isSubscribed)

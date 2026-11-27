@@ -14,7 +14,7 @@
                     BackgroundColor="Transparent" TextColor="#EB5E28" FontSize="16" FontAttributes="Bold" Padding="0" />
         </Grid>
 
-        <ScrollView Grid.Row="1" Padding="20,4,20,28">
+        <ScrollView Grid.Row="1" Padding="20,4,20,28" IsVisible="{Binding IsAdmin}">
             <VerticalStackLayout Spacing="18">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="{Binding Title}" FontSize="26" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
@@ -22,7 +22,7 @@
                 </VerticalStackLayout>
 
                 <!-- Main Product Info & КБЖВ -->
-                <Border Style="{StaticResource CardBorder}">
+                <Border Style="{StaticResource CardBorder}" IsVisible="{Binding IsAdmin}">
                     <VerticalStackLayout Spacing="14">
                         <VerticalStackLayout Spacing="6">
                             <Label Text="НАЗВА ТОВАРУ *" Style="{StaticResource FieldLabel}" />

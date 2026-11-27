@@ -174,6 +174,7 @@ public sealed class CheckoutViewModel : ConnectivityBannerViewModel
         if (IsBusy) return;
         isOrderSubmitted = false;
         IsBusy = true;
+        ConfirmPaymentCommand.NotifyCanExecuteChanged();
         try
         {
             IsOffline = !connectivityService.IsConnected;
@@ -376,15 +377,30 @@ public sealed class CheckoutViewModel : ConnectivityBannerViewModel
         {
             existing.LastUsedAt = DateTime.UtcNow;
             await addressRepository.SaveAsync(existing);
+            await syncService.EnqueueAsync("UserAddress", "Update", new
+            {
+                existing.Id,
+                existing.Label,
+                existing.Text,
+                UpdatedAt = DateTime.UtcNow
+            });
             return;
         }
 
-        await addressRepository.SaveAsync(new UserAddress
+        var address = new UserAddress
         {
             UserId = userId,
             Label = "Доставка",
             Text = addressText,
             LastUsedAt = DateTime.UtcNow
+        };
+        await addressRepository.SaveAsync(address);
+        await syncService.EnqueueAsync("UserAddress", "Insert", new
+        {
+            address.Id,
+            address.Label,
+            address.Text,
+            UpdatedAt = DateTime.UtcNow
         });
     }
 

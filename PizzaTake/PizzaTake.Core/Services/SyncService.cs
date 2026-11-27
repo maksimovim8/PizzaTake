@@ -176,6 +176,21 @@ public sealed class SyncService : ISyncService
         }
     }
 
+    private static readonly string[] TimestampPropertyPriority =
+    [
+        "UpdatedAt",
+        "UpdatedAtUtc",
+        "CreatedAtUtc",
+        "CreatedAt"
+    ];
+
+    private static DateTime NormalizeToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
+
     private static string ExtractEntityKey(SyncQueueItem item)
     {
         try
@@ -183,10 +198,25 @@ public sealed class SyncService : ISyncService
             using var document = JsonDocument.Parse(item.PayloadJson);
             if (document.RootElement.ValueKind == JsonValueKind.Object)
             {
-                if (document.RootElement.TryGetProperty("Id", out var idProp))
-                    return idProp.ToString();
-                if (document.RootElement.TryGetProperty("OrderNumber", out var orderNumProp))
-                    return orderNumProp.ToString();
+                string? orderNumber = null;
+                foreach (var prop in document.RootElement.EnumerateObject())
+                {
+                    if (string.Equals(prop.Name, "Id", StringComparison.OrdinalIgnoreCase) &&
+                        prop.Value.ValueKind != JsonValueKind.Null)
+                    {
+                        return prop.Value.ToString();
+                    }
+
+                    if (orderNumber is null &&
+                        string.Equals(prop.Name, "OrderNumber", StringComparison.OrdinalIgnoreCase) &&
+                        prop.Value.ValueKind != JsonValueKind.Null)
+                    {
+                        orderNumber = prop.Value.ToString();
+                    }
+                }
+
+                if (orderNumber is not null)
+                    return orderNumber;
             }
         }
         catch (JsonException)
@@ -201,17 +231,33 @@ public sealed class SyncService : ISyncService
         try
         {
             using var document = JsonDocument.Parse(item.PayloadJson);
-            if (document.RootElement.ValueKind == JsonValueKind.Object &&
-                document.RootElement.TryGetProperty("UpdatedAt", out var updatedProp) &&
-                updatedProp.TryGetDateTime(out var updatedAt))
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
             {
-                return updatedAt;
+                DateTime? bestMatch = null;
+                var bestPriority = int.MaxValue;
+
+                foreach (var prop in document.RootElement.EnumerateObject())
+                {
+                    for (var i = 0; i < TimestampPropertyPriority.Length && i < bestPriority; i++)
+                    {
+                        if (string.Equals(prop.Name, TimestampPropertyPriority[i], StringComparison.OrdinalIgnoreCase) &&
+                            prop.Value.TryGetDateTime(out var parsed))
+                        {
+                            bestMatch = NormalizeToUtc(parsed);
+                            bestPriority = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (bestMatch.HasValue)
+                    return bestMatch.Value;
             }
         }
         catch (JsonException)
         {
         }
 
-        return item.CreatedAt;
+        return NormalizeToUtc(item.CreatedAt);
     }
 }

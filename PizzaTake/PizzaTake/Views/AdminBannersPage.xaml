@@ -19,7 +19,7 @@
                     BackgroundColor="Transparent" TextColor="#EB5E28" FontSize="16" FontAttributes="Bold" Padding="0" />
         </Grid>
 
-        <ScrollView Grid.Row="1" Padding="20,4,20,28">
+        <ScrollView Grid.Row="1" Padding="20,4,20,28" IsVisible="{Binding IsAdmin}">
             <VerticalStackLayout Spacing="16">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Банери меню" FontSize="26" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />

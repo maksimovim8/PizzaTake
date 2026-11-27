@@ -50,8 +50,8 @@ PizzaTake/
 │   ├── Platforms/                   # AndroidManifest.xml, MainActivity (Deep Links), MainApplication (Crash)
 │   └── MauiProgram.cs               # DI-контейнер, Serilog, Sentry.Maui, SkiaSharp/Mapsui
 ├── PizzaTake.Core.Tests/            # xUnit + Moq + FluentAssertions + coverlet
-│   ├── Unit/                        # 13 тестових класів (57 тестових методів / [Fact] + [Theory])
-│   └── Integration/                 # 3 інтеграційних класи на реальній тимчасовій SQLite БД (9 тестів)
+│   ├── Unit/                        # 13 тестових класів (Unit: [Fact] + [Theory])
+│   └── Integration/                 # 3 інтеграційних класи на реальній тимчасовій SQLite БД
 └── PizzaTake.UiTests/               # xUnit + Appium.WebDriver (2 E2E-сценарії за AutomationId)
 ```
 
@@ -133,7 +133,7 @@ erDiagram
         string SizeName
         bool IsNew
         decimal BasePrice
-        decimal PromoPrice
+        decimal PromoPrice "nullable"
         int Calories
         decimal Proteins
         decimal Fats
@@ -219,8 +219,8 @@ erDiagram
         string OrderNumber
         string Description
         string PhotoPath
-        double Latitude
-        double Longitude
+        double Latitude "nullable"
+        double Longitude "nullable"
         datetime CreatedAtUtc
     }
     SyncQueueItems {
@@ -233,7 +233,7 @@ erDiagram
 ```
 
 ### Шифрування даних у стані спокою
-- У таблиці **`UserProfiles`** поля `Phone` та `CityName` прозоро шифруються в `UserProfileRepository` через `AesEncryptionService` (**AES-256-CBC**, PKCS7, унікальний 16-байтний IV на кожен запис, префікс `enc:v1:`). Ключ шифрування генерується й зберігається виключно у `SecureStorage` (`ISecureStoreService`).
+- У таблиці **`UserProfiles`** поля `Phone` та `CityName` прозоро шифруються в `UserProfileRepository` через `AesEncryptionService` (**AES-256-CBC (PKCS7)** з унікальним 16-байтним IV перед шифротекстом і збереженням у форматі Base64: `Base64(IV || ciphertext)`). Ключ `pizzatake_aes_key` зберігається виключно у `SecureStorage` (`ISecureStoreService`).
 - Токен сесії (`auth.token`), роль (`auth.role`), телефон (`auth.phone`) та прапорець блокування (`auth.locked`) також зберігаються виключно у `SecureStorage`, а не у відкритих `Preferences`.
 
 ### Міграції схеми (`SqliteDatabase.ApplyMigrationsAsync`)
@@ -310,7 +310,7 @@ dotnet build PizzaTake/PizzaTake/PizzaTake.csproj --no-restore -f net11.0-androi
 
 ### 6.2. Запуск модульних та інтеграційних тестів і генерація HTML-покриття
 ```bash
-# Запуск усіх 73 тестів (Unit + SQLite Integration) зі збором покриття Cobertura
+# Запуск усіх модульних та інтеграційних тестів (Unit + SQLite Integration) зі збором покриття Cobertura
 dotnet test PizzaTake/PizzaTake.Core.Tests/PizzaTake.Core.Tests.csproj \
   --configuration Release \
   --collect:"XPlat Code Coverage" \

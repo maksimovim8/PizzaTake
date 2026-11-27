@@ -20,7 +20,7 @@
                     Padding="0" />
         </Grid>
 
-        <ScrollView Grid.Row="1" Padding="20,4,20,28">
+        <ScrollView Grid.Row="1" Padding="20,4,20,28" IsVisible="{Binding IsAdmin}">
             <VerticalStackLayout Spacing="16">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Категорії меню"

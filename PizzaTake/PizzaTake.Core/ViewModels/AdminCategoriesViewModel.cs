@@ -20,6 +20,7 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
     private readonly IDialogService dialogService;
     private readonly IMainThreadDispatcher dispatcher;
     private readonly ILogger<AdminCategoriesViewModel> logger;
+    private readonly ISyncService? syncService;
 
     private string newCategoryName = string.Empty;
     private ProductCategory? editingCategory;
@@ -31,7 +32,8 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
         INavigationService navigation,
         IDialogService dialogService,
         IMainThreadDispatcher dispatcher,
-        ILogger<AdminCategoriesViewModel>? logger = null)
+        ILogger<AdminCategoriesViewModel>? logger = null,
+        ISyncService? syncService = null)
     {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
@@ -40,6 +42,7 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
         this.dialogService = dialogService;
         this.dispatcher = dispatcher;
         this.logger = logger ?? NullLogger<AdminCategoriesViewModel>.Instance;
+        this.syncService = syncService;
         Title = "Категорії меню";
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
@@ -129,6 +132,16 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
             if (editingCategory is not null)
             {
                 await categoryRepository.RenameAsync(editingCategory, trimmed);
+                if (syncService is not null)
+                {
+                    await syncService.EnqueueAsync("ProductCategory", "Update", new
+                    {
+                        editingCategory.Id,
+                        Name = trimmed,
+                        editingCategory.SortOrder,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
                 StatusMessage = $"Категорію перейменовано на «{trimmed}».";
                 editingCategory = null;
                 NotifyEditState();
@@ -136,7 +149,18 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
             else
             {
                 var nextOrder = Categories.Count > 0 ? Categories.Max(c => c.SortOrder) + 1 : 0;
-                await categoryRepository.SaveAsync(new ProductCategory { Name = trimmed, SortOrder = nextOrder });
+                var category = new ProductCategory { Name = trimmed, SortOrder = nextOrder };
+                await categoryRepository.SaveAsync(category);
+                if (syncService is not null)
+                {
+                    await syncService.EnqueueAsync("ProductCategory", "Insert", new
+                    {
+                        category.Id,
+                        category.Name,
+                        category.SortOrder,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
                 StatusMessage = $"Категорію «{trimmed}» додано.";
             }
 
@@ -171,6 +195,24 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
 
             await categoryRepository.SaveAsync(category);
             await categoryRepository.SaveAsync(other);
+            if (syncService is not null)
+            {
+                var updatedAt = DateTime.UtcNow;
+                await syncService.EnqueueAsync("ProductCategory", "Update", new
+                {
+                    category.Id,
+                    category.Name,
+                    category.SortOrder,
+                    UpdatedAt = updatedAt
+                });
+                await syncService.EnqueueAsync("ProductCategory", "Update", new
+                {
+                    other.Id,
+                    other.Name,
+                    other.SortOrder,
+                    UpdatedAt = updatedAt
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -203,6 +245,16 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
                 return;
 
             await categoryRepository.DeleteAsync(category);
+            if (syncService is not null)
+            {
+                await syncService.EnqueueAsync("ProductCategory", "Delete", new
+                {
+                    category.Id,
+                    category.Name,
+                    category.SortOrder,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
             if (editingCategory?.Id == category.Id) CancelEdit();
             StatusMessage = $"Категорію «{category.Name}» видалено.";
         }
