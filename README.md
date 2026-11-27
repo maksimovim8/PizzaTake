@@ -215,7 +215,7 @@ erDiagram
     }
     QualityReports {
         int Id PK
-        int OrderId FK
+        int OrderId FK "nullable"
         string OrderNumber
         string Description
         string PhotoPath
@@ -234,7 +234,7 @@ erDiagram
 
 ### Шифрування даних у стані спокою
 - У таблиці **`UserProfiles`** поля `Phone` та `CityName` прозоро шифруються в `UserProfileRepository` через `AesEncryptionService` (**AES-256-CBC (PKCS7)** з унікальним 16-байтним IV перед шифротекстом і збереженням у форматі Base64: `Base64(IV || ciphertext)`). Ключ `pizzatake_aes_key` зберігається виключно у `SecureStorage` (`ISecureStoreService`).
-- Токен сесії (`auth.token`), роль (`auth.role`), телефон (`auth.phone`) та прапорець блокування (`auth.locked`) також зберігаються виключно у `SecureStorage`, а не у відкритих `Preferences`.
+- Токен сесії (`pizzatake_auth_token`), роль (`pizzatake_user_role`), телефон (`pizzatake_user_phone`) та прапорець блокування (`pizzatake_session_locked`) також зберігаються виключно у `SecureStorage`, а не у відкритих `Preferences`.
 
 ### Міграції схеми (`SqliteDatabase.ApplyMigrationsAsync`)
 | Версія `PRAGMA user_version` | Зміни схеми |

@@ -16,6 +16,13 @@ public partial class LogsPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        viewModel.StartSessionMonitoring();
         viewModel.LoadLogsCommand.Execute(null);
+    }
+
+    protected override void OnDisappearing()
+    {
+        viewModel.StopSessionMonitoring();
+        base.OnDisappearing();
     }
 }

@@ -132,6 +132,8 @@ public sealed class LogsViewModelTests
         var changedProperties = new List<string?>();
         sut.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
 
+        sut.StartSessionMonitoring();
+        changedProperties.Clear();
         sut.IsAdmin.Should().BeFalse();
 
         isAdmin = true;
@@ -139,6 +141,14 @@ public sealed class LogsViewModelTests
 
         sut.IsAdmin.Should().BeTrue();
         changedProperties.Should().Contain(nameof(LogsViewModel.IsAdmin));
+        dispatcher.Verify(d => d.BeginInvokeOnMainThread(It.IsAny<Action>()), Times.Once);
+
+        sut.StopSessionMonitoring();
+        changedProperties.Clear();
+        isAdmin = false;
+        sessionService.Raise(s => s.SessionChanged += null, EventArgs.Empty);
+
+        changedProperties.Should().NotContain(nameof(LogsViewModel.IsAdmin));
         dispatcher.Verify(d => d.BeginInvokeOnMainThread(It.IsAny<Action>()), Times.Once);
     }
 }
