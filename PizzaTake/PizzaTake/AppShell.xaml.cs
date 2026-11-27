@@ -137,12 +137,12 @@ public partial class AppShell : Shell
             location.Contains("cities", StringComparison.OrdinalIgnoreCase) ||
             location.Contains("auth", StringComparison.OrdinalIgnoreCase);
 
-        Shell.SetTabBarIsVisible(this, !hideTabBar);
-        Shell.SetTabBarIsVisible(mainTabs, !hideTabBar);
-        if (CurrentItem is not null)
-            Shell.SetTabBarIsVisible(CurrentItem, !hideTabBar);
-        if (CurrentItem?.CurrentItem is not null)
-            Shell.SetTabBarIsVisible(CurrentItem.CurrentItem, !hideTabBar);
+        Shell.SetTabBarIsVisible(this, true);
+        Shell.SetTabBarIsVisible(mainTabs, true);
+        if (CurrentItem is not null && ReferenceEquals(CurrentItem, mainTabs))
+            Shell.SetTabBarIsVisible(CurrentItem, true);
+        if (CurrentItem?.CurrentItem is not null && ReferenceEquals(CurrentItem, mainTabs))
+            Shell.SetTabBarIsVisible(CurrentItem.CurrentItem, true);
         if (CurrentPage is not null)
             Shell.SetTabBarIsVisible(CurrentPage, !hideTabBar);
 

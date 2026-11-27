@@ -302,7 +302,7 @@ erDiagram
 | `OrderHistoryPage` | Перегляд історії замовлень, перехід у деталі | ✅ | ✅ | При заблокованій сесії дані приховані (`IsSessionLocked`) |
 | `OrderDetailPage` | Перегляд замовлення, повтор у кошик, фото-звернення | ✅ | ✅ | При заблокованій сесії стек автоматично закривається (`AppShell`) |
 | `OrderDetailPage` | Зміна статусу замовлення / видалення замовлення | ❌ | ✅ | `CanShowAdminPanel` + `AdvanceOrderStatusCommand`, `DeleteOrderCommand` |
-| `SettingsPage` | Профіль, місто, адреси, тема, синк, карта OSM, акт якості, блокування сесії | ✅ | ✅ | При `IsSessionLocked` адреси/телефон приховані, редагування заблоковане |
+| `SettingsPage` | Профіль, місто, адреси, тема, синк, акт якості, блокування сесії | ✅ | ✅ | При `IsSessionLocked` адреси/телефон приховані, редагування заблоковане |
 | `SettingsPage` | Перехід у «Журнал логів» (`LogsPage`) | ❌ | ✅ | `IsAdmin` + `OpenLogsCommand` (`RequireAdminAsync`) |
 | `AddressEditPage` | Створення / редагування / видалення адреси доставки + GPS | ✅ | ✅ | — |
 | `QualityReportPage` | Створення / видалення фото-акту якості (камера/галерея + GPS) | ✅ | ✅ | — |
@@ -374,7 +374,7 @@ reportgenerator \
 ```bash
 dotnet test PizzaTake/PizzaTake.UiTests/PizzaTake.UiTests.csproj -c Release
 ```
-Сценарії використовують стабільні `AutomationId` (`AuthPhoneEntry`, `AuthPolicyCheckBox`, `AuthRequestSmsButton`, `AuthOtpEntry`, `AuthVerifySmsButton`, `MenuSearchBar`, `SettingsOpenMapButton`, `SettingsAddAddressButton`, `AddressLabelEntry`, `AddressTextEntry`, `AddressNotesEntry`, `AddressSaveButton`, `LogsFilterDebugButton`, `LogsTestSslPinningButton`).
+Сценарії використовують стабільні `AutomationId` (`AuthPhoneEntry`, `AuthPolicyCheckBox`, `AuthRequestSmsButton`, `AuthOtpEntry`, `AuthVerifySmsButton`, `MenuSearchBar`, `SettingsAddAddressButton`, `AddressLabelEntry`, `AddressTextEntry`, `AddressNotesEntry`, `AddressSaveButton`, `LogsFilterDebugButton`, `LogsTestSslPinningButton`).
 
 ### 6.4. Налаштування Sentry DSN
 Секретний DSN **не зберігається** у вихідному коді (`MauiProgram.ResolveSentryDsn()`). Його можна передати одним із трьох способів (у порядку пріоритету):

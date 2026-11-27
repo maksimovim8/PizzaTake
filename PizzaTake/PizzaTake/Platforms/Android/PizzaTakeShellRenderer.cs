@@ -24,6 +24,8 @@ public sealed class PizzaTakeShellRenderer : ShellRenderer
     private sealed class PizzaTakeBottomNavViewAppearanceTracker : ShellBottomNavViewAppearanceTracker
     {
         private readonly ShellItem shellItem;
+        private BottomNavigationView? trackedBottomView;
+        private Shell? subscribedShell;
 
         public PizzaTakeBottomNavViewAppearanceTracker(IShellContext shellContext, ShellItem shellItem)
             : base(shellContext, shellItem)
@@ -35,15 +37,74 @@ public sealed class PizzaTakeShellRenderer : ShellRenderer
         {
             base.SetAppearance(bottomView, appearance);
 
-            var currentPage = Shell.Current?.CurrentPage;
+            trackedBottomView = bottomView;
+            EnsureShellSubscribed();
+            UpdateBottomBarVisibility(bottomView);
+            ApplyCompactLabels(bottomView);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && subscribedShell is not null)
+            {
+                subscribedShell.Navigated -= OnShellNavigated;
+                subscribedShell = null;
+            }
+
+            trackedBottomView = null;
+            base.Dispose(disposing);
+        }
+
+        private void EnsureShellSubscribed()
+        {
+            var currentShell = Shell.Current;
+            if (currentShell is null || ReferenceEquals(subscribedShell, currentShell))
+                return;
+
+            if (subscribedShell is not null)
+                subscribedShell.Navigated -= OnShellNavigated;
+
+            subscribedShell = currentShell;
+            subscribedShell.Navigated += OnShellNavigated;
+        }
+
+        private void OnShellNavigated(object? sender, ShellNavigatedEventArgs e)
+        {
+            if (trackedBottomView is null)
+                return;
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (trackedBottomView is null)
+                    return;
+
+                UpdateBottomBarVisibility(trackedBottomView);
+                ApplyCompactLabels(trackedBottomView);
+            });
+        }
+
+        private void UpdateBottomBarVisibility(BottomNavigationView bottomView)
+        {
+            var currentShell = Shell.Current;
+            var currentPage = currentShell?.CurrentPage;
+            var hideForCurrentPage = currentPage is Views.WelcomePage
+                or Views.CitySelectionPage
+                or Views.PizzeriaSelectionPage
+                or Views.AuthPage;
+
             var visible =
+                !hideForCurrentPage &&
                 Shell.GetTabBarIsVisible(shellItem) &&
                 (shellItem.CurrentItem is null || Shell.GetTabBarIsVisible(shellItem.CurrentItem)) &&
                 (currentPage is null || Shell.GetTabBarIsVisible(currentPage)) &&
-                (Shell.Current is null || Shell.GetTabBarIsVisible(Shell.Current));
+                (currentShell is null || Shell.GetTabBarIsVisible(currentShell));
 
-            bottomView.Visibility = visible ? ViewStates.Visible : ViewStates.Gone;
-            ApplyCompactLabels(bottomView);
+            var targetVisibility = visible ? ViewStates.Visible : ViewStates.Gone;
+            if (bottomView.Visibility != targetVisibility)
+            {
+                bottomView.Visibility = targetVisibility;
+                bottomView.RequestLayout();
+            }
         }
 
         private static void ApplyCompactLabels(ViewGroup group)
