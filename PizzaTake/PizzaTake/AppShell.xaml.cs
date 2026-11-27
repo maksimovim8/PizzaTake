@@ -86,8 +86,11 @@ public partial class AppShell : Shell
         };
         this.sessionService.SessionChanged += (_, _) =>
         {
-            if (!this.sessionService.IsAuthenticated)
+            if (!this.sessionService.IsAuthenticated ||
+                !this.sessionService.IsInRole(Core.Models.UserRole.Administrator))
+            {
                 MainThread.BeginInvokeOnMainThread(() => _ = PopProtectedStacksAsync());
+            }
         };
         this.cartRepository.CartChanged += (_, _) => _ = RefreshCartBadgeAsync();
         Loaded += async (_, _) => await TryNavigatePendingDeepLinkAsync();
@@ -157,11 +160,19 @@ public partial class AppShell : Shell
     {
         try
         {
-            if (IsAdminOnlyPage(CurrentPage) &&
-                !sessionService.IsInRole(Core.Models.UserRole.Administrator) &&
-                Navigation.NavigationStack.Count > 1)
+            if (!sessionService.IsInRole(Core.Models.UserRole.Administrator))
             {
-                await Navigation.PopToRootAsync(false);
+                foreach (var section in mainTabs.Items)
+                {
+                    if (section.Navigation.NavigationStack.Any(IsAdminOnlyPage) &&
+                        section.Navigation.NavigationStack.Count > 1)
+                    {
+                        await section.Navigation.PopToRootAsync(false);
+                    }
+                }
+
+                if (IsAdminOnlyPage(CurrentPage) && Navigation.NavigationStack.Count > 1)
+                    await Navigation.PopToRootAsync(false);
             }
 
             if (sessionService.IsAuthenticated || !await authService.HasSavedCredentialsAsync())

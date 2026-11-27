@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Core.ViewModels;
 
 namespace PizzaTake.Views;
@@ -5,11 +7,13 @@ namespace PizzaTake.Views;
 public partial class AdminProductEditPage : ContentPage, IQueryAttributable
 {
     private readonly AdminProductEditViewModel viewModel;
+    private readonly ILogger<AdminProductEditPage> logger;
 
-    public AdminProductEditPage(AdminProductEditViewModel viewModel)
+    public AdminProductEditPage(AdminProductEditViewModel viewModel, ILogger<AdminProductEditPage>? logger = null)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.logger = logger ?? NullLogger<AdminProductEditPage>.Instance;
         BindingContext = viewModel;
     }
 
@@ -26,5 +30,6 @@ public partial class AdminProductEditPage : ContentPage, IQueryAttributable
     {
         base.OnDisappearing();
         viewModel.StopSessionMonitoring();
+        logger.LogInformation("Leaving page {PageName}", nameof(AdminProductEditPage));
     }
 }

@@ -111,24 +111,86 @@ public sealed class MauiShakeSensorService : IShakeSensorService
                 return;
             }
 
+            StopHardwareLocked();
+        }
+    }
+
+    /// <summary>
+    /// Temporarily pauses hardware accelerometer monitoring while preserving active page listener counts (Window.Stopped).
+    /// </summary>
+    public void Pause()
+    {
+        lock (syncRoot)
+        {
+            StopHardwareLocked();
+        }
+    }
+
+    /// <summary>
+    /// Resumes hardware accelerometer monitoring if any page listener is still active (Window.Resumed).
+    /// </summary>
+    public void Resume()
+    {
+        if (!IsSupported)
+            return;
+
+        lock (syncRoot)
+        {
+            if (activeStartCount <= 0)
+                return;
+
             try
             {
-                if (isSubscribed)
+                if (!isSubscribed)
                 {
-                    Accelerometer.Default.ShakeDetected -= OnAccelerometerShakeDetected;
-                    isSubscribed = false;
+                    Accelerometer.Default.ShakeDetected += OnAccelerometerShakeDetected;
+                    isSubscribed = true;
                 }
 
-                if (Accelerometer.Default.IsMonitoring)
+                if (!Accelerometer.Default.IsMonitoring)
                 {
-                    Accelerometer.Default.Stop();
-                    logger.LogDebug("Accelerometer shake monitoring stopped");
+                    Accelerometer.Default.Start(SensorSpeed.Game);
+                    logger.LogDebug("Accelerometer shake monitoring resumed");
                 }
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to stop accelerometer shake monitoring");
+                logger.LogWarning(ex, "Failed to resume accelerometer shake monitoring");
             }
+        }
+    }
+
+    /// <summary>
+    /// Releases all listeners and stops hardware accelerometer monitoring (Window.Destroying).
+    /// </summary>
+    public void ForceStop()
+    {
+        lock (syncRoot)
+        {
+            activeStartCount = 0;
+            StopHardwareLocked();
+        }
+    }
+
+    private void StopHardwareLocked()
+    {
+        try
+        {
+            if (isSubscribed)
+            {
+                Accelerometer.Default.ShakeDetected -= OnAccelerometerShakeDetected;
+                isSubscribed = false;
+            }
+
+            if (Accelerometer.Default.IsMonitoring)
+            {
+                Accelerometer.Default.Stop();
+                logger.LogDebug("Accelerometer shake monitoring stopped");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to stop accelerometer shake monitoring");
         }
     }
 
