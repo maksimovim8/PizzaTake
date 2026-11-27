@@ -193,6 +193,9 @@ public sealed class SyncService : ISyncService
 
     private static string ExtractEntityKey(SyncQueueItem item)
     {
+        if (string.IsNullOrWhiteSpace(item.PayloadJson))
+            return item.Id.ToString();
+
         try
         {
             using var document = JsonDocument.Parse(item.PayloadJson);
@@ -201,17 +204,22 @@ public sealed class SyncService : ISyncService
                 string? orderNumber = null;
                 foreach (var prop in document.RootElement.EnumerateObject())
                 {
-                    if (string.Equals(prop.Name, "Id", StringComparison.OrdinalIgnoreCase) &&
-                        prop.Value.ValueKind != JsonValueKind.Null)
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                        continue;
+
+                    if (string.Equals(prop.Name, "Id", StringComparison.OrdinalIgnoreCase))
                     {
-                        return prop.Value.ToString();
+                        var idValue = prop.Value.ToString();
+                        if (!string.IsNullOrWhiteSpace(idValue))
+                            return idValue.Trim();
                     }
 
                     if (orderNumber is null &&
-                        string.Equals(prop.Name, "OrderNumber", StringComparison.OrdinalIgnoreCase) &&
-                        prop.Value.ValueKind != JsonValueKind.Null)
+                        string.Equals(prop.Name, "OrderNumber", StringComparison.OrdinalIgnoreCase))
                     {
-                        orderNumber = prop.Value.ToString();
+                        var orderValue = prop.Value.ToString();
+                        if (!string.IsNullOrWhiteSpace(orderValue))
+                            orderNumber = orderValue.Trim();
                     }
                 }
 
@@ -228,6 +236,9 @@ public sealed class SyncService : ISyncService
 
     private static DateTime ExtractUpdatedAt(SyncQueueItem item)
     {
+        if (string.IsNullOrWhiteSpace(item.PayloadJson))
+            return NormalizeToUtc(item.CreatedAt);
+
         try
         {
             using var document = JsonDocument.Parse(item.PayloadJson);

@@ -49,8 +49,6 @@ public sealed class LogsViewModel : BaseViewModel
         this.logger = logger ?? NullLogger<LogsViewModel>.Instance;
         Title = "Журнал логів";
 
-        this.sessionService.SessionChanged += OnSessionChanged;
-
         LoadLogsCommand = new AsyncRelayCommand(LoadLogsAsync);
         SelectLevelCommand = new AsyncRelayCommand<string?>(SelectLevelAsync);
         SendBugReportCommand = new AsyncRelayCommand(SendBugReportAsync, () => !IsBusy);
@@ -298,6 +296,18 @@ public sealed class LogsViewModel : BaseViewModel
         if (navigateBackOnDeny)
             await navigation.GoBackAsync();
         return false;
+    }
+
+    public void StartSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+        sessionService.SessionChanged += OnSessionChanged;
+        OnPropertyChanged(nameof(IsAdmin));
+    }
+
+    public void StopSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
     }
 
     private void OnSessionChanged(object? sender, EventArgs e) =>
