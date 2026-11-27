@@ -187,4 +187,94 @@ public sealed class CartAndSettingsViewModelTests
         reset.Verify(r => r.ResetForLogoutAsync(), Times.Once);
         nav.Verify(n => n.GoToAsync("///welcome-start", null), Times.Once);
     }
+
+    [Fact]
+    public async Task SettingsViewModel_WhenGuestHasNoProfile_ShouldStillLoadSavedAddressesAndApplyQueryUpdates()
+    {
+        var profileRepo = new Mock<IUserProfileRepository>();
+        var addressRepo = new Mock<IAddressRepository>();
+        var auth = new Mock<IAuthService>();
+        var session = new Mock<ISessionService>();
+        var appState = new Mock<IAppStateService>();
+        var reset = new Mock<IUserDataResetService>();
+        var sync = new Mock<ISyncService>();
+        var nav = new Mock<INavigationService>();
+        var dialog = new Mock<IDialogService>();
+        var dispatcher = new ImmediateMainThreadDispatcher();
+
+        auth.Setup(a => a.HasSavedCredentialsAsync()).ReturnsAsync(false);
+        auth.Setup(a => a.IsAuthenticated).Returns(false);
+        session.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+        appState.Setup(s => s.SelectedCity).Returns(new City { Id = 1, Name = "Київ" });
+        profileRepo.Setup(r => r.GetCurrentAsync()).ReturnsAsync((UserProfile?)null);
+        addressRepo.Setup(r => r.GetAllAsync()).ReturnsAsync([new UserAddress { Id = 10, Label = "Офіс", Text = "вул. Богдана Хмельницького, 5" }]);
+
+        var sut = new SettingsViewModel(
+            profileRepo.Object,
+            addressRepo.Object,
+            auth.Object,
+            session.Object,
+            appState.Object,
+            reset.Object,
+            sync.Object,
+            nav.Object,
+            dialog.Object,
+            dispatcher);
+
+        await sut.LoadSettingsCommand.ExecuteAsync(null);
+
+        sut.CurrentCityName.Should().Be("Київ");
+        sut.HasAddresses.Should().BeTrue();
+        sut.Addresses.Should().ContainSingle(a => a.Id == 10 && a.Label == "Офіс");
+
+        sut.ApplyQueryAttributes(new Dictionary<string, object>
+        {
+            ["UpdatedAddress"] = new UserAddress { Id = 10, Label = "Офіс 2", Text = "вул. Саксаганського, 12" }
+        });
+        sut.Addresses.Should().ContainSingle(a => a.Id == 10 && a.Label == "Офіс 2");
+
+        sut.ApplyQueryAttributes(new Dictionary<string, object>
+        {
+            ["DeletedAddressId"] = "10"
+        });
+        sut.Addresses.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SettingsViewModel_WhenSessionLocked_ShouldNotNavigateOnEditAddress()
+    {
+        var profileRepo = new Mock<IUserProfileRepository>();
+        var addressRepo = new Mock<IAddressRepository>();
+        var auth = new Mock<IAuthService>();
+        var session = new Mock<ISessionService>();
+        var appState = new Mock<IAppStateService>();
+        var reset = new Mock<IUserDataResetService>();
+        var sync = new Mock<ISyncService>();
+        var nav = new Mock<INavigationService>();
+        var dialog = new Mock<IDialogService>();
+        var dispatcher = new ImmediateMainThreadDispatcher();
+
+        auth.Setup(a => a.HasSavedCredentialsAsync()).ReturnsAsync(true);
+        auth.Setup(a => a.IsAuthenticated).Returns(false);
+        session.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+        profileRepo.Setup(r => r.GetCurrentAsync()).ReturnsAsync(new UserProfile { Id = 1, CityName = "Київ" });
+
+        var sut = new SettingsViewModel(
+            profileRepo.Object,
+            addressRepo.Object,
+            auth.Object,
+            session.Object,
+            appState.Object,
+            reset.Object,
+            sync.Object,
+            nav.Object,
+            dialog.Object,
+            dispatcher);
+
+        await sut.LoadSettingsCommand.ExecuteAsync(null);
+        await sut.EditAddressCommand.ExecuteAsync(new UserAddress { Id = 1, Label = "Дім", Text = "вул. Хрещатик, 1" });
+
+        sut.IsSessionLocked.Should().BeTrue();
+        nav.Verify(n => n.GoToAsync(It.IsAny<string>(), It.IsAny<IDictionary<string, object>?>()), Times.Never);
+    }
 }

@@ -151,4 +151,50 @@ public sealed class LogsViewModelTests
         changedProperties.Should().NotContain(nameof(LogsViewModel.IsAdmin));
         dispatcher.Verify(d => d.BeginInvokeOnMainThread(It.IsAny<Action>()), Times.Once);
     }
+
+    [Fact]
+    public async Task SelectLevelCommand_WithDebugFilter_ShouldMarkDebugSelectedAndLoadDebugLogs()
+    {
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(true);
+        logReader.Setup(r => r.ReadRecentEntriesAsync(LogsViewModel.DefaultMaxEntries, "Debug", default))
+            .ReturnsAsync([new LogEntry { Level = "Debug", LevelShort = "DBG", Message = "Trace step" }]);
+        logReader.Setup(r => r.GetLatestLogFilePath()).Returns("/logs/app-20261128.log");
+
+        var sut = CreateSut();
+        sut.LevelFilters.Should().Contain("Debug");
+
+        await sut.SelectLevelCommand.ExecuteAsync("Debug");
+
+        sut.SelectedLevel.Should().Be("Debug");
+        sut.IsDebugSelected.Should().BeTrue();
+        sut.LogEntries.Should().ContainSingle(e => e.Level == "Debug");
+    }
+
+    [Fact]
+    public async Task TestSslPinningCommand_WhenAdministrator_ShouldRejectSpoofedCertAndReloadLogs()
+    {
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(true);
+        logReader.Setup(r => r.ReadRecentEntriesAsync(LogsViewModel.DefaultMaxEntries, "Усі", default))
+            .ReturnsAsync([]);
+        logReader.Setup(r => r.GetLatestLogFilePath()).Returns("/logs/app-20261128.log");
+
+        var sut = CreateSut();
+        await sut.TestSslPinningCommand.ExecuteAsync(null);
+
+        sut.StatusMessage.Should().Contain("SSL Pinning активний");
+        logReader.Verify(r => r.ReadRecentEntriesAsync(LogsViewModel.DefaultMaxEntries, "Усі", default), Times.Once);
+    }
+
+    [Fact]
+    public async Task TestSslPinningCommand_WhenNotAdministrator_ShouldDenyAccess()
+    {
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(false);
+        sessionService.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+
+        var sut = CreateSut();
+        await sut.TestSslPinningCommand.ExecuteAsync(null);
+
+        dialogService.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
+        logReader.Verify(r => r.ReadRecentEntriesAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

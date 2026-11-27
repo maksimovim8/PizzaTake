@@ -23,17 +23,45 @@ public sealed class QualityReportViewModelTests
     private readonly Mock<ICrashReportingService> crashReporting = new();
     private readonly Mock<ILogger<QualityReportViewModel>> logger = new();
 
-    private QualityReportViewModel CreateSut() => new(
-        reportRepo.Object,
-        permissionService.Object,
-        mediaService.Object,
-        locationService.Object,
-        syncService.Object,
-        navigation.Object,
-        dialogService.Object,
-        dispatcher,
-        crashReporting.Object,
-        logger.Object);
+    private QualityReportViewModel CreateSut(bool isCaptureSupported = true)
+    {
+        mediaService.Setup(m => m.IsCaptureSupported).Returns(isCaptureSupported);
+        return new QualityReportViewModel(
+            reportRepo.Object,
+            permissionService.Object,
+            mediaService.Object,
+            locationService.Object,
+            syncService.Object,
+            navigation.Object,
+            dialogService.Object,
+            dispatcher,
+            crashReporting.Object,
+            logger.Object);
+    }
+
+    [Fact]
+    public async Task TakePhotoCommand_WhenCameraNotSupported_ShouldNotRequestPermissionAndLogWarning()
+    {
+        var sut = CreateSut(isCaptureSupported: false);
+        await sut.TakePhotoCommand.ExecuteAsync(null);
+
+        permissionService.Verify(
+            p => p.EnsureGrantedAsync(AppPermission.Camera, It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+        mediaService.Verify(m => m.CapturePhotoAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        sut.HasPhoto.Should().BeFalse();
+        sut.HasError.Should().BeTrue();
+        sut.ErrorMessage.Should().Contain("не підтримується");
+
+        logger.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("not supported")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
 
     [Fact]
     public async Task TakePhotoCommand_WhenCameraPermissionDenied_ShouldNotCallMediaServiceSetErrorAndLogWarning()
