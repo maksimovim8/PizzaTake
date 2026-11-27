@@ -190,8 +190,10 @@ public sealed class SqliteDatabase
             }
         }
 
+        var productsSeededFresh = false;
         if (await connection.Table<Product>().CountAsync() == 0)
         {
+            productsSeededFresh = true;
             await connection.InsertAllAsync(new[]
             {
                 new Product { Name = "Чеддерман", Description = "Бекон, сирний мікс, чеддер", Category = "Новинки", WeightGrams = 560, SizeName = "Середня", IsNew = true, BasePrice = 219m, Calories = 245, Proteins = 12m, Fats = 10m, Carbs = 27m },
@@ -220,57 +222,62 @@ public sealed class SqliteDatabase
             }
         }
 
-        var catalogProducts = await connection.Table<Product>().ToListAsync();
-        foreach (var product in catalogProducts)
-        {
-            var section = product.Name switch
-            {
-                "Чеддерман" => "Новинки",
-                "Діжон" => "WOW піци",
-                "Маргарита" => "Standard",
-                _ => product.Category
-            };
-            if (product.Category != section)
-            {
-                product.Category = section;
-                await connection.UpdateAsync(product);
-            }
+        var hadConfiguredCategories = await connection.Table<ProductCategory>().CountAsync() > 0;
+        var hasAnyOptions = await connection.Table<IngredientOption>().CountAsync() > 0;
 
-            var defaults = product.Name switch
+        if (productsSeededFresh || !hasAnyOptions)
+        {
+            var catalogProducts = await connection.Table<Product>().ToListAsync();
+            foreach (var product in catalogProducts)
             {
-                "Чеддерман" => new[]
+                if (string.IsNullOrWhiteSpace(product.Category))
                 {
-                    new IngredientOption { Name = "Додатковий чеддер", Price = 35m, Kind = OptionKind.AddOn },
-                    new IngredientOption { Name = "Халапеньйо", Price = 25m, Kind = OptionKind.AddOn },
-                    new IngredientOption { Name = "Без цибулі", Price = 0m, Kind = OptionKind.Exclusion },
-                    new IngredientOption { Name = "Заміна соусу", Price = 15m, Kind = OptionKind.Replacement }
-                },
-                "Діжон" => new[]
+                    product.Category = product.Name switch
+                    {
+                        "Чеддерман" => "Новинки",
+                        "Діжон" => "WOW піци",
+                        "Маргарита" => "Standard",
+                        _ => "Standard"
+                    };
+                    await connection.UpdateAsync(product);
+                }
+
+                var defaults = product.Name switch
                 {
-                    new IngredientOption { Name = "Додаткова шинка", Price = 35m, Kind = OptionKind.AddOn },
-                    new IngredientOption { Name = "Додаткові гриби", Price = 25m, Kind = OptionKind.AddOn },
-                    new IngredientOption { Name = "Без грибів", Price = 0m, Kind = OptionKind.Exclusion },
-                    new IngredientOption { Name = "Заміна гірчичного соусу на томатний", Price = 15m, Kind = OptionKind.Replacement }
-                },
-                "Маргарита" => new[]
-                {
-                    new IngredientOption { Name = "Додаткова моцарела", Price = 35m, Kind = OptionKind.AddOn },
-                    new IngredientOption { Name = "Оливки", Price = 25m, Kind = OptionKind.AddOn },
-                    new IngredientOption { Name = "Без томатів", Price = 0m, Kind = OptionKind.Exclusion },
-                    new IngredientOption { Name = "Заміна моцарели на фету", Price = 15m, Kind = OptionKind.Replacement }
-                },
-                _ => Array.Empty<IngredientOption>()
-            };
-            var existing = await connection.Table<IngredientOption>().Where(option => option.ProductId == product.Id).ToListAsync();
-            var missing = defaults
-                .Where(option => existing.All(saved => saved.Kind != option.Kind || saved.Name != option.Name))
-                .Select(option => { option.ProductId = product.Id; return option; })
-                .ToList();
-            if (missing.Count > 0)
-                await connection.InsertAllAsync(missing);
+                    "Чеддерман" => new[]
+                    {
+                        new IngredientOption { Name = "Додатковий чеддер", Price = 35m, Kind = OptionKind.AddOn },
+                        new IngredientOption { Name = "Халапеньйо", Price = 25m, Kind = OptionKind.AddOn },
+                        new IngredientOption { Name = "Без цибулі", Price = 0m, Kind = OptionKind.Exclusion },
+                        new IngredientOption { Name = "Заміна соусу", Price = 15m, Kind = OptionKind.Replacement }
+                    },
+                    "Діжон" => new[]
+                    {
+                        new IngredientOption { Name = "Додаткова шинка", Price = 35m, Kind = OptionKind.AddOn },
+                        new IngredientOption { Name = "Додаткові гриби", Price = 25m, Kind = OptionKind.AddOn },
+                        new IngredientOption { Name = "Без грибів", Price = 0m, Kind = OptionKind.Exclusion },
+                        new IngredientOption { Name = "Заміна гірчичного соусу на томатний", Price = 15m, Kind = OptionKind.Replacement }
+                    },
+                    "Маргарита" => new[]
+                    {
+                        new IngredientOption { Name = "Додаткова моцарела", Price = 35m, Kind = OptionKind.AddOn },
+                        new IngredientOption { Name = "Оливки", Price = 25m, Kind = OptionKind.AddOn },
+                        new IngredientOption { Name = "Без томатів", Price = 0m, Kind = OptionKind.Exclusion },
+                        new IngredientOption { Name = "Заміна моцарели на фету", Price = 15m, Kind = OptionKind.Replacement }
+                    },
+                    _ => Array.Empty<IngredientOption>()
+                };
+                var existing = await connection.Table<IngredientOption>().Where(option => option.ProductId == product.Id).ToListAsync();
+                var missing = defaults
+                    .Where(option => existing.All(saved => saved.Kind != option.Kind || saved.Name != option.Name))
+                    .Select(option => { option.ProductId = product.Id; return option; })
+                    .ToList();
+                if (missing.Count > 0)
+                    await connection.InsertAllAsync(missing);
+            }
         }
 
-        if (await connection.Table<ProductCategory>().CountAsync() == 0)
+        if (!hadConfiguredCategories)
         {
             await connection.InsertAllAsync(new[]
             {
@@ -281,63 +288,63 @@ public sealed class SqliteDatabase
                 new ProductCategory { Name = "Соуси", SortOrder = 4 },
                 new ProductCategory { Name = "Напої", SortOrder = 5 }
             });
-        }
 
-        var existingProducts = await connection.Table<Product>().ToListAsync();
-        if (!existingProducts.Any(p => p.Category is "Закуски" or "Соуси" or "Напої" or "Десерти"))
-        {
-            await connection.InsertAllAsync(new[]
+            var existingProducts = await connection.Table<Product>().ToListAsync();
+            if (!existingProducts.Any(p => p.Category is "Закуски" or "Соуси" or "Напої" or "Десерти"))
             {
-                new Product { Name = "Картопля фрі", Description = "Хрустка золотиста картопля фрі з морською сіллю", Category = "Закуски", WeightGrams = 150, SizeName = "Стандарт", BasePrice = 59m, Calories = 312, Proteins = 3.5m, Fats = 15m, Carbs = 41m },
-                new Product { Name = "Курячі стріпси", Description = "Ніжне куряче філе у хрусткій паніровці", Category = "Закуски", WeightGrams = 180, SizeName = "Стандарт", BasePrice = 89m, Calories = 265, Proteins = 22m, Fats = 13m, Carbs = 15m },
-                new Product { Name = "Соус BBQ", Description = "Класичний димний соус барбекю до піци та закусок", Category = "Соуси", WeightGrams = 30, SizeName = "Порція", BasePrice = 15m, Calories = 172, Proteins = 1m, Fats = 0.5m, Carbs = 40m }
-            });
-        }
+                await connection.InsertAllAsync(new[]
+                {
+                    new Product { Name = "Картопля фрі", Description = "Хрустка золотиста картопля фрі з морською сіллю", Category = "Закуски", WeightGrams = 150, SizeName = "Стандарт", BasePrice = 59m, Calories = 312, Proteins = 3.5m, Fats = 15m, Carbs = 41m },
+                    new Product { Name = "Курячі стріпси", Description = "Ніжне куряче філе у хрусткій паніровці", Category = "Закуски", WeightGrams = 180, SizeName = "Стандарт", BasePrice = 89m, Calories = 265, Proteins = 22m, Fats = 13m, Carbs = 15m },
+                    new Product { Name = "Соус BBQ", Description = "Класичний димний соус барбекю до піци та закусок", Category = "Соуси", WeightGrams = 30, SizeName = "Порція", BasePrice = 15m, Calories = 172, Proteins = 1m, Fats = 0.5m, Carbs = 40m }
+                });
+            }
 
-        if (await connection.Table<MenuBanner>().CountAsync() == 0)
-        {
-            await connection.InsertAllAsync(new[]
+            if (await connection.Table<MenuBanner>().CountAsync() == 0)
             {
-                new MenuBanner
+                await connection.InsertAllAsync(new[]
                 {
-                    Eyebrow = "НОВИНКА · 01–30.11.2026",
-                    Title = "Чеддерман",
-                    Subtitle = "Більше сиру. Більше смаку.",
-                    BadgeText = "219 ₴",
-                    BackgroundHex = "#2460A0",
-                    TitleColorHex = "#FFD166",
-                    BadgeColorHex = "#F4511E",
-                    BadgeTextColorHex = "#FFFFFF",
-                    SortOrder = 0,
-                    IsActive = true
-                },
-                new MenuBanner
-                {
-                    Eyebrow = "WOW ПІЦА · ХІТ СЕЗОНУ",
-                    Title = "Діжон",
-                    Subtitle = "Шинка, гриби та гірчичний соус.",
-                    BadgeText = "299 ₴",
-                    BackgroundHex = "#B45309",
-                    TitleColorHex = "#FFFFFF",
-                    BadgeColorHex = "#1C1917",
-                    BadgeTextColorHex = "#FFD166",
-                    SortOrder = 1,
-                    IsActive = true
-                },
-                new MenuBanner
-                {
-                    Eyebrow = "АКЦІЯ · ЩОДНЯ",
-                    Title = "Доставка 0 ₴",
-                    Subtitle = "Гаряча піца за 35 хв до ваших дверей.",
-                    BadgeText = "Замовити",
-                    BackgroundHex = "#166534",
-                    TitleColorHex = "#FFFFFF",
-                    BadgeColorHex = "#F7A600",
-                    BadgeTextColorHex = "#FFFFFF",
-                    SortOrder = 2,
-                    IsActive = true
-                }
-            });
+                    new MenuBanner
+                    {
+                        Eyebrow = "НОВИНКА · 01–30.11.2026",
+                        Title = "Чеддерман",
+                        Subtitle = "Більше сиру. Більше смаку.",
+                        BadgeText = "219 ₴",
+                        BackgroundHex = "#2460A0",
+                        TitleColorHex = "#FFD166",
+                        BadgeColorHex = "#F4511E",
+                        BadgeTextColorHex = "#FFFFFF",
+                        SortOrder = 0,
+                        IsActive = true
+                    },
+                    new MenuBanner
+                    {
+                        Eyebrow = "WOW ПІЦА · ХІТ СЕЗОНУ",
+                        Title = "Діжон",
+                        Subtitle = "Шинка, гриби та гірчичний соус.",
+                        BadgeText = "299 ₴",
+                        BackgroundHex = "#B45309",
+                        TitleColorHex = "#FFFFFF",
+                        BadgeColorHex = "#1C1917",
+                        BadgeTextColorHex = "#FFD166",
+                        SortOrder = 1,
+                        IsActive = true
+                    },
+                    new MenuBanner
+                    {
+                        Eyebrow = "АКЦІЯ · ЩОДНЯ",
+                        Title = "Доставка 0 ₴",
+                        Subtitle = "Гаряча піца за 35 хв до ваших дверей.",
+                        BadgeText = "Замовити",
+                        BackgroundHex = "#166534",
+                        TitleColorHex = "#FFFFFF",
+                        BadgeColorHex = "#F7A600",
+                        BadgeTextColorHex = "#FFFFFF",
+                        SortOrder = 2,
+                        IsActive = true
+                    }
+                });
+            }
         }
     }
 }

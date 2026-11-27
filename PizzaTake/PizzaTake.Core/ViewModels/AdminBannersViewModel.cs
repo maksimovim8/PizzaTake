@@ -282,9 +282,26 @@ public sealed class AdminBannersViewModel : BaseViewModel
             return;
         }
 
-        banner.IsActive = !banner.IsActive;
-        await bannerRepository.SaveAsync(banner);
-        StatusMessage = banner.IsActive ? $"Банер «{banner.Title}» увімкнено." : $"Банер «{banner.Title}» приховано.";
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            banner.IsActive = !banner.IsActive;
+            await bannerRepository.SaveAsync(banner);
+            StatusMessage = banner.IsActive ? $"Банер «{banner.Title}» увімкнено." : $"Банер «{banner.Title}» приховано.";
+        }
+        catch (Exception ex)
+        {
+            banner.IsActive = !banner.IsActive;
+            logger.LogError(ex, "Failed to toggle banner Id={BannerId}", banner.Id);
+            ErrorMessage = "Не вдалося оновити статус банера.";
+            return;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
         await LoadAsync();
     }
 
@@ -308,10 +325,26 @@ public sealed class AdminBannersViewModel : BaseViewModel
         if (!confirmed)
             return;
 
-        await bannerRepository.DeleteAsync(banner);
-        if (editingBanner?.Id == banner.Id)
-            ResetForm();
-        StatusMessage = $"Банер «{banner.Title}» видалено.";
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            await bannerRepository.DeleteAsync(banner);
+            if (editingBanner?.Id == banner.Id)
+                ResetForm();
+            StatusMessage = $"Банер «{banner.Title}» видалено.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete banner Id={BannerId}", banner.Id);
+            ErrorMessage = "Не вдалося видалити банер.";
+            return;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
         await LoadAsync();
     }
 }

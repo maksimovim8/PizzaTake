@@ -27,6 +27,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
     private readonly IBugReportService? bugReportService;
     private readonly ILogger<AdminProductEditViewModel> logger;
     private readonly ICategoryRepository? categoryRepository;
+    private readonly SemaphoreSlim categoriesLoadLock = new(1, 1);
 
     private Product? editingProduct;
     private string name = string.Empty;
@@ -298,6 +299,7 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
         if (categoryRepository is null)
             return;
 
+        await categoriesLoadLock.WaitAsync();
         try
         {
             var categories = await categoryRepository.GetAllAsync();
@@ -310,6 +312,9 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
 
             await dispatcher.InvokeOnMainThreadAsync(() =>
             {
+                if (AvailableCategories.SequenceEqual(names, StringComparer.Ordinal))
+                    return;
+
                 var current = Category;
                 AvailableCategories.Clear();
                 foreach (var cat in names)
@@ -322,6 +327,10 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to load dynamic categories in AdminProductEditViewModel");
+        }
+        finally
+        {
+            categoriesLoadLock.Release();
         }
     }
 
@@ -412,6 +421,9 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
             return;
         }
 
+        if (IsBusy)
+            return;
+
         var trimmedName = NewOptionName.Trim();
         if (string.IsNullOrWhiteSpace(trimmedName))
         {
@@ -420,6 +432,12 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
         }
 
         var kind = ParseOptionKind(SelectedOptionKindName);
+        if (Options.Any(o => o.Kind == kind && string.Equals(o.Name, trimmedName, StringComparison.OrdinalIgnoreCase)))
+        {
+            ErrorMessage = "Така опція вже додана до цього товару.";
+            return;
+        }
+
         var price = 0m;
         if (kind != OptionKind.Exclusion)
         {
@@ -430,7 +448,9 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
             }
         }
 
+        IsBusy = true;
         ErrorMessage = string.Empty;
+        RefreshCommandStates();
         var option = new IngredientOption
         {
             ProductId = editingProduct?.Id ?? 0,
@@ -452,6 +472,11 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
         {
             logger.LogError(ex, "Failed to add ingredient option {OptionName}", trimmedName);
             ErrorMessage = "Не вдалося додати добавку. Спробуйте ще раз.";
+        }
+        finally
+        {
+            IsBusy = false;
+            RefreshCommandStates();
         }
     }
 
@@ -533,7 +558,9 @@ public sealed class AdminProductEditViewModel : BaseViewModel, IQueryParameterRe
             return;
         }
 
-        if (!int.TryParse(CaloriesInput?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var calories) || calories < 0)
+        var calories = 0;
+        if (!string.IsNullOrWhiteSpace(CaloriesInput) &&
+            (!int.TryParse(CaloriesInput.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out calories) || calories < 0))
         {
             ErrorMessage = "Вкажіть коректну калорійність (≥ 0).";
             return;

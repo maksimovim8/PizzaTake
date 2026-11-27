@@ -43,6 +43,11 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
     public ObservableCollection<IngredientOption> Exclusions { get; } = [];
     public ObservableCollection<IngredientOption> Replacements { get; } = [];
 
+    public bool HasAddOns => AddOns.Count > 0;
+    public bool HasExclusions => Exclusions.Count > 0;
+    public bool HasReplacements => Replacements.Count > 0;
+    public bool HasSelectedOptions => !string.IsNullOrWhiteSpace(SelectedOptionsSummary);
+
     public decimal CalculatedPrice
     {
         get => calculatedPrice;
@@ -214,6 +219,10 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
                 case OptionKind.Replacement: Replacements.Add(option); break;
             }
         }
+        OnPropertyChanged(nameof(HasAddOns));
+        OnPropertyChanged(nameof(HasExclusions));
+        OnPropertyChanged(nameof(HasReplacements));
+        OnPropertyChanged(nameof(HasSelectedOptions));
         RecalculatePrice();
     }
 
@@ -225,6 +234,7 @@ public sealed class PizzaDetailViewModel : BaseViewModel, IQueryParameterReceive
         option.IsSelected = added;
         OnPropertyChanged(nameof(SelectedOptionIds));
         OnPropertyChanged(nameof(SelectedOptionsSummary));
+        OnPropertyChanged(nameof(HasSelectedOptions));
         RecalculatePrice();
     }
 

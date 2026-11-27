@@ -238,16 +238,32 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
         if (index < 0 || targetIndex < 0 || targetIndex >= Categories.Count)
             return;
 
-        var other = Categories[targetIndex];
-        (category.SortOrder, other.SortOrder) = (other.SortOrder, category.SortOrder);
-        if (category.SortOrder == other.SortOrder)
+        IsBusy = true;
+        ErrorMessage = string.Empty;
+        try
         {
-            category.SortOrder = targetIndex;
-            other.SortOrder = index;
+            var other = Categories[targetIndex];
+            (category.SortOrder, other.SortOrder) = (other.SortOrder, category.SortOrder);
+            if (category.SortOrder == other.SortOrder)
+            {
+                category.SortOrder = targetIndex;
+                other.SortOrder = index;
+            }
+
+            await categoryRepository.SaveAsync(category);
+            await categoryRepository.SaveAsync(other);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to reorder category {CategoryName}", category.Name);
+            ErrorMessage = "Не вдалося змінити порядок категорій.";
+            return;
+        }
+        finally
+        {
+            IsBusy = false;
         }
 
-        await categoryRepository.SaveAsync(category);
-        await categoryRepository.SaveAsync(other);
         await LoadAsync();
     }
 
@@ -263,33 +279,41 @@ public sealed class AdminCategoriesViewModel : BaseViewModel
             return;
         }
 
-        var productsInCategory = await productRepository.GetByCategoryAsync(category.Name);
-        if (productsInCategory.Count > 0)
-        {
-            ErrorMessage = $"Неможливо видалити «{category.Name}»: у категорії є {productsInCategory.Count} товар(ів). Спочатку перенесіть або видаліть їх.";
-            return;
-        }
-
-        var confirmed = await dialogService.ConfirmAsync(
-            "Видалення категорії",
-            $"Видалити категорію «{category.Name}»?",
-            "Видалити",
-            "Скасувати");
-        if (!confirmed)
-            return;
-
+        IsBusy = true;
+        ErrorMessage = string.Empty;
         try
         {
+            var productsInCategory = await productRepository.GetByCategoryAsync(category.Name);
+            if (productsInCategory.Count > 0)
+            {
+                ErrorMessage = $"Неможливо видалити «{category.Name}»: у категорії є {productsInCategory.Count} товар(ів). Спочатку перенесіть або видаліть їх.";
+                return;
+            }
+
+            var confirmed = await dialogService.ConfirmAsync(
+                "Видалення категорії",
+                $"Видалити категорію «{category.Name}»?",
+                "Видалити",
+                "Скасувати");
+            if (!confirmed)
+                return;
+
             await categoryRepository.DeleteAsync(category);
             if (editingCategory?.Id == category.Id)
                 CancelEdit();
             StatusMessage = $"Категорію «{category.Name}» видалено.";
-            await LoadAsync();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to delete category {CategoryName}", category.Name);
             ErrorMessage = "Не вдалося видалити категорію.";
+            return;
         }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        await LoadAsync();
     }
 }

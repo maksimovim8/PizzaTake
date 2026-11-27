@@ -35,8 +35,8 @@
                         <Label Text="{Binding KbjuSummary}" FontSize="13" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                     </VerticalStackLayout>
                 </Border>
-                <Label Text="Рекомендовані добавки" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding AddOns}" Spacing="4">
+                <Label Text="Рекомендовані добавки" IsVisible="{Binding HasAddOns}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <VerticalStackLayout IsVisible="{Binding HasAddOns}" BindableLayout.ItemsSource="{Binding AddOns}" Spacing="4">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
@@ -62,8 +62,8 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="Виключити інгредієнти" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Exclusions}" Spacing="4">
+                <Label Text="Виключити інгредієнти" IsVisible="{Binding HasExclusions}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <VerticalStackLayout IsVisible="{Binding HasExclusions}" BindableLayout.ItemsSource="{Binding Exclusions}" Spacing="4">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
@@ -89,8 +89,8 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="Заміна інгредієнтів" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Replacements}" Spacing="4">
+                <Label Text="Заміна інгредієнтів" IsVisible="{Binding HasReplacements}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <VerticalStackLayout IsVisible="{Binding HasReplacements}" BindableLayout.ItemsSource="{Binding Replacements}" Spacing="4">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
@@ -116,7 +116,7 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="{Binding SelectedOptionsSummary}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
+                <Label Text="{Binding SelectedOptionsSummary}" IsVisible="{Binding HasSelectedOptions}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="18,10,18,16" ColumnDefinitions="*,Auto" ColumnSpacing="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}">

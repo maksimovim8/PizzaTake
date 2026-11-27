@@ -74,6 +74,37 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
         qualityReportColumns.Should().NotBeEmpty();
     }
 
+    [Fact]
+    public async Task InitializeAsync_OnSubsequentAppRestart_ShouldNotOverwriteAdminCategoryOrResurrectDeletedBannersAndOptions()
+    {
+        await database.InitializeAsync();
+
+        var cheddar = await database.Connection.Table<Product>().Where(p => p.Name == "Чеддерман").FirstAsync();
+        cheddar.Category = "Спеціальні";
+        await database.Connection.UpdateAsync(cheddar);
+
+        var cheddarOptions = await database.Connection.Table<IngredientOption>().Where(o => o.ProductId == cheddar.Id).ToListAsync();
+        cheddarOptions.Should().NotBeEmpty();
+        await database.Connection.DeleteAsync(cheddarOptions[0]);
+        var expectedOptionCount = cheddarOptions.Count - 1;
+
+        await database.Connection.DeleteAllAsync<MenuBanner>();
+        await database.CloseAsync();
+
+        // Simulate app restart with a fresh SqliteDatabase instance on the same file.
+        database = new SqliteDatabase(dbPath);
+        await database.InitializeAsync();
+
+        var reloadedCheddar = await database.Connection.Table<Product>().Where(p => p.Name == "Чеддерман").FirstAsync();
+        reloadedCheddar.Category.Should().Be("Спеціальні");
+
+        var reloadedOptions = await database.Connection.Table<IngredientOption>().Where(o => o.ProductId == reloadedCheddar.Id).ToListAsync();
+        reloadedOptions.Should().HaveCount(expectedOptionCount);
+
+        var reloadedBanners = await database.Connection.Table<MenuBanner>().ToListAsync();
+        reloadedBanners.Should().BeEmpty();
+    }
+
     private sealed class ColumnRow
     {
         [Column("name")]
