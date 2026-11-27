@@ -67,6 +67,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("orderdetail", typeof(OrderDetailPage));
         Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
         Routing.RegisterRoute("adminproductedit", typeof(AdminProductEditPage));
+        Routing.RegisterRoute("admincategories", typeof(AdminCategoriesPage));
+        Routing.RegisterRoute("adminbanners", typeof(AdminBannersPage));
         Routing.RegisterRoute("logs", typeof(LogsPage));
         Routing.RegisterRoute("qualityreport", typeof(QualityReportPage));
         Routing.RegisterRoute("pizzeriasmap", typeof(PizzeriasMapPage));

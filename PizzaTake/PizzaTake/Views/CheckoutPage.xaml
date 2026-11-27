@@ -219,12 +219,20 @@
                                    FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsDelivery}">
                             <Label Text="Доставка"
                                    TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
                             <Label Grid.Column="1"
                                    Text="Безкоштовно"
                                    TextColor="#16A34A"
+                                   FontAttributes="Bold" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsPickup}">
+                            <Label Text="Отримання"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Label Grid.Column="1"
+                                   Text="На виніс (самовивіз)"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
                                    FontAttributes="Bold" />
                         </Grid>
                     </VerticalStackLayout>

@@ -28,8 +28,26 @@ public interface IProductRepository
     Task<List<Product>> GetByCategoryAsync(string category);
     Task<List<Product>> SearchByNameAsync(string query);
     Task<List<IngredientOption>> GetOptionsByProductIdAsync(int productId);
+    Task SaveOptionAsync(IngredientOption option);
+    Task DeleteOptionAsync(IngredientOption option);
     Task SaveAsync(Product product);
     Task DeleteAsync(Product product);
+}
+
+public interface ICategoryRepository
+{
+    Task<List<ProductCategory>> GetAllAsync();
+    Task SaveAsync(ProductCategory category);
+    Task RenameAsync(ProductCategory category, string newName);
+    Task DeleteAsync(ProductCategory category);
+}
+
+public interface IMenuBannerRepository
+{
+    Task<List<MenuBanner>> GetAllAsync();
+    Task<List<MenuBanner>> GetActiveAsync();
+    Task SaveAsync(MenuBanner banner);
+    Task DeleteAsync(MenuBanner banner);
 }
 
 public interface IFavoriteRepository
@@ -159,6 +177,25 @@ public sealed class ProductRepository(SqliteDatabase database, ILogger<ProductRe
             .ToListAsync();
     }
 
+    public async Task SaveOptionAsync(IngredientOption option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        await database.InitializeAsync();
+        if (option.Id == 0)
+            await database.Connection.InsertAsync(option);
+        else
+            await database.Connection.UpdateAsync(option);
+        log.LogInformation("Saved ingredient option {OptionName} (Kind={Kind}, ProductId={ProductId})", option.Name, option.Kind, option.ProductId);
+    }
+
+    public async Task DeleteOptionAsync(IngredientOption option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        await database.InitializeAsync();
+        await database.Connection.DeleteAsync(option);
+        log.LogInformation("Deleted ingredient option {OptionName} (Id={OptionId})", option.Name, option.Id);
+    }
+
     public async Task SaveAsync(Product product)
     {
         ArgumentNullException.ThrowIfNull(product);
@@ -174,8 +211,108 @@ public sealed class ProductRepository(SqliteDatabase database, ILogger<ProductRe
     {
         ArgumentNullException.ThrowIfNull(product);
         await database.InitializeAsync();
+        var options = await database.Connection.Table<IngredientOption>()
+            .Where(option => option.ProductId == product.Id)
+            .ToListAsync();
+        foreach (var option in options)
+            await database.Connection.DeleteAsync(option);
         await database.Connection.DeleteAsync(product);
         log.LogInformation("Deleted catalog product {ProductName} (Id={ProductId})", product.Name, product.Id);
+    }
+}
+
+public sealed class CategoryRepository(SqliteDatabase database, ILogger<CategoryRepository>? logger = null) : ICategoryRepository
+{
+    private readonly ILogger<CategoryRepository> log = logger ?? NullLogger<CategoryRepository>.Instance;
+
+    public async Task<List<ProductCategory>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<ProductCategory>()
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name)
+            .ToListAsync();
+    }
+
+    public async Task SaveAsync(ProductCategory category)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        ArgumentException.ThrowIfNullOrWhiteSpace(category.Name);
+        await database.InitializeAsync();
+        category.Name = category.Name.Trim();
+        if (category.Id == 0)
+            await database.Connection.InsertAsync(category);
+        else
+            await database.Connection.UpdateAsync(category);
+        log.LogInformation("Saved product category {CategoryName} (Id={CategoryId})", category.Name, category.Id);
+    }
+
+    public async Task RenameAsync(ProductCategory category, string newName)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+        await database.InitializeAsync();
+        var oldName = category.Name;
+        var trimmed = newName.Trim();
+        category.Name = trimmed;
+
+        await database.Connection.RunInTransactionAsync(conn =>
+        {
+            conn.Update(category);
+            conn.Execute("UPDATE Products SET Category = ? WHERE Category = ?;", trimmed, oldName);
+        });
+        log.LogInformation("Renamed product category from {OldName} to {NewName}", oldName, trimmed);
+    }
+
+    public async Task DeleteAsync(ProductCategory category)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        await database.InitializeAsync();
+        await database.Connection.DeleteAsync(category);
+        log.LogInformation("Deleted product category {CategoryName} (Id={CategoryId})", category.Name, category.Id);
+    }
+}
+
+public sealed class MenuBannerRepository(SqliteDatabase database, ILogger<MenuBannerRepository>? logger = null) : IMenuBannerRepository
+{
+    private readonly ILogger<MenuBannerRepository> log = logger ?? NullLogger<MenuBannerRepository>.Instance;
+
+    public async Task<List<MenuBanner>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<MenuBanner>()
+            .OrderBy(banner => banner.SortOrder)
+            .ThenBy(banner => banner.Id)
+            .ToListAsync();
+    }
+
+    public async Task<List<MenuBanner>> GetActiveAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<MenuBanner>()
+            .Where(banner => banner.IsActive)
+            .OrderBy(banner => banner.SortOrder)
+            .ThenBy(banner => banner.Id)
+            .ToListAsync();
+    }
+
+    public async Task SaveAsync(MenuBanner banner)
+    {
+        ArgumentNullException.ThrowIfNull(banner);
+        await database.InitializeAsync();
+        if (banner.Id == 0)
+            await database.Connection.InsertAsync(banner);
+        else
+            await database.Connection.UpdateAsync(banner);
+        log.LogInformation("Saved menu banner {BannerTitle} (Id={BannerId}, Active={IsActive})", banner.Title, banner.Id, banner.IsActive);
+    }
+
+    public async Task DeleteAsync(MenuBanner banner)
+    {
+        ArgumentNullException.ThrowIfNull(banner);
+        await database.InitializeAsync();
+        await database.Connection.DeleteAsync(banner);
+        log.LogInformation("Deleted menu banner {BannerTitle} (Id={BannerId})", banner.Title, banner.Id);
     }
 }
 

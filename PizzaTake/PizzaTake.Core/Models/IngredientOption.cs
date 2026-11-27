@@ -38,4 +38,16 @@ public class IngredientOption : INotifyPropertyChanged
             OptionKind.Exclusion => "−",
             _ => "↔"
         };
+
+    [Ignore]
+    public string KindDisplayName => Kind switch
+    {
+        OptionKind.AddOn => "Додаток",
+        OptionKind.Exclusion => "Прибрати",
+        OptionKind.Replacement => "Заміна",
+        _ => "Опція"
+    };
+
+    [Ignore]
+    public string PriceDisplayText => Price > 0m ? $"+{Price:0.##} ₴" : "0 ₴";
 }

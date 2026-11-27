@@ -210,13 +210,10 @@ public sealed class CartViewModel : BaseViewModel
 
     private async Task LoadUpsellItemsAsync()
     {
-        if (UpsellItems.Count > 0)
-            return;
-
         var allProducts = await productRepository.GetAllAsync();
         var upsellProducts = allProducts
             .Where(p => p.Category is "Закуски" or "Соуси" or "Напої" or "Десерти")
-            .Take(5)
+            .Take(6)
             .ToList();
 
         if (upsellProducts.Count == 0)

@@ -61,6 +61,8 @@ namespace PizzaTake
             builder.Services.AddSingleton<ICityRepository, CityRepository>();
             builder.Services.AddSingleton<IPizzeriaRepository, PizzeriaRepository>();
             builder.Services.AddSingleton<IProductRepository, ProductRepository>();
+            builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
+            builder.Services.AddSingleton<IMenuBannerRepository, MenuBannerRepository>();
             builder.Services.AddSingleton<IFavoriteRepository, FavoriteRepository>();
             builder.Services.AddSingleton<ICartRepository, CartRepository>();
             builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
@@ -100,6 +102,8 @@ namespace PizzaTake
             builder.Services.AddTransient<SettingsPage>();
             builder.Services.AddTransient<AddressEditPage>();
             builder.Services.AddTransient<AdminProductEditPage>();
+            builder.Services.AddTransient<AdminCategoriesPage>();
+            builder.Services.AddTransient<AdminBannersPage>();
             builder.Services.AddTransient<LogsPage>();
             builder.Services.AddTransient<QualityReportPage>();
             builder.Services.AddTransient<PizzeriasMapPage>();
@@ -117,6 +121,8 @@ namespace PizzaTake
             builder.Services.AddTransient<SettingsViewModel>();
             builder.Services.AddTransient<AddressEditViewModel>();
             builder.Services.AddTransient<AdminProductEditViewModel>();
+            builder.Services.AddTransient<AdminCategoriesViewModel>();
+            builder.Services.AddTransient<AdminBannersViewModel>();
             builder.Services.AddTransient<LogsViewModel>();
             builder.Services.AddTransient<QualityReportViewModel>();
             builder.Services.AddTransient<PizzeriasMapViewModel>();

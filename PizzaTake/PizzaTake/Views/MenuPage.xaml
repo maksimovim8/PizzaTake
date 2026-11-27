@@ -5,12 +5,14 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:models="clr-namespace:PizzaTake.Core.Models;assembly=PizzaTake.Core"
+    xmlns:vm="clr-namespace:PizzaTake.Core.ViewModels;assembly=PizzaTake.Core"
     xmlns:converters="clr-namespace:PizzaTake.Converters"
     Title="Меню"
     BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
     <ContentPage.Resources>
         <converters:OrderProgressConverter x:Key="OrderProgressConverter" />
         <converters:CategoryChipConverter x:Key="CategoryChipConverter" />
+        <converters:HexColorConverter x:Key="HexColorConverter" />
     </ContentPage.Resources>
     <Grid RowDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
         <ScrollView Grid.Row="0" x:Name="MenuScrollView" BackgroundColor="{AppThemeBinding Light=#F8F7F4, Dark=#181411}">
@@ -43,67 +45,31 @@
 
                     <ScrollView Orientation="Horizontal"
                                 HorizontalScrollBarVisibility="Never"
+                                IsVisible="{Binding HasBanners}"
                                 AutomationId="MenuPromoBannersScrollView">
-                        <HorizontalStackLayout Spacing="12">
-                            <!-- Banner 1: Чеддерман -->
-                            <Border BackgroundColor="#2460A0"
-                                    StrokeThickness="0"
-                                    StrokeShape="RoundRectangle 24"
-                                    Padding="18,12"
-                                    WidthRequest="320"
-                                    HeightRequest="174">
-                                <Grid ColumnDefinitions="*,118">
-                                    <VerticalStackLayout Spacing="5" VerticalOptions="Center">
-                                        <Label Text="НОВИНКА · 01–30.11.2026" FontSize="11" TextColor="White" FontAttributes="Bold" />
-                                        <Label Text="Чеддерман" FontSize="26" FontAttributes="Bold" TextColor="#FFD166" Margin="0,10,0,0" />
-                                        <Label Text="Більше сиру. Більше смаку." FontSize="13" TextColor="White" />
-                                        <Border BackgroundColor="#F4511E" StrokeThickness="0" StrokeShape="RoundRectangle 20" Padding="16,4" HorizontalOptions="Start" Margin="0,8,0,0">
-                                            <Label Text="219 ₴" FontSize="14" FontAttributes="Bold" TextColor="White" />
-                                        </Border>
-                                    </VerticalStackLayout>
-                                    <Image Grid.Column="1" Source="pizza.svg" WidthRequest="112" HeightRequest="112" VerticalOptions="Center" HorizontalOptions="Center" />
-                                </Grid>
-                            </Border>
-
-                            <!-- Banner 2: Діжон -->
-                            <Border BackgroundColor="#B45309"
-                                    StrokeThickness="0"
-                                    StrokeShape="RoundRectangle 24"
-                                    Padding="18,12"
-                                    WidthRequest="320"
-                                    HeightRequest="174">
-                                <Grid ColumnDefinitions="*,118">
-                                    <VerticalStackLayout Spacing="5" VerticalOptions="Center">
-                                        <Label Text="WOW ПІЦА · ХІТ СЕЗОНУ" FontSize="11" TextColor="#FEF3C7" FontAttributes="Bold" />
-                                        <Label Text="Діжон" FontSize="26" FontAttributes="Bold" TextColor="#FFFFFF" Margin="0,10,0,0" />
-                                        <Label Text="Шинка, гриби та гірчичний соус." FontSize="13" TextColor="#FEF3C7" />
-                                        <Border BackgroundColor="#1C1917" StrokeThickness="0" StrokeShape="RoundRectangle 20" Padding="16,4" HorizontalOptions="Start" Margin="0,8,0,0">
-                                            <Label Text="299 ₴" FontSize="14" FontAttributes="Bold" TextColor="#FFD166" />
-                                        </Border>
-                                    </VerticalStackLayout>
-                                    <Image Grid.Column="1" Source="pizza.svg" WidthRequest="112" HeightRequest="112" VerticalOptions="Center" HorizontalOptions="Center" />
-                                </Grid>
-                            </Border>
-
-                            <!-- Banner 3: Безкоштовна доставка -->
-                            <Border BackgroundColor="#166534"
-                                    StrokeThickness="0"
-                                    StrokeShape="RoundRectangle 24"
-                                    Padding="18,12"
-                                    WidthRequest="320"
-                                    HeightRequest="174">
-                                <Grid ColumnDefinitions="*,118">
-                                    <VerticalStackLayout Spacing="5" VerticalOptions="Center">
-                                        <Label Text="АКЦІЯ · ЩОДНЯ" FontSize="11" TextColor="#DCFCE7" FontAttributes="Bold" />
-                                        <Label Text="Доставка 0 ₴" FontSize="24" FontAttributes="Bold" TextColor="#FFFFFF" Margin="0,10,0,0" />
-                                        <Label Text="Гаряча піца за 35 хв до ваших дверей." FontSize="13" TextColor="#DCFCE7" />
-                                        <Border BackgroundColor="#F7A600" StrokeThickness="0" StrokeShape="RoundRectangle 20" Padding="16,4" HorizontalOptions="Start" Margin="0,8,0,0">
-                                            <Label Text="Замовити" FontSize="14" FontAttributes="Bold" TextColor="#FFFFFF" />
-                                        </Border>
-                                    </VerticalStackLayout>
-                                    <Image Grid.Column="1" Source="pizza.svg" WidthRequest="112" HeightRequest="112" VerticalOptions="Center" HorizontalOptions="Center" />
-                                </Grid>
-                            </Border>
+                        <HorizontalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Banners}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:MenuBanner">
+                                    <Border BackgroundColor="{Binding BackgroundHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#2460A0'}"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 24"
+                                            Padding="18,12"
+                                            WidthRequest="320"
+                                            HeightRequest="174">
+                                        <Grid ColumnDefinitions="*,118">
+                                            <VerticalStackLayout Spacing="5" VerticalOptions="Center">
+                                                <Label Text="{Binding Eyebrow}" FontSize="11" TextColor="White" FontAttributes="Bold" />
+                                                <Label Text="{Binding Title}" FontSize="25" FontAttributes="Bold" TextColor="{Binding TitleColorHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#FFFFFF'}" Margin="0,8,0,0" MaxLines="1" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Subtitle}" FontSize="13" TextColor="#F3F4F6" MaxLines="2" LineBreakMode="TailTruncation" />
+                                                <Border BackgroundColor="{Binding BadgeColorHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#F4511E'}" StrokeThickness="0" StrokeShape="RoundRectangle 20" Padding="16,4" HorizontalOptions="Start" Margin="0,8,0,0">
+                                                    <Label Text="{Binding BadgeText}" FontSize="14" FontAttributes="Bold" TextColor="{Binding BadgeTextColorHex, Converter={StaticResource HexColorConverter}, ConverterParameter='#FFFFFF'}" />
+                                                </Border>
+                                            </VerticalStackLayout>
+                                            <Image Grid.Column="1" Source="pizza.svg" WidthRequest="112" HeightRequest="112" VerticalOptions="Center" HorizontalOptions="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
                         </HorizontalStackLayout>
                     </ScrollView>
 
@@ -134,37 +100,59 @@
                         <SearchBar AutomationId="MenuSearchBar" Placeholder="Введіть назву піци або товару" Text="{Binding SearchText, Mode=TwoWay}" FontSize="14" BackgroundColor="Transparent" />
                     </Border>
 
-                    <Button Text="+ Додати піцу"
-                            AutomationId="MenuAdminAddProductButton"
-                            IsVisible="{Binding IsAdmin}"
-                            Command="{Binding OpenAdminProductCommand}"
-                            BackgroundColor="#EB5E28"
-                            TextColor="#FFFFFF"
-                            FontSize="14"
-                            FontAttributes="Bold"
-                            CornerRadius="20"
-                            HeightRequest="42"
-                            HorizontalOptions="Start"
-                            Padding="18,0" />
+                    <ScrollView Orientation="Horizontal"
+                                HorizontalScrollBarVisibility="Never"
+                                IsVisible="{Binding IsAdmin}">
+                        <HorizontalStackLayout Spacing="8">
+                            <Button Text="+ Товар"
+                                    AutomationId="MenuAdminAddProductButton"
+                                    Command="{Binding OpenAdminProductCommand}"
+                                    BackgroundColor="#EB5E28"
+                                    TextColor="#FFFFFF"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                    CornerRadius="20"
+                                    HeightRequest="40"
+                                    Padding="16,0" />
+                            <Button Text="Категорії"
+                                    AutomationId="MenuAdminCategoriesButton"
+                                    Command="{Binding OpenAdminCategoriesCommand}"
+                                    BackgroundColor="#FDF1D6"
+                                    TextColor="#B45309"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                    CornerRadius="20"
+                                    HeightRequest="40"
+                                    Padding="16,0" />
+                            <Button Text="Банери"
+                                    AutomationId="MenuAdminBannersButton"
+                                    Command="{Binding OpenAdminBannersCommand}"
+                                    BackgroundColor="#DBEAFE"
+                                    TextColor="#1D4ED8"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                    CornerRadius="20"
+                                    HeightRequest="40"
+                                    Padding="16,0" />
+                        </HorizontalStackLayout>
+                    </ScrollView>
 
                     <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-                        <HorizontalStackLayout x:Name="CategoryChips" Spacing="8">
-                            <Button Text="Усі" AutomationId="MenuCategoryAllButton" FontSize="13" Padding="18,8" CornerRadius="24"
-                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Background'}"
-                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Усі категорії|Text'}"
-                                    Command="{Binding SelectCategoryCommand}" CommandParameter="Усі категорії" />
-                            <Button Text="Новинки" AutomationId="MenuCategoryNewButton" FontSize="13" Padding="20,8" CornerRadius="24"
-                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Background'}"
-                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Новинки|Text'}"
-                                    Command="{Binding SelectCategoryCommand}" CommandParameter="Новинки" />
-                            <Button Text="WOW піци" AutomationId="MenuCategoryWowButton" FontSize="13" Padding="20,8" CornerRadius="24"
-                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Background'}"
-                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='WOW піци|Text'}"
-                                    Command="{Binding SelectCategoryCommand}" CommandParameter="WOW піци" />
-                            <Button Text="Standard" AutomationId="MenuCategoryStandardButton" FontSize="13" Padding="20,8" CornerRadius="24"
-                                    BackgroundColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Background'}"
-                                    TextColor="{Binding SelectedCategory, Converter={StaticResource CategoryChipConverter}, ConverterParameter='Standard|Text'}"
-                                    Command="{Binding SelectCategoryCommand}" CommandParameter="Standard" />
+                        <HorizontalStackLayout x:Name="CategoryChips"
+                                               Spacing="8"
+                                               BindableLayout.ItemsSource="{Binding CategoryChips}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MenuCategoryChip">
+                                    <Button Text="{Binding DisplayName}"
+                                            FontSize="13"
+                                            Padding="18,8"
+                                            CornerRadius="24"
+                                            BackgroundColor="{Binding IsSelected, Converter={StaticResource CategoryChipConverter}, ConverterParameter=Background}"
+                                            TextColor="{Binding IsSelected, Converter={StaticResource CategoryChipConverter}, ConverterParameter=Text}"
+                                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectCategoryCommand}"
+                                            CommandParameter="{Binding Name}" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
                         </HorizontalStackLayout>
                     </ScrollView>
                 </VerticalStackLayout>

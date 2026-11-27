@@ -131,4 +131,36 @@ public sealed class RepositoryCrudIntegrationTests : IAsyncLifetime
         await repo.DeleteAsync(byId);
         (await repo.GetByIdAsync(report.Id)).Should().BeNull();
     }
+
+    [Fact]
+    public async Task CategoryBannerAndProductOptionRepositories_ShouldSupportFullCrudAndSeededUpsells()
+    {
+        var productRepo = new ProductRepository(database);
+        var categoryRepo = new CategoryRepository(database);
+        var bannerRepo = new MenuBannerRepository(database);
+
+        var products = await productRepo.GetAllAsync();
+        products.Should().Contain(p => p.Category == "Закуски" && p.Name == "Картопля фрі");
+        products.Should().Contain(p => p.Category == "Соуси" && p.Name == "Соус BBQ");
+
+        var option = new IngredientOption { ProductId = products[0].Id, Name = "Трюфельний сир", Price = 49m, Kind = OptionKind.AddOn };
+        await productRepo.SaveOptionAsync(option);
+        option.Id.Should().BeGreaterThan(0);
+        (await productRepo.GetOptionsByProductIdAsync(products[0].Id)).Should().Contain(o => o.Id == option.Id);
+        await productRepo.DeleteOptionAsync(option);
+        (await productRepo.GetOptionsByProductIdAsync(products[0].Id)).Should().NotContain(o => o.Id == option.Id);
+
+        var cat = new ProductCategory { Name = "Комбо", SortOrder = 10 };
+        await categoryRepo.SaveAsync(cat);
+        await categoryRepo.RenameAsync(cat, "Комбо-набори");
+        (await categoryRepo.GetAllAsync()).Should().Contain(c => c.Name == "Комбо-набори");
+        await categoryRepo.DeleteAsync(cat);
+        (await categoryRepo.GetAllAsync()).Should().NotContain(c => c.Name == "Комбо-набори");
+
+        var banner = new MenuBanner { Eyebrow = "ТЕСТ", Title = "Новий банер", Subtitle = "Опис", BadgeText = "199 ₴", IsActive = true, SortOrder = 5 };
+        await bannerRepo.SaveAsync(banner);
+        (await bannerRepo.GetActiveAsync()).Should().Contain(b => b.Id == banner.Id);
+        await bannerRepo.DeleteAsync(banner);
+        (await bannerRepo.GetAllAsync()).Should().NotContain(b => b.Id == banner.Id);
+    }
 }

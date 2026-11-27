@@ -3,19 +3,30 @@ using System.Globalization;
 namespace PizzaTake.Converters;
 
 /// <summary>
-/// Converts the currently selected menu category into chip background or text colors based on the active app theme.
+/// Converts either a selected category string or a chip's IsSelected boolean into theme-aware chip colors.
 /// </summary>
 public sealed class CategoryChipConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        var selectedCategory = value as string;
         var param = parameter as string ?? string.Empty;
-        var parts = param.Split('|', 2, StringSplitOptions.TrimEntries);
-        var chipCategory = parts[0];
-        var mode = parts.Length > 1 ? parts[1] : "Background";
+        bool isSelected;
+        string mode;
 
-        var isSelected = string.Equals(selectedCategory, chipCategory, StringComparison.OrdinalIgnoreCase);
+        if (value is bool selectedFlag)
+        {
+            isSelected = selectedFlag;
+            mode = string.IsNullOrWhiteSpace(param) ? "Background" : param.Trim();
+        }
+        else
+        {
+            var selectedCategory = value as string;
+            var parts = param.Split('|', 2, StringSplitOptions.TrimEntries);
+            var chipCategory = parts[0];
+            mode = parts.Length > 1 ? parts[1] : "Background";
+            isSelected = string.Equals(selectedCategory, chipCategory, StringComparison.OrdinalIgnoreCase);
+        }
+
         var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
 
         if (string.Equals(mode, "Text", StringComparison.OrdinalIgnoreCase))

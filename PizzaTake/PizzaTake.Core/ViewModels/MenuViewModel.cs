@@ -8,6 +8,27 @@ using PizzaTake.Core.Services;
 
 namespace PizzaTake.Core.ViewModels;
 
+public sealed class MenuCategoryChip : BaseViewModel
+{
+    private bool isSelected;
+
+    public MenuCategoryChip(string name, string displayName, bool isSelected = false)
+    {
+        Name = name;
+        DisplayName = displayName;
+        this.isSelected = isSelected;
+    }
+
+    public string Name { get; }
+    public string DisplayName { get; }
+
+    public bool IsSelected
+    {
+        get => isSelected;
+        set => SetProperty(ref isSelected, value);
+    }
+}
+
 public sealed class MenuViewModel : BaseViewModel
 {
     private readonly IProductRepository products;
@@ -23,6 +44,8 @@ public sealed class MenuViewModel : BaseViewModel
     private readonly ISyncService? syncService;
     private readonly IBugReportService? bugReportService;
     private readonly ILogger<MenuViewModel> logger;
+    private readonly ICategoryRepository? categoryRepository;
+    private readonly IMenuBannerRepository? bannerRepository;
 
     private string searchText = string.Empty;
     private string? selectedCategory;
@@ -31,9 +54,13 @@ public sealed class MenuViewModel : BaseViewModel
     private Order? activeOrder;
     private bool isOffline;
     private int pendingSyncCount;
+    private Dictionary<string, int> categoryOrderMap = new(StringComparer.OrdinalIgnoreCase);
 
     public ObservableCollection<Product> Products { get; } = [];
     public ObservableCollection<string> Categories { get; } = [];
+    public ObservableCollection<MenuCategoryChip> CategoryChips { get; } = [];
+    public ObservableCollection<MenuBanner> Banners { get; } = [];
+    public bool HasBanners => Banners.Count > 0;
     public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
 
     public bool IsOffline
@@ -103,7 +130,10 @@ public sealed class MenuViewModel : BaseViewModel
         set
         {
             if (SetProperty(ref selectedCategory, value))
+            {
+                UpdateCategoryChipSelection();
                 _ = ApplyFilterAsync();
+            }
         }
     }
 
@@ -113,6 +143,8 @@ public sealed class MenuViewModel : BaseViewModel
     public IAsyncRelayCommand<Product> OpenProductCommand { get; }
     public IAsyncRelayCommand OpenPizzeriaSelectorCommand { get; }
     public IAsyncRelayCommand<Product?> OpenAdminProductCommand { get; }
+    public IAsyncRelayCommand OpenAdminCategoriesCommand { get; }
+    public IAsyncRelayCommand OpenAdminBannersCommand { get; }
     public IAsyncRelayCommand OpenActiveOrderCommand { get; }
     public IAsyncRelayCommand OpenMapCommand { get; }
     public IAsyncRelayCommand OpenQualityReportCommand { get; }
@@ -130,7 +162,9 @@ public sealed class MenuViewModel : BaseViewModel
         IConnectivityService? connectivityService = null,
         ISyncService? syncService = null,
         IBugReportService? bugReportService = null,
-        ILogger<MenuViewModel>? logger = null)
+        ILogger<MenuViewModel>? logger = null,
+        ICategoryRepository? categoryRepository = null,
+        IMenuBannerRepository? bannerRepository = null)
     {
         this.products = products;
         this.cart = cart;
@@ -145,9 +179,13 @@ public sealed class MenuViewModel : BaseViewModel
         this.syncService = syncService;
         this.bugReportService = bugReportService;
         this.logger = logger ?? NullLogger<MenuViewModel>.Instance;
+        this.categoryRepository = categoryRepository;
+        this.bannerRepository = bannerRepository;
 
         this.sessionService.SessionChanged += (_, _) =>
             this.dispatcher.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(IsAdmin)));
+
+        Banners.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasBanners));
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
         SelectCategoryCommand = new RelayCommand<string?>(category =>
@@ -163,6 +201,8 @@ public sealed class MenuViewModel : BaseViewModel
         });
         OpenPizzeriaSelectorCommand = new AsyncRelayCommand(OpenPizzeriaSelectorAsync);
         OpenAdminProductCommand = new AsyncRelayCommand<Product?>(OpenAdminProductAsync);
+        OpenAdminCategoriesCommand = new AsyncRelayCommand(OpenAdminCategoriesAsync);
+        OpenAdminBannersCommand = new AsyncRelayCommand(OpenAdminBannersAsync);
         OpenActiveOrderCommand = new AsyncRelayCommand(OpenActiveOrderAsync);
         OpenMapCommand = new AsyncRelayCommand(() => this.navigation.GoToAsync("pizzeriasmap"));
         OpenQualityReportCommand = new AsyncRelayCommand(() => this.navigation.GoToAsync("qualityreport"));
@@ -232,19 +272,71 @@ public sealed class MenuViewModel : BaseViewModel
             SelectedPizzeriaText = appState.SelectedPizzeria?.StoreNumber ?? "Оберіть піцерію";
             var isSessionLocked = await authService.HasSavedCredentialsAsync() && !sessionService.IsAuthenticated;
             ActiveOrder = isSessionLocked ? null : await orders.GetActiveAsync();
+
             var all = await products.GetAllAsync();
+            var configuredCategories = categoryRepository is not null
+                ? await categoryRepository.GetAllAsync()
+                : [];
+            var activeBanners = bannerRepository is not null
+                ? await bannerRepository.GetActiveAsync()
+                : [];
+
+            var orderedCategoryNames = new List<string>();
+            var orderMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var cat in configuredCategories)
+            {
+                if (!string.IsNullOrWhiteSpace(cat.Name) && orderMap.TryAdd(cat.Name, orderMap.Count))
+                    orderedCategoryNames.Add(cat.Name);
+            }
+
+            foreach (var productCat in all
+                .Select(p => p.Category)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(DefaultCategorySortOrder)
+                .ThenBy(c => c))
+            {
+                if (orderMap.TryAdd(productCat, orderMap.Count))
+                    orderedCategoryNames.Add(productCat);
+            }
+
+            categoryOrderMap = orderMap;
+
             await dispatcher.InvokeOnMainThreadAsync(() =>
             {
+                Banners.Clear();
+                foreach (var banner in activeBanners)
+                    Banners.Add(banner);
+
                 Categories.Clear();
                 Categories.Add("Усі категорії");
-                foreach (var category in all.Select(product => product.Category).Where(category => !string.IsNullOrWhiteSpace(category)).Distinct().OrderBy(category => category))
+                foreach (var category in orderedCategoryNames)
                     Categories.Add(category);
+
+                if (string.IsNullOrWhiteSpace(selectedCategory) ||
+                    !Categories.Any(c => string.Equals(c, selectedCategory, StringComparison.OrdinalIgnoreCase)))
+                {
+                    selectedCategory = "Усі категорії";
+                }
+
+                CategoryChips.Clear();
+                CategoryChips.Add(new MenuCategoryChip(
+                    "Усі категорії",
+                    "Усі",
+                    string.Equals(selectedCategory, "Усі категорії", StringComparison.OrdinalIgnoreCase)));
+                foreach (var category in orderedCategoryNames)
+                {
+                    CategoryChips.Add(new MenuCategoryChip(
+                        category,
+                        category,
+                        string.Equals(selectedCategory, category, StringComparison.OrdinalIgnoreCase)));
+                }
             });
-            if (string.IsNullOrWhiteSpace(selectedCategory))
-                selectedCategory = "Усі категорії";
+
             OnPropertyChanged(nameof(SelectedCategory));
             await ShowProductsAsync(Filter(all));
-            logger.LogInformation("Loaded menu catalog with {ProductCount} product(s)", all.Count);
+            logger.LogInformation("Loaded menu catalog with {ProductCount} product(s) and {BannerCount} active banner(s)", all.Count, activeBanners.Count);
         }
         catch (Exception ex)
         {
@@ -268,6 +360,12 @@ public sealed class MenuViewModel : BaseViewModel
         }
     }
 
+    private void UpdateCategoryChipSelection()
+    {
+        foreach (var chip in CategoryChips)
+            chip.IsSelected = string.Equals(chip.Name, selectedCategory, StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task OpenAdminProductAsync(Product? product)
     {
         if (!sessionService.IsInRole(UserRole.Administrator))
@@ -281,6 +379,30 @@ public sealed class MenuViewModel : BaseViewModel
             await navigation.GoToAsync("adminproductedit", new Dictionary<string, object> { ["Product"] = product });
         else
             await navigation.GoToAsync("adminproductedit");
+    }
+
+    private async Task OpenAdminCategoriesAsync()
+    {
+        if (!sessionService.IsInRole(UserRole.Administrator))
+        {
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenAdminCategoriesCommand));
+            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+            return;
+        }
+
+        await navigation.GoToAsync("admincategories");
+    }
+
+    private async Task OpenAdminBannersAsync()
+    {
+        if (!sessionService.IsInRole(UserRole.Administrator))
+        {
+            logger.LogWarning("Access denied for role {Role} on {Command}", sessionService.CurrentRole, nameof(OpenAdminBannersCommand));
+            await dialogService.AlertAsync("Доступ заборонено", "Дія доступна лише адміністратору.");
+            return;
+        }
+
+        await navigation.GoToAsync("adminbanners");
     }
 
     private async Task OpenActiveOrderAsync()
@@ -343,12 +465,26 @@ public sealed class MenuViewModel : BaseViewModel
         });
     }
 
-    private static int CategorySortOrder(Product product) => product.Category switch
+    private int CategorySortOrder(Product product)
+    {
+        if (!string.IsNullOrWhiteSpace(product.Category) &&
+            categoryOrderMap.TryGetValue(product.Category, out var order))
+        {
+            return order;
+        }
+
+        return DefaultCategorySortOrder(product.Category);
+    }
+
+    private static int DefaultCategorySortOrder(string? category) => category switch
     {
         "Новинки" => 0,
         "WOW піци" => 1,
         "Standard" => 2,
-        _ => product.IsNew ? 0 : 3
+        "Закуски" => 3,
+        "Соуси" => 4,
+        "Напої" => 5,
+        _ => 100
     };
 
     private async Task QuickAddAsync(Product? product)
