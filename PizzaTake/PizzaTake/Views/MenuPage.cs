@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using PizzaTake.Services;
-using PizzaTake.ViewModels;
+using PizzaTake.Core.Services;
+using PizzaTake.Core.ViewModels;
 
 namespace PizzaTake.Views;
 

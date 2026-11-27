@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
+             xmlns:vm="clr-namespace:PizzaTake.Core.ViewModels;assembly=PizzaTake.Core"
              xmlns:behaviors="clr-namespace:PizzaTake.Behaviors"
              x:Class="PizzaTake.Views.AuthPage"
              x:DataType="vm:AuthViewModel"
              Title="{Binding Title}"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="#3B2616">
 
     <Grid>
         <Grid RowDefinitions="Auto,*,Auto" Padding="24,32">
             <Button Grid.Row="0"
                     Text="‹ Назад"
+                    AutomationId="AuthBackButton"
                     Command="{Binding GoBackCommand}"
                     HorizontalOptions="Start"
                     BackgroundColor="Transparent"
@@ -72,6 +74,7 @@
                     </VerticalStackLayout>
 
                     <Label Text="{Binding ErrorMessage}"
+                           AutomationId="AuthErrorLabel"
                            IsVisible="{Binding HasMainError}"
                            TextColor="#FCA5A5"
                            FontSize="13"
@@ -93,6 +96,7 @@
                             Padding="14,0" />
 
                     <Button Text="Увійти за біометрією"
+                            AutomationId="AuthBiometricLoginButton"
                             Command="{Binding BiometricLoginCommand}"
                             IsVisible="{Binding IsBiometricLoginVisible}"
                             BackgroundColor="#3B2616"
@@ -116,6 +120,7 @@
             <VerticalStackLayout Grid.Row="2" Spacing="16">
                 <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
                     <CheckBox IsChecked="{Binding IsPolicyAccepted, Mode=TwoWay}"
+                              AutomationId="AuthPolicyCheckBox"
                               Color="#F7A600" />
                     <Label Text="Погоджуюсь з правилами збору та обробки персональних даних"
                            FontSize="13"
@@ -125,6 +130,7 @@
                 </HorizontalStackLayout>
 
                 <Button Text="Прийняти та продовжити"
+                        AutomationId="AuthRequestSmsButton"
                         Command="{Binding RequestSmsCommand}"
                         BackgroundColor="#F7A600"
                         TextColor="#FFFFFF"
@@ -161,6 +167,7 @@
                             BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}"
                             Padding="12,4">
                         <Entry Text="{Binding SmsOtpCode, Mode=TwoWay}"
+                               AutomationId="AuthOtpEntry"
                                Placeholder="0000"
                                Keyboard="Numeric"
                                MaxLength="4"
@@ -192,6 +199,7 @@
                             Padding="14,0" />
 
                     <Button Text="Підтвердити код"
+                            AutomationId="AuthVerifySmsButton"
                             Command="{Binding VerifySmsCommand}"
                             BackgroundColor="#F7A600"
                             TextColor="#FFFFFF"
@@ -200,6 +208,7 @@
                             HeightRequest="48" />
 
                     <Button Text="Скасувати"
+                            AutomationId="AuthCancelSmsButton"
                             Command="{Binding CloseSmsPopupCommand}"
                             BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />

@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging;
-using PizzaTake.Repositories;
-using PizzaTake.Services;
-using PizzaTake.ViewModels;
+using PizzaTake.Core.Repositories;
+using PizzaTake.Core.Services;
+using PizzaTake.Core.ViewModels;
+using PizzaTake.Services.Platform;
 using PizzaTake.Views;
 using Sentry;
 using Serilog;
@@ -46,11 +47,22 @@ namespace PizzaTake
             builder.Logging.AddSerilog(Log.Logger, dispose: false);
 
             SQLitePCL.Batteries_V2.Init();
-            builder.Services.AddSingleton(sp => new SqliteDatabase(sp.GetService<ILogger<SqliteDatabase>>()));
+            builder.Services.AddSingleton<IAppPathsService, MauiAppPathsService>();
+            builder.Services.AddSingleton<ISettingsService, MauiSettingsService>();
+            builder.Services.AddSingleton<IThemeService, MauiThemeService>();
+            builder.Services.AddSingleton<INavigationService, MauiNavigationService>();
+            builder.Services.AddSingleton<IDialogService, MauiDialogService>();
+            builder.Services.AddSingleton<IMainThreadDispatcher, MauiMainThreadDispatcher>();
+
+            builder.Services.AddSingleton(sp => new SqliteDatabase(
+                sp.GetRequiredService<IAppPathsService>(),
+                sp.GetService<ILogger<SqliteDatabase>>()));
             builder.Services.AddSingleton<IAppStateService, AppStateService>();
             builder.Services.AddSingleton<ICityRepository, CityRepository>();
             builder.Services.AddSingleton<IPizzeriaRepository, PizzeriaRepository>();
             builder.Services.AddSingleton<IProductRepository, ProductRepository>();
+            builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
+            builder.Services.AddSingleton<IMenuBannerRepository, MenuBannerRepository>();
             builder.Services.AddSingleton<IFavoriteRepository, FavoriteRepository>();
             builder.Services.AddSingleton<ICartRepository, CartRepository>();
             builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
@@ -90,6 +102,8 @@ namespace PizzaTake
             builder.Services.AddTransient<SettingsPage>();
             builder.Services.AddTransient<AddressEditPage>();
             builder.Services.AddTransient<AdminProductEditPage>();
+            builder.Services.AddTransient<AdminCategoriesPage>();
+            builder.Services.AddTransient<AdminBannersPage>();
             builder.Services.AddTransient<LogsPage>();
             builder.Services.AddTransient<QualityReportPage>();
             builder.Services.AddTransient<PizzeriasMapPage>();
@@ -107,6 +121,8 @@ namespace PizzaTake
             builder.Services.AddTransient<SettingsViewModel>();
             builder.Services.AddTransient<AddressEditViewModel>();
             builder.Services.AddTransient<AdminProductEditViewModel>();
+            builder.Services.AddTransient<AdminCategoriesViewModel>();
+            builder.Services.AddTransient<AdminBannersViewModel>();
             builder.Services.AddTransient<LogsViewModel>();
             builder.Services.AddTransient<QualityReportViewModel>();
             builder.Services.AddTransient<PizzeriasMapViewModel>();

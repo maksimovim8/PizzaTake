@@ -1,3 +1,6 @@
 <Solution>
   <Project Path="PizzaTake/PizzaTake.csproj" />
+  <Project Path="PizzaTake.Core/PizzaTake.Core.csproj" />
+  <Project Path="PizzaTake.Core.Tests/PizzaTake.Core.Tests.csproj" />
+  <Project Path="PizzaTake.UiTests/PizzaTake.UiTests.csproj" />
 </Solution>

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using PizzaTake.Repositories;
-using PizzaTake.Services;
+using PizzaTake.Core.Repositories;
+using PizzaTake.Core.Services;
 using PizzaTake.Views;
 
 namespace PizzaTake;
@@ -26,6 +26,7 @@ public partial class AppShell : Shell
     {
         this.appState = appState;
         this.cartRepository = cartRepository;
+        this.appState.RestoreState();
         InitializeComponent();
 
         FlyoutBehavior = FlyoutBehavior.Disabled;
@@ -45,7 +46,7 @@ public partial class AppShell : Shell
         favoritesTab = CreateTab("Обране", "favorites", "nav_favorites.svg", services.GetRequiredService<FavoritesPage>());
         cartTab = CreateTab("Кошик", "cart", "nav_cart.svg", services.GetRequiredService<CartPage>());
         historyTab = CreateTab("Історія", "history", "nav_history.svg", services.GetRequiredService<OrderHistoryPage>());
-        settingsTab = CreateTab("Профіль", "settings", "nav_settings.svg", services.GetRequiredService<SettingsPage>());
+        settingsTab = CreateTab("Налаштування", "settings", "nav_settings.svg", services.GetRequiredService<SettingsPage>());
 
         var tabs = new TabBar();
         tabs.Items.Add(CreateTab("Меню", "menu", "nav_menu.svg", services.GetRequiredService<MenuPage>()));
@@ -55,7 +56,7 @@ public partial class AppShell : Shell
         tabs.Items.Add(settingsTab);
         Items.Add(tabs);
 
-        CurrentItem = !authService.IsAuthenticated ? welcomeTab : tabs;
+        CurrentItem = this.appState.SelectedCity is null ? welcomeTab : tabs;
 
         Routing.RegisterRoute("welcome", typeof(WelcomePage));
         Routing.RegisterRoute("cities", typeof(CitySelectionPage));
@@ -66,6 +67,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("orderdetail", typeof(OrderDetailPage));
         Routing.RegisterRoute("addressedit", typeof(AddressEditPage));
         Routing.RegisterRoute("adminproductedit", typeof(AdminProductEditPage));
+        Routing.RegisterRoute("admincategories", typeof(AdminCategoriesPage));
+        Routing.RegisterRoute("adminbanners", typeof(AdminBannersPage));
         Routing.RegisterRoute("logs", typeof(LogsPage));
         Routing.RegisterRoute("qualityreport", typeof(QualityReportPage));
         Routing.RegisterRoute("pizzeriasmap", typeof(PizzeriasMapPage));
@@ -117,7 +120,8 @@ public partial class AppShell : Shell
         var hideTabBar =
             location.Contains("welcome", StringComparison.OrdinalIgnoreCase) ||
             location.Contains("cities", StringComparison.OrdinalIgnoreCase) ||
-            location.Contains("pizzerias", StringComparison.OrdinalIgnoreCase);
+            location.Contains("pizzerias", StringComparison.OrdinalIgnoreCase) ||
+            location.Contains("auth", StringComparison.OrdinalIgnoreCase);
 
         Shell.SetTabBarIsVisible(this, !hideTabBar);
         if (CurrentPage is not null)

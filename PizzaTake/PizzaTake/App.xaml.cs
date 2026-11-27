@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using PizzaTake.Services;
+using PizzaTake.Core.Services;
 
 namespace PizzaTake;
 

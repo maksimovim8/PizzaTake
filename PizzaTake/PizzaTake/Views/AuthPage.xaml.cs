@@ -1,10 +1,10 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using PizzaTake.ViewModels;
+using PizzaTake.Core.ViewModels;
 
 namespace PizzaTake.Views;
 
-public partial class AuthPage : ContentPage
+public partial class AuthPage : ContentPage, IQueryAttributable
 {
     private readonly AuthViewModel viewModel;
     private readonly ILogger<AuthPage> logger;
@@ -16,6 +16,9 @@ public partial class AuthPage : ContentPage
         this.logger = logger ?? NullLogger<AuthPage>.Instance;
         BindingContext = viewModel;
     }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query) =>
+        viewModel.ApplyQueryAttributes(query);
 
     protected override void OnAppearing()
     {

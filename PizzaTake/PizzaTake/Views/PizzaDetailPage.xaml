@@ -4,7 +4,7 @@
     x:Name="Page"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:models="clr-namespace:PizzaTake.Models"
+    xmlns:models="clr-namespace:PizzaTake.Core.Models;assembly=PizzaTake.Core"
     Title="Деталі піци">
     <Grid RowDefinitions="*,Auto" BackgroundColor="{AppThemeBinding Light=#FFFDFC, Dark=#181411}">
         <ScrollView Grid.Row="0">
@@ -35,8 +35,8 @@
                         <Label Text="{Binding KbjuSummary}" FontSize="13" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
                     </VerticalStackLayout>
                 </Border>
-                <Label Text="Рекомендовані добавки" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding AddOns}" Spacing="4">
+                <Label Text="Рекомендовані добавки" IsVisible="{Binding HasAddOns}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <VerticalStackLayout IsVisible="{Binding HasAddOns}" BindableLayout.ItemsSource="{Binding AddOns}" Spacing="4">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
@@ -62,8 +62,8 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="Виключити інгредієнти" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Exclusions}" Spacing="4">
+                <Label Text="Виключити інгредієнти" IsVisible="{Binding HasExclusions}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <VerticalStackLayout IsVisible="{Binding HasExclusions}" BindableLayout.ItemsSource="{Binding Exclusions}" Spacing="4">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
@@ -89,8 +89,8 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="Заміна інгредієнтів" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Replacements}" Spacing="4">
+                <Label Text="Заміна інгредієнтів" IsVisible="{Binding HasReplacements}" FontAttributes="Bold" FontSize="16" TextColor="{AppThemeBinding Light=#252525, Dark=#F5F5F4}" />
+                <VerticalStackLayout IsVisible="{Binding HasReplacements}" BindableLayout.ItemsSource="{Binding Replacements}" Spacing="4">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:IngredientOption">
                             <Border StrokeShape="RoundRectangle 12" StrokeThickness="0" Padding="8,5" BackgroundColor="Transparent">
@@ -116,12 +116,34 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Text="{Binding SelectedOptionsSummary}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
+                <Label Text="{Binding SelectedOptionsSummary}" IsVisible="{Binding HasSelectedOptions}" TextColor="{AppThemeBinding Light=#777777, Dark=#A8A29E}" />
             </VerticalStackLayout>
         </ScrollView>
         <Grid Grid.Row="1" Padding="18,10,18,16" ColumnDefinitions="*,Auto" ColumnSpacing="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}">
             <Button Text="Додати до кошика" BackgroundColor="#FFB400" TextColor="White" CornerRadius="22" FontAttributes="Bold" Command="{Binding AddToCartCommand}" />
-            <Label Grid.Column="1" Text="{Binding CalculatedPrice, StringFormat='{}{0:0} ₴'}" FontAttributes="Bold" TextColor="#F05A24" VerticalOptions="Center" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center" HorizontalOptions="End">
+                <HorizontalStackLayout Spacing="4" HorizontalOptions="End">
+                    <Label Text="{Binding CalculatedPrice, StringFormat='{}{0:0.##} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F05A24" VerticalOptions="End" />
+                    <Border IsVisible="{Binding Product.HasPromo}"
+                            BackgroundColor="#DC2626"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 5"
+                            Padding="5,1"
+                            VerticalOptions="Start"
+                            Margin="0,-5,0,0">
+                        <Label Text="{Binding Product.DiscountBadgeText}"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               TextColor="#FFFFFF" />
+                    </Border>
+                </HorizontalStackLayout>
+                <Label Text="{Binding Product.BasePrice, StringFormat='{}{0:0.##} ₴'}"
+                       IsVisible="{Binding Product.HasPromo}"
+                       FontSize="12"
+                       TextDecorations="Strikethrough"
+                       TextColor="{AppThemeBinding Light=#9CA3AF, Dark=#78716C}"
+                       HorizontalTextAlignment="End" />
+            </VerticalStackLayout>
         </Grid>
     </Grid>
 </ContentPage>

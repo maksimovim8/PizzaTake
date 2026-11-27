@@ -4,71 +4,150 @@
     x:Name="Page"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:models="clr-namespace:PizzaTake.Models"
+    xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
+    xmlns:models="clr-namespace:PizzaTake.Core.Models;assembly=PizzaTake.Core"
     Title="Оберіть піцерію"
     Shell.TabBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
-    <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+
+    <Grid Padding="16,12" RowDefinitions="Auto,*,Auto" RowSpacing="10" BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <Button Text="‹ Назад"
+                    AutomationId="PizzeriaSelectionBackButton"
                     Command="{Binding GoBackCommand}"
                     BackgroundColor="Transparent"
                     TextColor="{AppThemeBinding Light=#242424, Dark=#F5F5F4}"
                     Padding="0"
                     HorizontalOptions="Start" />
-            <Label Grid.Column="1" Text="Оберіть піцерію" FontSize="26" FontAttributes="Bold"
-                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" VerticalOptions="Center" />
+            <Label Grid.Column="1"
+                   Text="Піцерії на карті"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
+                   VerticalOptions="Center" />
+            <Button Grid.Column="2"
+                    Text="📍 Я"
+                    AutomationId="PizzeriaSelectionMyLocationButton"
+                    Command="{Binding CenterOnMyLocationCommand}"
+                    BackgroundColor="#FDF1D6"
+                    TextColor="#B45309"
+                    FontSize="13"
+                    FontAttributes="Bold"
+                    CornerRadius="16"
+                    HeightRequest="36"
+                    Padding="12,0"
+                    VerticalOptions="Center" />
         </Grid>
 
-        <CollectionView Grid.Row="1" ItemsSource="{Binding Pizzerias}" SelectionMode="None">
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="models:Pizzeria">
-                    <Border Margin="0,0,0,10"
-                            StrokeShape="RoundRectangle 16"
-                            Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                            StrokeThickness="1.5"
-                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                            Padding="14">
-                        <Border.Triggers>
-                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="Stroke" Value="#EB5E28" />
-                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFF7E6, Dark=#3A2D1E}" />
-                            </DataTrigger>
-                        </Border.Triggers>
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPizzeriaCommand}"
-                                                  CommandParameter="{Binding .}" />
-                        </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                            <VerticalStackLayout Spacing="3" VerticalOptions="Center">
-                                <Label Text="{Binding StoreNumber, StringFormat='Піцерія № {0}'}" FontSize="16" FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
-                                <Label Text="{Binding Address}" FontSize="14" TextColor="{AppThemeBinding Light=#44403C, Dark=#D6D3D1}" />
-                                <Label Text="{Binding WorkingHoursText, StringFormat='Години: {0}'}" FontSize="12" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
-                            </VerticalStackLayout>
-                            <Button Grid.Column="1"
-                                    Text="{Binding SelectButtonText}"
-                                    BackgroundColor="#FDF1D6"
-                                    TextColor="#B45309"
-                                    FontAttributes="Bold"
-                                    CornerRadius="16"
-                                    HeightRequest="38"
-                                    Padding="14,0"
-                                    VerticalOptions="Center"
-                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPizzeriaCommand}"
-                                    CommandParameter="{Binding .}">
-                                <Button.Triggers>
-                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="#EB5E28" />
-                                        <Setter Property="TextColor" Value="#FFFFFF" />
+        <!-- Adaptive Map + Pizzeria List -->
+        <Grid x:Name="AdaptiveContentGrid"
+              Grid.Row="1"
+              RowDefinitions="230,*"
+              ColumnDefinitions="*"
+              RowSpacing="10"
+              ColumnSpacing="12">
+
+            <!-- Embedded OpenStreetMap -->
+            <Border x:Name="MapContainer"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    StrokeShape="RoundRectangle 18"
+                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                    Padding="0">
+                <mapsui:MapControl x:Name="OsmMapControl"
+                                   AutomationId="PizzeriaSelectionOsmMap" />
+            </Border>
+
+            <!-- Pizzeria List & Map Status -->
+            <Grid x:Name="ListContainer"
+                  Grid.Row="1"
+                  Grid.Column="0"
+                  RowDefinitions="Auto,*"
+                  RowSpacing="6">
+                <Label Grid.Row="0"
+                       Text="{Binding MapStatusMessage}"
+                       IsVisible="{Binding HasMapStatusMessage}"
+                       FontSize="12"
+                       FontAttributes="Bold"
+                       TextColor="#B45309" />
+
+                <CollectionView Grid.Row="1" ItemsSource="{Binding Pizzerias}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Pizzeria">
+                            <Border Margin="0,0,0,10"
+                                    StrokeShape="RoundRectangle 16"
+                                    Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
+                                    StrokeThickness="1.5"
+                                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
+                                    Padding="14">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Stroke" Value="#EB5E28" />
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFF7E6, Dark=#3A2D1E}" />
                                     </DataTrigger>
-                                </Button.Triggers>
-                            </Button>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-        <Button Grid.Row="2" Text="Підтвердити" BackgroundColor="#FFB400" TextColor="#FFFFFF" FontAttributes="Bold" CornerRadius="22" HeightRequest="48" Command="{Binding ConfirmPizzeriaCommand}" />
+                                </Border.Triggers>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPizzeriaCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                                        <Label Text="{Binding StoreNumber, StringFormat='Піцерія № {0}'}" FontSize="16" FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
+                                        <Label Text="{Binding Address}" FontSize="14" TextColor="{AppThemeBinding Light=#44403C, Dark=#D6D3D1}" />
+                                        <Label Text="{Binding WorkingHoursText, StringFormat='Години: {0}'}" FontSize="12" TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1"
+                                            Text="{Binding SelectButtonText}"
+                                            BackgroundColor="#FDF1D6"
+                                            TextColor="#B45309"
+                                            FontAttributes="Bold"
+                                            CornerRadius="16"
+                                            HeightRequest="38"
+                                            Padding="14,0"
+                                            VerticalOptions="Center"
+                                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPizzeriaCommand}"
+                                            CommandParameter="{Binding .}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="#EB5E28" />
+                                                <Setter Property="TextColor" Value="#FFFFFF" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Grid>
+
+        <!-- Footer Actions -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Button Grid.Column="0"
+                    Text="🗺 Маршрут"
+                    AutomationId="PizzeriaExternalMapButton"
+                    Command="{Binding OpenExternalMapCommand}"
+                    BackgroundColor="#FDF1D6"
+                    TextColor="#B45309"
+                    FontSize="14"
+                    FontAttributes="Bold"
+                    CornerRadius="22"
+                    HeightRequest="48"
+                    Padding="16,0" />
+            <Button Grid.Column="1"
+                    Text="Підтвердити"
+                    AutomationId="PizzeriaConfirmButton"
+                    BackgroundColor="#FFB400"
+                    TextColor="#FFFFFF"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    CornerRadius="22"
+                    HeightRequest="48"
+                    Command="{Binding ConfirmPizzeriaCommand}" />
+        </Grid>
     </Grid>
 </ContentPage>

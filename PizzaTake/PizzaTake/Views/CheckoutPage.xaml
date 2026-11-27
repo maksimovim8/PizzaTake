@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:PizzaTake.ViewModels"
-             xmlns:models="clr-namespace:PizzaTake.Models"
+             xmlns:vm="clr-namespace:PizzaTake.Core.ViewModels;assembly=PizzaTake.Core"
+             xmlns:models="clr-namespace:PizzaTake.Core.Models;assembly=PizzaTake.Core"
              x:Class="PizzaTake.Views.CheckoutPage"
              x:DataType="vm:CheckoutViewModel"
              Title="{Binding Title}"
@@ -103,6 +103,7 @@
                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
                             Padding="14,6">
                         <Entry Text="{Binding DeliveryAddress, Mode=TwoWay}"
+                               AutomationId="CheckoutDeliveryAddressEntry"
                                Placeholder="Введіть назву вулиці та будинок"
                                TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                     </Border>
@@ -218,12 +219,20 @@
                                    FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsDelivery}">
                             <Label Text="Доставка"
                                    TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
                             <Label Grid.Column="1"
                                    Text="Безкоштовно"
                                    TextColor="#16A34A"
+                                   FontAttributes="Bold" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsPickup}">
+                            <Label Text="Отримання"
+                                   TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
+                            <Label Grid.Column="1"
+                                   Text="На виніс (самовивіз)"
+                                   TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
                                    FontAttributes="Bold" />
                         </Grid>
                     </VerticalStackLayout>
@@ -268,6 +277,7 @@
             </Grid>
 
             <Button Text="Підтвердити оплату"
+                    AutomationId="CheckoutConfirmPaymentButton"
                     Command="{Binding ConfirmPaymentCommand}"
                     BackgroundColor="#F7A600"
                     TextColor="#FFFFFF"

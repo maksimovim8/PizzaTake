@@ -1,0 +1,360 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using PizzaTake.Core.Models;
+using PizzaTake.Core.Services;
+
+namespace PizzaTake.Core.Repositories;
+
+public interface ICityRepository
+{
+    Task<List<City>> GetAllAsync();
+    Task<List<City>> GetPopularAsync();
+    Task<List<City>> SearchAsync(string query);
+    Task SaveAsync(City city);
+}
+
+public interface IPizzeriaRepository
+{
+    Task<List<Pizzeria>> GetAllAsync();
+    Task<List<Pizzeria>> GetByCityIdAsync(int cityId);
+    Task<Pizzeria?> GetByIdAsync(int id);
+    Task SaveAsync(Pizzeria pizzeria);
+}
+
+public interface IProductRepository
+{
+    Task<List<Product>> GetAllAsync();
+    Task<Product?> GetByIdAsync(int id);
+    Task<List<Product>> GetByCategoryAsync(string category);
+    Task<List<Product>> SearchByNameAsync(string query);
+    Task<List<IngredientOption>> GetOptionsByProductIdAsync(int productId);
+    Task SaveOptionAsync(IngredientOption option);
+    Task DeleteOptionAsync(IngredientOption option);
+    Task SaveAsync(Product product);
+    Task DeleteAsync(Product product);
+}
+
+public interface ICategoryRepository
+{
+    Task<List<ProductCategory>> GetAllAsync();
+    Task SaveAsync(ProductCategory category);
+    Task RenameAsync(ProductCategory category, string newName);
+    Task DeleteAsync(ProductCategory category);
+}
+
+public interface IMenuBannerRepository
+{
+    Task<List<MenuBanner>> GetAllAsync();
+    Task<List<MenuBanner>> GetActiveAsync();
+    Task SaveAsync(MenuBanner banner);
+    Task DeleteAsync(MenuBanner banner);
+}
+
+public interface IFavoriteRepository
+{
+    Task<List<Product>> GetFavoriteProductsAsync();
+    Task ToggleFavoriteAsync(int productId);
+}
+
+public sealed class CityRepository(SqliteDatabase database, ILogger<CityRepository>? logger = null) : ICityRepository
+{
+    private readonly ILogger<CityRepository> log = logger ?? NullLogger<CityRepository>.Instance;
+
+    public async Task<List<City>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<City>().OrderBy(city => city.Name).ToListAsync();
+    }
+
+    public async Task<List<City>> GetPopularAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<City>().Where(city => city.IsPopular).OrderBy(city => city.Name).ToListAsync();
+    }
+
+    public async Task<List<City>> SearchAsync(string query)
+    {
+        var cities = await GetAllAsync();
+        if (string.IsNullOrWhiteSpace(query))
+            return cities;
+
+        return cities
+            .Where(city => city.Name.Contains(query.Trim(), StringComparison.CurrentCultureIgnoreCase)
+                || city.Region.Contains(query.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .ToList();
+    }
+
+    public async Task SaveAsync(City city)
+    {
+        ArgumentNullException.ThrowIfNull(city);
+        await database.InitializeAsync();
+        await database.Connection.InsertOrReplaceAsync(city);
+        log.LogInformation("Saved city {CityName} (Id={CityId})", city.Name, city.Id);
+    }
+}
+
+public sealed class PizzeriaRepository(SqliteDatabase database, ILogger<PizzeriaRepository>? logger = null) : IPizzeriaRepository
+{
+    private readonly ILogger<PizzeriaRepository> log = logger ?? NullLogger<PizzeriaRepository>.Instance;
+
+    public async Task<List<Pizzeria>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<Pizzeria>()
+            .OrderBy(pizzeria => pizzeria.StoreNumber)
+            .ToListAsync();
+    }
+
+    public async Task<List<Pizzeria>> GetByCityIdAsync(int cityId)
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<Pizzeria>()
+            .Where(pizzeria => pizzeria.CityId == cityId)
+            .OrderBy(pizzeria => pizzeria.StoreNumber)
+            .ToListAsync();
+    }
+
+    public async Task<Pizzeria?> GetByIdAsync(int id)
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<Pizzeria>().Where(pizzeria => pizzeria.Id == id).FirstOrDefaultAsync();
+    }
+
+    public async Task SaveAsync(Pizzeria pizzeria)
+    {
+        ArgumentNullException.ThrowIfNull(pizzeria);
+        await database.InitializeAsync();
+        await database.Connection.InsertOrReplaceAsync(pizzeria);
+        log.LogInformation("Saved pizzeria {StoreNumber} (Id={PizzeriaId})", pizzeria.StoreNumber, pizzeria.Id);
+    }
+}
+
+public sealed class ProductRepository(SqliteDatabase database, ILogger<ProductRepository>? logger = null) : IProductRepository
+{
+    private readonly ILogger<ProductRepository> log = logger ?? NullLogger<ProductRepository>.Instance;
+
+    public async Task<List<Product>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        var items = await database.Connection.Table<Product>().OrderBy(product => product.Name).ToListAsync();
+        log.LogDebug("Loaded {ProductCount} product(s) from catalog", items.Count);
+        return items;
+    }
+
+    public async Task<Product?> GetByIdAsync(int id)
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<Product>().Where(product => product.Id == id).FirstOrDefaultAsync();
+    }
+
+    public async Task<List<Product>> GetByCategoryAsync(string category)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(category);
+        await database.InitializeAsync();
+        return await database.Connection.Table<Product>()
+            .Where(product => product.Category == category)
+            .OrderBy(product => product.Name)
+            .ToListAsync();
+    }
+
+    public async Task<List<Product>> SearchByNameAsync(string query)
+    {
+        var products = await GetAllAsync();
+        if (string.IsNullOrWhiteSpace(query))
+            return products;
+
+        return products
+            .Where(product => product.Name.Contains(query.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .ToList();
+    }
+
+    public async Task<List<IngredientOption>> GetOptionsByProductIdAsync(int productId)
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<IngredientOption>()
+            .Where(option => option.ProductId == productId)
+            .OrderBy(option => option.Name)
+            .ToListAsync();
+    }
+
+    public async Task SaveOptionAsync(IngredientOption option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        await database.InitializeAsync();
+        if (option.Id == 0)
+            await database.Connection.InsertAsync(option);
+        else
+            await database.Connection.UpdateAsync(option);
+        log.LogInformation("Saved ingredient option {OptionName} (Kind={Kind}, ProductId={ProductId})", option.Name, option.Kind, option.ProductId);
+    }
+
+    public async Task DeleteOptionAsync(IngredientOption option)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        await database.InitializeAsync();
+        await database.Connection.DeleteAsync(option);
+        log.LogInformation("Deleted ingredient option {OptionName} (Id={OptionId})", option.Name, option.Id);
+    }
+
+    public async Task SaveAsync(Product product)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        await database.InitializeAsync();
+        if (product.Id == 0)
+            await database.Connection.InsertAsync(product);
+        else
+            await database.Connection.UpdateAsync(product);
+        log.LogInformation("Saved catalog product {ProductName} (Id={ProductId})", product.Name, product.Id);
+    }
+
+    public async Task DeleteAsync(Product product)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        await database.InitializeAsync();
+        var options = await database.Connection.Table<IngredientOption>()
+            .Where(option => option.ProductId == product.Id)
+            .ToListAsync();
+        foreach (var option in options)
+            await database.Connection.DeleteAsync(option);
+        await database.Connection.DeleteAsync(product);
+        log.LogInformation("Deleted catalog product {ProductName} (Id={ProductId})", product.Name, product.Id);
+    }
+}
+
+public sealed class CategoryRepository(SqliteDatabase database, ILogger<CategoryRepository>? logger = null) : ICategoryRepository
+{
+    private readonly ILogger<CategoryRepository> log = logger ?? NullLogger<CategoryRepository>.Instance;
+
+    public async Task<List<ProductCategory>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<ProductCategory>()
+            .OrderBy(category => category.SortOrder)
+            .ThenBy(category => category.Name)
+            .ToListAsync();
+    }
+
+    public async Task SaveAsync(ProductCategory category)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        ArgumentException.ThrowIfNullOrWhiteSpace(category.Name);
+        await database.InitializeAsync();
+        category.Name = category.Name.Trim();
+        if (category.Id == 0)
+            await database.Connection.InsertAsync(category);
+        else
+            await database.Connection.UpdateAsync(category);
+        log.LogInformation("Saved product category {CategoryName} (Id={CategoryId})", category.Name, category.Id);
+    }
+
+    public async Task RenameAsync(ProductCategory category, string newName)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+        await database.InitializeAsync();
+        var oldName = category.Name;
+        var trimmed = newName.Trim();
+        category.Name = trimmed;
+
+        await database.Connection.RunInTransactionAsync(conn =>
+        {
+            conn.Update(category);
+            conn.Execute("UPDATE Products SET Category = ? WHERE Category = ?;", trimmed, oldName);
+        });
+        log.LogInformation("Renamed product category from {OldName} to {NewName}", oldName, trimmed);
+    }
+
+    public async Task DeleteAsync(ProductCategory category)
+    {
+        ArgumentNullException.ThrowIfNull(category);
+        await database.InitializeAsync();
+        await database.Connection.DeleteAsync(category);
+        log.LogInformation("Deleted product category {CategoryName} (Id={CategoryId})", category.Name, category.Id);
+    }
+}
+
+public sealed class MenuBannerRepository(SqliteDatabase database, ILogger<MenuBannerRepository>? logger = null) : IMenuBannerRepository
+{
+    private readonly ILogger<MenuBannerRepository> log = logger ?? NullLogger<MenuBannerRepository>.Instance;
+
+    public async Task<List<MenuBanner>> GetAllAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<MenuBanner>()
+            .OrderBy(banner => banner.SortOrder)
+            .ThenBy(banner => banner.Id)
+            .ToListAsync();
+    }
+
+    public async Task<List<MenuBanner>> GetActiveAsync()
+    {
+        await database.InitializeAsync();
+        return await database.Connection.Table<MenuBanner>()
+            .Where(banner => banner.IsActive)
+            .OrderBy(banner => banner.SortOrder)
+            .ThenBy(banner => banner.Id)
+            .ToListAsync();
+    }
+
+    public async Task SaveAsync(MenuBanner banner)
+    {
+        ArgumentNullException.ThrowIfNull(banner);
+        await database.InitializeAsync();
+        if (banner.Id == 0)
+            await database.Connection.InsertAsync(banner);
+        else
+            await database.Connection.UpdateAsync(banner);
+        log.LogInformation("Saved menu banner {BannerTitle} (Id={BannerId}, Active={IsActive})", banner.Title, banner.Id, banner.IsActive);
+    }
+
+    public async Task DeleteAsync(MenuBanner banner)
+    {
+        ArgumentNullException.ThrowIfNull(banner);
+        await database.InitializeAsync();
+        await database.Connection.DeleteAsync(banner);
+        log.LogInformation("Deleted menu banner {BannerTitle} (Id={BannerId})", banner.Title, banner.Id);
+    }
+}
+
+public sealed class FavoriteRepository(SqliteDatabase database, ILogger<FavoriteRepository>? logger = null) : IFavoriteRepository
+{
+    private readonly ILogger<FavoriteRepository> log = logger ?? NullLogger<FavoriteRepository>.Instance;
+
+    public async Task<List<Product>> GetFavoriteProductsAsync()
+    {
+        await database.InitializeAsync();
+        var favorites = await database.Connection.Table<FavoriteProduct>().ToListAsync();
+        if (favorites.Count == 0)
+            return [];
+
+        var favoriteIds = favorites.Select(favorite => favorite.ProductId).ToHashSet();
+        var products = await database.Connection.Table<Product>().ToListAsync();
+        return products.Where(product => favoriteIds.Contains(product.Id)).OrderBy(product => product.Name).ToList();
+    }
+
+    public async Task ToggleFavoriteAsync(int productId)
+    {
+        if (productId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(productId), "Product id must be positive.");
+
+        await database.InitializeAsync();
+        var productExists = await database.Connection.Table<Product>().Where(product => product.Id == productId).FirstOrDefaultAsync();
+        if (productExists is null)
+            throw new KeyNotFoundException($"Product with id {productId} was not found.");
+
+        var existing = await database.Connection.Table<FavoriteProduct>()
+            .Where(favorite => favorite.ProductId == productId)
+            .FirstOrDefaultAsync();
+
+        if (existing is null)
+        {
+            await database.Connection.InsertAsync(new FavoriteProduct { ProductId = productId });
+            log.LogInformation("Added product {ProductId} to favorites", productId);
+        }
+        else
+        {
+            await database.Connection.DeleteAsync(existing);
+            log.LogInformation("Removed product {ProductId} from favorites", productId);
+        }
+    }
+}
