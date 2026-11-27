@@ -20,6 +20,20 @@ public class Product
     public decimal Carbs { get; set; }
 
     [Ignore] public decimal EffectivePrice => GetEffectivePrice();
+    [Ignore] public bool HasPromo => PromoPrice.HasValue && PromoPrice.Value > 0m && BasePrice > 0m && PromoPrice.Value < BasePrice;
+    [Ignore]
+    public int DiscountPercent
+    {
+        get
+        {
+            if (!HasPromo)
+                return 0;
+
+            var raw = (int)Math.Round(100m * (PromoPrice!.Value / BasePrice - 1m), MidpointRounding.AwayFromZero);
+            return raw == 0 ? -1 : raw;
+        }
+    }
+    [Ignore] public string DiscountBadgeText => HasPromo ? $"{DiscountPercent}%" : string.Empty;
     [Ignore] public bool ShowCategoryHeader { get; set; }
     public decimal GetEffectivePrice() => PromoPrice ?? BasePrice;
 }

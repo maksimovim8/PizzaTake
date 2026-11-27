@@ -22,8 +22,8 @@ public sealed class PizzaTakeUiTests : IClassFixture<AppiumDriverFixture>
     {
         fixture.CompleteOnboardingIfNeeded();
 
-        // Navigate to Profile (Settings) tab and open AuthPage.
-        fixture.WaitForText("Профіль").Click();
+        // Navigate to Settings tab and open AuthPage.
+        fixture.WaitForText("Налаштування").Click();
         fixture.WaitForAutomationId("SettingsChangePhoneButton").Click();
 
         // Enter phone number, accept policy, and request SMS OTP.
@@ -52,7 +52,7 @@ public sealed class PizzaTakeUiTests : IClassFixture<AppiumDriverFixture>
         fixture.CompleteOnboardingIfNeeded();
 
         // Open Settings and tap "+ Додати" to create a new saved address.
-        fixture.WaitForText("Профіль").Click();
+        fixture.WaitForText("Налаштування").Click();
         fixture.WaitForAutomationId("SettingsAddAddressButton").Click();
 
         const string addressLabel = "Офіс QA";

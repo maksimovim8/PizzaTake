@@ -164,18 +164,32 @@
                                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
                                             Padding="12">
                                         <Grid RowDefinitions="Auto,*,Auto" RowSpacing="4">
-                                            <Button Grid.Row="0"
-                                                    Text="+"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=AddUpsellCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    HorizontalOptions="End"
-                                                    BackgroundColor="#F7A600"
-                                                    TextColor="#FFFFFF"
-                                                    FontAttributes="Bold"
-                                                    CornerRadius="14"
-                                                    WidthRequest="28"
-                                                    HeightRequest="28"
-                                                    Padding="0" />
+                                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                                <Border IsVisible="{Binding HasPromo}"
+                                                        BackgroundColor="#DC2626"
+                                                        StrokeThickness="0"
+                                                        StrokeShape="RoundRectangle 5"
+                                                        Padding="5,1"
+                                                        HorizontalOptions="Start"
+                                                        VerticalOptions="Center">
+                                                    <Label Text="{Binding DiscountBadgeText}"
+                                                           FontSize="10"
+                                                           FontAttributes="Bold"
+                                                           TextColor="#FFFFFF" />
+                                                </Border>
+                                                <Button Grid.Column="1"
+                                                        Text="+"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CartViewModel}}, Path=AddUpsellCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        HorizontalOptions="End"
+                                                        BackgroundColor="#F7A600"
+                                                        TextColor="#FFFFFF"
+                                                        FontAttributes="Bold"
+                                                        CornerRadius="14"
+                                                        WidthRequest="28"
+                                                        HeightRequest="28"
+                                                        Padding="0" />
+                                            </Grid>
 
                                             <Label Grid.Row="1"
                                                    Text="{Binding Name}"
@@ -187,12 +201,18 @@
                                                    HorizontalTextAlignment="Center"
                                                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
 
-                                            <Label Grid.Row="2"
-                                                   Text="{Binding EffectivePrice, StringFormat='{0:0.##} ₴'}"
-                                                   FontSize="15"
-                                                   FontAttributes="Bold"
-                                                   HorizontalTextAlignment="Center"
-                                                   TextColor="#EB5E28" />
+                                            <HorizontalStackLayout Grid.Row="2" Spacing="5" HorizontalOptions="Center">
+                                                <Label Text="{Binding EffectivePrice, StringFormat='{0:0.##} ₴'}"
+                                                       FontSize="15"
+                                                       FontAttributes="Bold"
+                                                       TextColor="#EB5E28" />
+                                                <Label Text="{Binding BasePrice, StringFormat='{0:0.##} ₴'}"
+                                                       IsVisible="{Binding HasPromo}"
+                                                       FontSize="12"
+                                                       TextDecorations="Strikethrough"
+                                                       VerticalOptions="End"
+                                                       TextColor="{AppThemeBinding Light=#9CA3AF, Dark=#78716C}" />
+                                            </HorizontalStackLayout>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

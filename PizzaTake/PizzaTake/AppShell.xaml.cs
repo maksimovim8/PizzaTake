@@ -46,7 +46,7 @@ public partial class AppShell : Shell
         favoritesTab = CreateTab("Обране", "favorites", "nav_favorites.svg", services.GetRequiredService<FavoritesPage>());
         cartTab = CreateTab("Кошик", "cart", "nav_cart.svg", services.GetRequiredService<CartPage>());
         historyTab = CreateTab("Історія", "history", "nav_history.svg", services.GetRequiredService<OrderHistoryPage>());
-        settingsTab = CreateTab("Профіль", "settings", "nav_settings.svg", services.GetRequiredService<SettingsPage>());
+        settingsTab = CreateTab("Налаштування", "settings", "nav_settings.svg", services.GetRequiredService<SettingsPage>());
 
         var tabs = new TabBar();
         tabs.Items.Add(CreateTab("Меню", "menu", "nav_menu.svg", services.GetRequiredService<MenuPage>()));

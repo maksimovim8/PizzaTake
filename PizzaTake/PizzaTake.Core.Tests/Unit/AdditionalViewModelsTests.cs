@@ -285,4 +285,70 @@ public sealed class AdditionalViewModelsTests
         sync.Verify(s => s.EnqueueAsync("Product", "Delete", It.IsAny<object>()), Times.Once);
         sut.StopSessionMonitoring();
     }
+
+    [Theory]
+    [InlineData(259, 207, true, -20, "-20%")]
+    [InlineData(200, 150, true, -25, "-25%")]
+    [InlineData(259, null, false, 0, "")]
+    [InlineData(259, 259, false, 0, "")]
+    public void Product_PromoDiscountFormula_ShouldComputePercentageAndBadge(
+        decimal basePrice,
+        double? promoPrice,
+        bool expectedHasPromo,
+        int expectedPercent,
+        string expectedBadge)
+    {
+        var product = new Product
+        {
+            BasePrice = basePrice,
+            PromoPrice = promoPrice.HasValue ? (decimal)promoPrice.Value : null
+        };
+
+        product.HasPromo.Should().Be(expectedHasPromo);
+        product.DiscountPercent.Should().Be(expectedPercent);
+        product.DiscountBadgeText.Should().Be(expectedBadge);
+    }
+
+    [Fact]
+    public async Task PizzeriaSelectionViewModel_EmbeddedMapLocationAndExternalLauncher_ShouldFocusAndSelectNearest()
+    {
+        var kyiv = new City { Id = 1, Name = "Київ" };
+        var p1 = new Pizzeria { Id = 1, CityId = 1, StoreNumber = "TT 78", Address = "вул. Хрещатик, 22", Latitude = 50.4477, Longitude = 30.5228 };
+        var p2 = new Pizzeria { Id = 2, CityId = 1, StoreNumber = "TT 84", Address = "просп. Перемоги, 45", Latitude = 50.4500, Longitude = 30.4500 };
+
+        var repo = new Mock<IPizzeriaRepository>();
+        var appState = new Mock<IAppStateService>();
+        var nav = new Mock<INavigationService>();
+        var mapLauncher = new Mock<IMapLauncherService>();
+        var location = new Mock<ILocationService>();
+        var permission = new Mock<IPermissionService>();
+
+        appState.Setup(s => s.SelectedCity).Returns(kyiv);
+        repo.Setup(r => r.GetByCityIdAsync(1)).ReturnsAsync([p1, p2]);
+        permission.Setup(p => p.EnsureGrantedAsync(AppPermission.LocationWhenInUse, It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
+        location.Setup(l => l.GetCurrentLocationAsync(It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LocationResult(new GeoPoint(50.4501, 30.4510)));
+        mapLauncher.Setup(m => m.OpenExternalMapAsync(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<string>())).ReturnsAsync(true);
+
+        var sut = new PizzeriaSelectionViewModel(
+            repo.Object,
+            appState.Object,
+            nav.Object,
+            mapLauncherService: mapLauncher.Object,
+            locationService: location.Object,
+            permissionService: permission.Object);
+
+        GeoPoint? focused = null;
+        sut.FocusRequested += (_, pt) => focused = pt;
+
+        await sut.LoadCommand.ExecuteAsync(null);
+        await sut.CenterOnMyLocationCommand.ExecuteAsync(null);
+
+        sut.SelectedPizzeria.Should().Be(p2);
+        sut.UserLocation.Should().Be(new GeoPoint(50.4501, 30.4510));
+        focused.Should().Be(new GeoPoint(50.4501, 30.4510));
+
+        await sut.OpenExternalMapCommand.ExecuteAsync(null);
+        mapLauncher.Verify(m => m.OpenExternalMapAsync(50.4500, 30.4500, It.Is<string>(s => s.Contains("TT 84"))), Times.Once);
+    }
 }

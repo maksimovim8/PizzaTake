@@ -162,12 +162,32 @@
                             <VerticalStackLayout Spacing="4">
                                 <Label Text="{Binding Category}" IsVisible="{Binding ShowCategoryHeader}" FontSize="23" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#191919, Dark=#F5F5F4}" Margin="18,12,18,4" />
                                 <Border Margin="18,3" Padding="13,12" StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}" StrokeShape="RoundRectangle 20">
-                                    <Grid ColumnDefinitions="100,*,Auto" ColumnSpacing="12" HeightRequest="100">
+                                    <Grid ColumnDefinitions="100,*,Auto" ColumnSpacing="12" MinimumHeightRequest="104">
                                         <Image Source="pizza.svg" WidthRequest="88" HeightRequest="88" VerticalOptions="Center" HorizontalOptions="Center" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                             <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#202020, Dark=#F5F5F4}" />
                                             <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light=#8B8986, Dark=#A8A29E}" LineBreakMode="TailTruncation" MaxLines="2" />
-                                            <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F4511E" Margin="0,5,0,0" />
+                                            <HorizontalStackLayout Spacing="6" Margin="0,6,0,0">
+                                                <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0.##} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F4511E" VerticalOptions="End" />
+                                                <Border IsVisible="{Binding HasPromo}"
+                                                        BackgroundColor="#DC2626"
+                                                        StrokeThickness="0"
+                                                        StrokeShape="RoundRectangle 5"
+                                                        Padding="5,1"
+                                                        VerticalOptions="Start"
+                                                        Margin="0,-6,0,0">
+                                                    <Label Text="{Binding DiscountBadgeText}"
+                                                           FontSize="10"
+                                                           FontAttributes="Bold"
+                                                           TextColor="#FFFFFF" />
+                                                </Border>
+                                                <Label Text="{Binding BasePrice, StringFormat='{}{0:0.##} ₴'}"
+                                                       IsVisible="{Binding HasPromo}"
+                                                       FontSize="13"
+                                                       TextDecorations="Strikethrough"
+                                                       TextColor="{AppThemeBinding Light=#9CA3AF, Dark=#78716C}"
+                                                       VerticalOptions="End" />
+                                            </HorizontalStackLayout>
                                         </VerticalStackLayout>
                                         <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="End" Margin="0,0,2,0">
                                             <Button Text="✎"

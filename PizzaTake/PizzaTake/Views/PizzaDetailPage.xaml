@@ -121,7 +121,29 @@
         </ScrollView>
         <Grid Grid.Row="1" Padding="18,10,18,16" ColumnDefinitions="*,Auto" ColumnSpacing="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}">
             <Button Text="Додати до кошика" BackgroundColor="#FFB400" TextColor="White" CornerRadius="22" FontAttributes="Bold" Command="{Binding AddToCartCommand}" />
-            <Label Grid.Column="1" Text="{Binding CalculatedPrice, StringFormat='{}{0:0} ₴'}" FontAttributes="Bold" TextColor="#F05A24" VerticalOptions="Center" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center" HorizontalOptions="End">
+                <HorizontalStackLayout Spacing="4" HorizontalOptions="End">
+                    <Label Text="{Binding CalculatedPrice, StringFormat='{}{0:0.##} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F05A24" VerticalOptions="End" />
+                    <Border IsVisible="{Binding Product.HasPromo}"
+                            BackgroundColor="#DC2626"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 5"
+                            Padding="5,1"
+                            VerticalOptions="Start"
+                            Margin="0,-5,0,0">
+                        <Label Text="{Binding Product.DiscountBadgeText}"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               TextColor="#FFFFFF" />
+                    </Border>
+                </HorizontalStackLayout>
+                <Label Text="{Binding Product.BasePrice, StringFormat='{}{0:0.##} ₴'}"
+                       IsVisible="{Binding Product.HasPromo}"
+                       FontSize="12"
+                       TextDecorations="Strikethrough"
+                       TextColor="{AppThemeBinding Light=#9CA3AF, Dark=#78716C}"
+                       HorizontalTextAlignment="End" />
+            </VerticalStackLayout>
         </Grid>
     </Grid>
 </ContentPage>
