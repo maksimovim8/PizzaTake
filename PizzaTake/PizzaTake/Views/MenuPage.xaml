@@ -177,12 +177,7 @@
                                     <Grid ColumnDefinitions="100,*,Auto" ColumnSpacing="12" HeightRequest="100">
                                         <Image Source="pizza.svg" WidthRequest="88" HeightRequest="88" VerticalOptions="Center" HorizontalOptions="Center" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                            <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                                                <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#202020, Dark=#F5F5F4}" VerticalOptions="Center" />
-                                                <Border IsVisible="{Binding IsNew}" BackgroundColor="#F4511E" StrokeThickness="0" StrokeShape="RoundRectangle 8" Padding="6,2" VerticalOptions="Center">
-                                                    <Label Text="NEW" FontSize="10" FontAttributes="Bold" TextColor="White" />
-                                                </Border>
-                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#202020, Dark=#F5F5F4}" />
                                             <Label Text="{Binding Description}" FontSize="12" TextColor="{AppThemeBinding Light=#8B8986, Dark=#A8A29E}" LineBreakMode="TailTruncation" MaxLines="2" />
                                             <Label Text="{Binding EffectivePrice, StringFormat='{}{0:0} ₴'}" FontSize="17" FontAttributes="Bold" TextColor="#F4511E" Margin="0,5,0,0" />
                                         </VerticalStackLayout>

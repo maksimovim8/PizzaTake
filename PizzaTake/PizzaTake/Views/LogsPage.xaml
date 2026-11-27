@@ -3,25 +3,30 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:PizzaTake.Core.ViewModels;assembly=PizzaTake.Core"
              xmlns:models="clr-namespace:PizzaTake.Core.Models;assembly=PizzaTake.Core"
+             xmlns:converters="clr-namespace:PizzaTake.Converters"
              x:Class="PizzaTake.Views.LogsPage"
              x:DataType="vm:LogsViewModel"
              Title="{Binding Title}"
              BackgroundColor="{AppThemeBinding Light=#F9F7F2, Dark=#181411}">
 
+    <ContentPage.Resources>
+        <converters:LogFilterChipConverter x:Key="LogFilterChipConverter" />
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,12" RowSpacing="12">
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <Button Grid.Column="0"
-                    Text="←"
+                    Text="‹ Назад"
                     AutomationId="LogsBackButton"
                     Command="{Binding GoBackCommand}"
-                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                    TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
-                    BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                    BorderWidth="1"
-                    CornerRadius="18"
-                    WidthRequest="42"
-                    HeightRequest="42" />
+                    BackgroundColor="Transparent"
+                    TextColor="#EB5E28"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    Padding="0"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Center" />
 
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
                 <Label Text="Журнал логів"
@@ -57,18 +62,10 @@
                         HeightRequest="36"
                         FontSize="13"
                         FontAttributes="Bold"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        TextColor="{AppThemeBinding Light=#57534E, Dark=#D6D3D1}"
-                        BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                        BorderWidth="1">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsAllSelected}" Value="True">
-                            <Setter Property="BackgroundColor" Value="#EB5E28" />
-                            <Setter Property="TextColor" Value="#FFFFFF" />
-                            <Setter Property="BorderColor" Value="#EB5E28" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
+                        BorderWidth="1"
+                        BackgroundColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Усі|Background'}"
+                        TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Усі|Text'}"
+                        BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Усі|Border'}" />
 
                 <Button Text="Information"
                         AutomationId="LogsFilterInfoButton"
@@ -78,18 +75,10 @@
                         HeightRequest="36"
                         FontSize="13"
                         FontAttributes="Bold"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        TextColor="{AppThemeBinding Light=#57534E, Dark=#D6D3D1}"
-                        BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                        BorderWidth="1">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsInfoSelected}" Value="True">
-                            <Setter Property="BackgroundColor" Value="#2563EB" />
-                            <Setter Property="TextColor" Value="#FFFFFF" />
-                            <Setter Property="BorderColor" Value="#2563EB" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
+                        BorderWidth="1"
+                        BackgroundColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Information|Background'}"
+                        TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Information|Text'}"
+                        BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Information|Border'}" />
 
                 <Button Text="Warning"
                         AutomationId="LogsFilterWarningButton"
@@ -99,18 +88,10 @@
                         HeightRequest="36"
                         FontSize="13"
                         FontAttributes="Bold"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        TextColor="{AppThemeBinding Light=#57534E, Dark=#D6D3D1}"
-                        BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                        BorderWidth="1">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsWarningSelected}" Value="True">
-                            <Setter Property="BackgroundColor" Value="#D97706" />
-                            <Setter Property="TextColor" Value="#FFFFFF" />
-                            <Setter Property="BorderColor" Value="#D97706" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
+                        BorderWidth="1"
+                        BackgroundColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Warning|Background'}"
+                        TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Warning|Text'}"
+                        BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Warning|Border'}" />
 
                 <Button Text="Error"
                         AutomationId="LogsFilterErrorButton"
@@ -120,18 +101,10 @@
                         HeightRequest="36"
                         FontSize="13"
                         FontAttributes="Bold"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        TextColor="{AppThemeBinding Light=#57534E, Dark=#D6D3D1}"
-                        BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                        BorderWidth="1">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsErrorSelected}" Value="True">
-                            <Setter Property="BackgroundColor" Value="#DC2626" />
-                            <Setter Property="TextColor" Value="#FFFFFF" />
-                            <Setter Property="BorderColor" Value="#DC2626" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
+                        BorderWidth="1"
+                        BackgroundColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Error|Background'}"
+                        TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Error|Text'}"
+                        BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Error|Border'}" />
 
                 <Button Text="Fatal"
                         AutomationId="LogsFilterFatalButton"
@@ -141,18 +114,10 @@
                         HeightRequest="36"
                         FontSize="13"
                         FontAttributes="Bold"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
-                        TextColor="{AppThemeBinding Light=#57534E, Dark=#D6D3D1}"
-                        BorderColor="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
-                        BorderWidth="1">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IsFatalSelected}" Value="True">
-                            <Setter Property="BackgroundColor" Value="#7F1D1D" />
-                            <Setter Property="TextColor" Value="#FFFFFF" />
-                            <Setter Property="BorderColor" Value="#7F1D1D" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
+                        BorderWidth="1"
+                        BackgroundColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Fatal|Background'}"
+                        TextColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Fatal|Text'}"
+                        BorderColor="{Binding SelectedLevel, Converter={StaticResource LogFilterChipConverter}, ConverterParameter='Fatal|Border'}" />
             </HorizontalStackLayout>
         </ScrollView>
 

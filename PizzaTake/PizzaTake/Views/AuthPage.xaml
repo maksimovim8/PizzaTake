@@ -6,6 +6,7 @@
              x:Class="PizzaTake.Views.AuthPage"
              x:DataType="vm:AuthViewModel"
              Title="{Binding Title}"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="#3B2616">
 
     <Grid>
