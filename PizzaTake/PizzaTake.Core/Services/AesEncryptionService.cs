@@ -17,7 +17,7 @@ public sealed class AesEncryptionService : IEncryptionService
     private readonly ISecureStoreService? secureStore;
     private readonly SemaphoreSlim keyLock = new(1, 1);
     private readonly ILogger<AesEncryptionService> logger;
-    private byte[]? cachedKey;
+    private volatile byte[]? cachedKey;
 
     public AesEncryptionService(
         ISecureStoreService? secureStore = null,
@@ -102,41 +102,57 @@ public sealed class AesEncryptionService : IEncryptionService
             if (cachedKey is not null)
                 return cachedKey;
 
-            string? storedKey = null;
-            if (secureStore is not null)
+            if (secureStore is null)
             {
-                try
-                {
-                    storedKey = await secureStore.GetAsync(KeyStorageName);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "SecureStorage read failed while loading AES key");
-                }
+                cachedKey = RandomNumberGenerator.GetBytes(KeySizeBytes);
+                return cachedKey;
             }
+
+            string? storedKey = null;
+            var readSucceeded = false;
+            Exception? readException = null;
+            try
+            {
+                storedKey = await secureStore.GetAsync(KeyStorageName);
+                readSucceeded = true;
+            }
+            catch (Exception ex)
+            {
+                readException = ex;
+                logger.LogError(ex, "SecureStorage read failed while loading AES key");
+            }
+
+            if (!readSucceeded)
+                throw new InvalidOperationException("SecureStorage read failed while loading AES encryption key.", readException);
 
             if (!string.IsNullOrEmpty(storedKey))
             {
-                var decoded = Convert.FromBase64String(storedKey);
-                if (decoded.Length == KeySizeBytes)
+                try
                 {
-                    cachedKey = decoded;
-                    return cachedKey;
+                    var decoded = Convert.FromBase64String(storedKey);
+                    if (decoded.Length == KeySizeBytes)
+                    {
+                        cachedKey = decoded;
+                        return cachedKey;
+                    }
+
+                    logger.LogWarning("Stored AES key had unexpected length {KeyLength}; regenerating key", decoded.Length);
+                }
+                catch (FormatException ex)
+                {
+                    logger.LogWarning(ex, "Stored AES key is not valid Base64; regenerating key");
                 }
             }
 
             var generated = RandomNumberGenerator.GetBytes(KeySizeBytes);
-            if (secureStore is not null)
+            var encoded = Convert.ToBase64String(generated);
+            try
             {
-                var encoded = Convert.ToBase64String(generated);
-                try
-                {
-                    await secureStore.SetAsync(KeyStorageName, encoded);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "SecureStorage write failed while persisting new AES key");
-                }
+                await secureStore.SetAsync(KeyStorageName, encoded);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "SecureStorage write failed while persisting new AES key");
             }
 
             cachedKey = generated;

@@ -235,4 +235,97 @@ public sealed class AdminManagementViewModelsTests
         nav.Verify(n => n.GoToAsync("admincategories", null), Times.Once);
         nav.Verify(n => n.GoToAsync("adminbanners", null), Times.Once);
     }
+
+    [Fact]
+    public async Task AdminCategoriesViewModel_SaveReorderDelete_ShouldEnqueueSyncMutations()
+    {
+        var categoryRepo = new Mock<ICategoryRepository>();
+        var productRepo = new Mock<IProductRepository>();
+        var session = new Mock<ISessionService>();
+        var nav = new Mock<INavigationService>();
+        var dialog = new Mock<IDialogService>();
+        var sync = new Mock<ISyncService>();
+        var dispatcher = new ImmediateMainThreadDispatcher();
+
+        session.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(true);
+        var cat1 = new ProductCategory { Id = 1, Name = "Новинки", SortOrder = 0 };
+        var cat2 = new ProductCategory { Id = 2, Name = "Десерти", SortOrder = 1 };
+        categoryRepo.Setup(r => r.GetAllAsync()).ReturnsAsync([cat1, cat2]);
+        categoryRepo.Setup(r => r.SaveAsync(It.IsAny<ProductCategory>()))
+            .Callback<ProductCategory>(c => { if (c.Id == 0) c.Id = 10; })
+            .Returns(Task.CompletedTask);
+        productRepo.Setup(r => r.GetByCategoryAsync("Десерти")).ReturnsAsync([]);
+        dialog.Setup(d => d.ConfirmAsync("Видалення категорії", It.IsAny<string>(), "Видалити", "Скасувати")).ReturnsAsync(true);
+
+        var sut = new AdminCategoriesViewModel(
+            categoryRepo.Object,
+            productRepo.Object,
+            session.Object,
+            nav.Object,
+            dialog.Object,
+            dispatcher,
+            syncService: sync.Object);
+
+        await sut.LoadCommand.ExecuteAsync(null);
+
+        sut.NewCategoryName = "Напої";
+        await sut.SaveCategoryCommand.ExecuteAsync(null);
+        sync.Verify(s => s.EnqueueAsync("ProductCategory", "Insert", It.IsAny<object>()), Times.Once);
+
+        sut.StartEditCommand.Execute(cat2);
+        sut.NewCategoryName = "Солодке";
+        await sut.SaveCategoryCommand.ExecuteAsync(null);
+        sync.Verify(s => s.EnqueueAsync("ProductCategory", "Update", It.IsAny<object>()), Times.Once);
+
+        await sut.MoveDownCommand.ExecuteAsync(cat1);
+        sync.Verify(s => s.EnqueueAsync("ProductCategory", "Update", It.IsAny<object>()), Times.Exactly(3));
+
+        cat2.Name = "Десерти";
+        await sut.DeleteCategoryCommand.ExecuteAsync(cat2);
+        sync.Verify(s => s.EnqueueAsync("ProductCategory", "Delete", It.IsAny<object>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AdminBannersViewModel_SaveToggleDelete_ShouldEnqueueSyncMutations()
+    {
+        var bannerRepo = new Mock<IMenuBannerRepository>();
+        var session = new Mock<ISessionService>();
+        var nav = new Mock<INavigationService>();
+        var dialog = new Mock<IDialogService>();
+        var sync = new Mock<ISyncService>();
+        var dispatcher = new ImmediateMainThreadDispatcher();
+
+        session.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(true);
+        var banner = new MenuBanner { Id = 5, Title = "Акція", IsActive = true, SortOrder = 0 };
+        bannerRepo.Setup(r => r.GetAllAsync()).ReturnsAsync([banner]);
+        bannerRepo.Setup(r => r.SaveAsync(It.IsAny<MenuBanner>()))
+            .Callback<MenuBanner>(b => { if (b.Id == 0) b.Id = 15; })
+            .Returns(Task.CompletedTask);
+        dialog.Setup(d => d.ConfirmAsync("Видалення банера", It.IsAny<string>(), "Видалити", "Скасувати")).ReturnsAsync(true);
+
+        var sut = new AdminBannersViewModel(
+            bannerRepo.Object,
+            session.Object,
+            nav.Object,
+            dialog.Object,
+            dispatcher,
+            syncService: sync.Object);
+
+        await sut.LoadCommand.ExecuteAsync(null);
+
+        sut.BannerTitle = "Новий банер";
+        await sut.SaveBannerCommand.ExecuteAsync(null);
+        sync.Verify(s => s.EnqueueAsync("MenuBanner", "Insert", It.IsAny<object>()), Times.Once);
+
+        sut.EditBannerCommand.Execute(banner);
+        sut.BannerTitle = "Оновлений банер";
+        await sut.SaveBannerCommand.ExecuteAsync(null);
+        sync.Verify(s => s.EnqueueAsync("MenuBanner", "Update", It.IsAny<object>()), Times.Once);
+
+        await sut.ToggleActiveCommand.ExecuteAsync(banner);
+        sync.Verify(s => s.EnqueueAsync("MenuBanner", "Update", It.IsAny<object>()), Times.Exactly(2));
+
+        await sut.DeleteBannerCommand.ExecuteAsync(banner);
+        sync.Verify(s => s.EnqueueAsync("MenuBanner", "Delete", It.IsAny<object>()), Times.Once);
+    }
 }

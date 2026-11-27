@@ -17,7 +17,21 @@ public sealed class MauiMediaService : IMediaService
         this.logger = logger ?? NullLogger<MauiMediaService>.Instance;
     }
 
-    public bool IsCaptureSupported => MediaPicker.Default.IsCaptureSupported;
+    public bool IsCaptureSupported
+    {
+        get
+        {
+            try
+            {
+                return MediaPicker.Default.IsCaptureSupported;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to query MediaPicker.IsCaptureSupported");
+                return false;
+            }
+        }
+    }
 
     public async Task<MediaCaptureResult> CapturePhotoAsync(string filePrefix, CancellationToken ct = default)
     {
@@ -138,7 +152,9 @@ public sealed class MauiMediaService : IMediaService
         Directory.CreateDirectory(photosDirectory);
 
         var safePrefix = string.IsNullOrWhiteSpace(filePrefix) ? "report" : filePrefix.Trim();
-        var fileName = $"{safePrefix}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.jpg";
+        var rawExt = Path.GetExtension(sourceFile.FileName)?.ToLowerInvariant();
+        var ext = rawExt is ".jpg" or ".jpeg" or ".png" or ".webp" ? rawExt : ".jpg";
+        var fileName = $"{safePrefix}_{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid().ToString("N")[..6]}{ext}";
         var targetPath = Path.Combine(photosDirectory, fileName);
 
         await using var sourceStream = await sourceFile.OpenReadAsync();

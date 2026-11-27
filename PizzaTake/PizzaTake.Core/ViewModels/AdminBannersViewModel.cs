@@ -30,6 +30,7 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
     private readonly IDialogService dialogService;
     private readonly IMainThreadDispatcher dispatcher;
     private readonly ILogger<AdminBannersViewModel> logger;
+    private readonly ISyncService? syncService;
 
     private MenuBanner? editingBanner;
     private string eyebrow = string.Empty;
@@ -45,7 +46,8 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
         INavigationService navigation,
         IDialogService dialogService,
         IMainThreadDispatcher dispatcher,
-        ILogger<AdminBannersViewModel>? logger = null)
+        ILogger<AdminBannersViewModel>? logger = null,
+        ISyncService? syncService = null)
     {
         this.bannerRepository = bannerRepository;
         this.sessionService = sessionService;
@@ -53,6 +55,7 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
         this.dialogService = dialogService;
         this.dispatcher = dispatcher;
         this.logger = logger ?? NullLogger<AdminBannersViewModel>.Instance;
+        this.syncService = syncService;
         Title = "Банери меню";
 
         AvailableThemeNames = ThemePresets.Select(p => p.Name).ToArray();
@@ -165,6 +168,17 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
             banner.IsActive = IsActive;
 
             await bannerRepository.SaveAsync(banner);
+            if (syncService is not null)
+            {
+                await syncService.EnqueueAsync("MenuBanner", isUpdate ? "Update" : "Insert", new
+                {
+                    banner.Id,
+                    banner.Title,
+                    banner.IsActive,
+                    banner.SortOrder,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
             ResetForm();
             StatusMessage = isUpdate ? "Банер оновлено." : "Новий банер додано.";
             await LoadAsync();
@@ -188,6 +202,17 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
         {
             banner.IsActive = !banner.IsActive;
             await bannerRepository.SaveAsync(banner);
+            if (syncService is not null)
+            {
+                await syncService.EnqueueAsync("MenuBanner", "Update", new
+                {
+                    banner.Id,
+                    banner.Title,
+                    banner.IsActive,
+                    banner.SortOrder,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
             StatusMessage = banner.IsActive ? $"Банер «{banner.Title}» увімкнено." : $"Банер «{banner.Title}» приховано.";
         }
         catch (Exception ex)
@@ -215,6 +240,17 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
         try
         {
             await bannerRepository.DeleteAsync(banner);
+            if (syncService is not null)
+            {
+                await syncService.EnqueueAsync("MenuBanner", "Delete", new
+                {
+                    banner.Id,
+                    banner.Title,
+                    banner.IsActive,
+                    banner.SortOrder,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
             if (editingBanner?.Id == banner.Id) ResetForm();
             StatusMessage = $"Банер «{banner.Title}» видалено.";
         }

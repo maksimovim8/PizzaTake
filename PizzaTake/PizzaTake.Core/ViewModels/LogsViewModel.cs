@@ -21,6 +21,7 @@ public sealed class LogsViewModel : BaseViewModel
     private readonly INavigationService navigation;
     private readonly IDialogService dialogService;
     private readonly IBugReportService? bugReportService;
+    private readonly IMainThreadDispatcher? dispatcher;
     private readonly ILogger<LogsViewModel> logger;
 
     private string selectedLevel = "Усі";
@@ -35,7 +36,8 @@ public sealed class LogsViewModel : BaseViewModel
         INavigationService navigation,
         IDialogService dialogService,
         ILogger<LogsViewModel>? logger = null,
-        IBugReportService? bugReportService = null)
+        IBugReportService? bugReportService = null,
+        IMainThreadDispatcher? dispatcher = null)
     {
         this.logReaderService = logReaderService;
         this.crashReportingService = crashReportingService;
@@ -43,8 +45,11 @@ public sealed class LogsViewModel : BaseViewModel
         this.navigation = navigation;
         this.dialogService = dialogService;
         this.bugReportService = bugReportService;
+        this.dispatcher = dispatcher;
         this.logger = logger ?? NullLogger<LogsViewModel>.Instance;
         Title = "Журнал логів";
+
+        this.sessionService.SessionChanged += OnSessionChanged;
 
         LoadLogsCommand = new AsyncRelayCommand(LoadLogsAsync);
         SelectLevelCommand = new AsyncRelayCommand<string?>(SelectLevelAsync);
@@ -111,6 +116,8 @@ public sealed class LogsViewModel : BaseViewModel
         private set => SetProperty(ref logFileInfo, value);
     }
 
+    public bool IsAdmin => sessionService.IsInRole(UserRole.Administrator);
+
     public bool IsEmpty => LogEntries.Count == 0;
 
     public IAsyncRelayCommand LoadLogsCommand { get; }
@@ -122,6 +129,7 @@ public sealed class LogsViewModel : BaseViewModel
 
     public async Task LoadLogsAsync()
     {
+        OnPropertyChanged(nameof(IsAdmin));
         if (!await EnsureAdminAccessAsync(nameof(LoadLogsCommand), navigateBackOnDeny: true))
             return;
 
@@ -156,6 +164,9 @@ public sealed class LogsViewModel : BaseViewModel
 
     public async Task SelectLevelAsync(string? level)
     {
+        if (!await EnsureAdminAccessAsync(nameof(SelectLevelCommand)))
+            return;
+
         if (string.IsNullOrWhiteSpace(level))
             return;
 
@@ -165,6 +176,9 @@ public sealed class LogsViewModel : BaseViewModel
 
     private async Task SendBugReportAsync()
     {
+        if (!await EnsureAdminAccessAsync(nameof(SendBugReportCommand)))
+            return;
+
         if (IsBusy)
             return;
 
@@ -271,8 +285,9 @@ public sealed class LogsViewModel : BaseViewModel
         crashReportingService.TriggerTestCrash();
     }
 
-    private async Task<bool> EnsureAdminAccessAsync(string commandName, bool navigateBackOnDeny)
+    private async Task<bool> EnsureAdminAccessAsync(string commandName, bool navigateBackOnDeny = false)
     {
+        OnPropertyChanged(nameof(IsAdmin));
         if (sessionService.IsInRole(UserRole.Administrator))
             return true;
 
@@ -283,6 +298,17 @@ public sealed class LogsViewModel : BaseViewModel
         if (navigateBackOnDeny)
             await navigation.GoBackAsync();
         return false;
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e) =>
+        Dispatch(() => OnPropertyChanged(nameof(IsAdmin)));
+
+    private void Dispatch(Action action)
+    {
+        if (dispatcher is not null)
+            dispatcher.BeginInvokeOnMainThread(action);
+        else
+            action();
     }
 
     private void UpdateCommandStates()

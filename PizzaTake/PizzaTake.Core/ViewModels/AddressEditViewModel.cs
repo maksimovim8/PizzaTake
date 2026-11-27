@@ -18,6 +18,8 @@ public sealed class AddressEditViewModel : FormFeedbackViewModel, IQueryParamete
     private const string DraftLabelKey = "addressEdit.label";
     private const string DraftTextKey = "addressEdit.text";
     private const string DraftNotesKey = "addressEdit.notes";
+    private const string DraftLatitudeKey = "addressEdit.latitude";
+    private const string DraftLongitudeKey = "addressEdit.longitude";
     private const string DraftIdKey = "addressEdit.id";
 
     private readonly IAddressRepository addressRepository;
@@ -109,13 +111,31 @@ public sealed class AddressEditViewModel : FormFeedbackViewModel, IQueryParamete
     public double Latitude
     {
         get => latitude;
-        private set { if (SetProperty(ref latitude, value)) { OnPropertyChanged(nameof(HasCoordinates)); OnPropertyChanged(nameof(CoordinatesText)); } }
+        private set
+        {
+            if (SetProperty(ref latitude, value))
+            {
+                OnPropertyChanged(nameof(HasCoordinates));
+                OnPropertyChanged(nameof(CoordinatesText));
+                if (!suppressDraftSync)
+                    WriteCoordinateDraft();
+            }
+        }
     }
 
     public double Longitude
     {
         get => longitude;
-        private set { if (SetProperty(ref longitude, value)) { OnPropertyChanged(nameof(HasCoordinates)); OnPropertyChanged(nameof(CoordinatesText)); } }
+        private set
+        {
+            if (SetProperty(ref longitude, value))
+            {
+                OnPropertyChanged(nameof(HasCoordinates));
+                OnPropertyChanged(nameof(CoordinatesText));
+                if (!suppressDraftSync)
+                    WriteCoordinateDraft();
+            }
+        }
     }
 
     public bool HasCoordinates => GeoMath.HasValidCoordinates(Latitude, Longitude);
@@ -140,22 +160,37 @@ public sealed class AddressEditViewModel : FormFeedbackViewModel, IQueryParamete
             {
                 editingAddress = address;
                 IsEditMode = address.Id > 0;
-                Latitude = address.Latitude;
-                Longitude = address.Longitude;
-                var useDraft = string.Equals(draftId, address.Id.ToString(), StringComparison.Ordinal);
-                Label = useDraft ? appState.GetDraftValue(DraftLabelKey) ?? address.Label : address.Label;
-                AddressText = useDraft ? appState.GetDraftValue(DraftTextKey) ?? address.Text : address.Text;
-                Notes = useDraft ? appState.GetDraftValue(DraftNotesKey) ?? address.Notes : address.Notes;
+                var useDraft = string.Equals(draftId, address.Id.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+                if (useDraft)
+                {
+                    RestoreDraftState();
+                }
+                else
+                {
+                    Label = address.Label;
+                    AddressText = address.Text;
+                    Notes = address.Notes;
+                    Latitude = address.Latitude;
+                    Longitude = address.Longitude;
+                }
             }
             else
             {
                 editingAddress = null;
                 IsEditMode = false;
-                Latitude = Longitude = 0;
                 var useDraft = string.IsNullOrEmpty(draftId) || draftId == "0";
-                Label = useDraft ? appState.GetDraftValue(DraftLabelKey) ?? string.Empty : string.Empty;
-                AddressText = useDraft ? appState.GetDraftValue(DraftTextKey) ?? string.Empty : string.Empty;
-                Notes = useDraft ? appState.GetDraftValue(DraftNotesKey) ?? string.Empty : string.Empty;
+                if (useDraft)
+                {
+                    RestoreDraftState();
+                }
+                else
+                {
+                    Label = string.Empty;
+                    AddressText = string.Empty;
+                    Notes = string.Empty;
+                    Latitude = 0;
+                    Longitude = 0;
+                }
             }
         }
         finally { suppressDraftSync = false; }
@@ -172,12 +207,91 @@ public sealed class AddressEditViewModel : FormFeedbackViewModel, IQueryParamete
         appState.SaveState();
     }
 
+    public void RestoreDraftState()
+    {
+        var previousSuppress = suppressDraftSync;
+        suppressDraftSync = true;
+        try
+        {
+            Label = appState.GetDraftValue(DraftLabelKey) ?? editingAddress?.Label ?? string.Empty;
+            AddressText = appState.GetDraftValue(DraftTextKey) ?? editingAddress?.Text ?? string.Empty;
+            Notes = appState.GetDraftValue(DraftNotesKey) ?? editingAddress?.Notes ?? string.Empty;
+
+            var (draftLat, draftLng) = ReadCoordinateDraft();
+            if (draftLat.HasValue && draftLng.HasValue)
+            {
+                Latitude = draftLat.Value;
+                Longitude = draftLng.Value;
+            }
+            else if (editingAddress is not null)
+            {
+                Latitude = editingAddress.Latitude;
+                Longitude = editingAddress.Longitude;
+            }
+            else
+            {
+                Latitude = 0;
+                Longitude = 0;
+            }
+
+            OnPropertyChanged(nameof(HasCoordinates));
+            OnPropertyChanged(nameof(CoordinatesText));
+        }
+        finally
+        {
+            suppressDraftSync = previousSuppress;
+        }
+    }
+
     private void WriteDraftValues()
     {
-        appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString());
+        appState.SetDraftValue(DraftIdKey, (editingAddress?.Id ?? 0).ToString(CultureInfo.InvariantCulture));
         appState.SetDraftValue(DraftLabelKey, Label);
         appState.SetDraftValue(DraftTextKey, AddressText);
         appState.SetDraftValue(DraftNotesKey, Notes);
+        WriteCoordinateDraft();
+    }
+
+    private void WriteCoordinateDraft()
+    {
+        if (GeoMath.HasValidCoordinates(Latitude, Longitude))
+        {
+            appState.SetDraftValue(DraftLatitudeKey, Latitude.ToString("R", CultureInfo.InvariantCulture));
+            appState.SetDraftValue(DraftLongitudeKey, Longitude.ToString("R", CultureInfo.InvariantCulture));
+            if (appState.DraftFormState is not null)
+            {
+                appState.DraftFormState.AddressLatitude = Latitude;
+                appState.DraftFormState.AddressLongitude = Longitude;
+            }
+        }
+        else
+        {
+            appState.SetDraftValue(DraftLatitudeKey, string.Empty);
+            appState.SetDraftValue(DraftLongitudeKey, string.Empty);
+            if (appState.DraftFormState is not null)
+            {
+                appState.DraftFormState.AddressLatitude = null;
+                appState.DraftFormState.AddressLongitude = null;
+            }
+        }
+    }
+
+    private (double? Latitude, double? Longitude) ReadCoordinateDraft()
+    {
+        if (appState.DraftFormState is { AddressLatitude: { } stateLat, AddressLongitude: { } stateLng }
+            && GeoMath.HasValidCoordinates(stateLat, stateLng))
+        {
+            return (stateLat, stateLng);
+        }
+
+        if (double.TryParse(appState.GetDraftValue(DraftLatitudeKey), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedLat)
+            && double.TryParse(appState.GetDraftValue(DraftLongitudeKey), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedLng)
+            && GeoMath.HasValidCoordinates(parsedLat, parsedLng))
+        {
+            return (parsedLat, parsedLng);
+        }
+
+        return (null, null);
     }
 
     private async Task GetMyCoordinatesAsync()
@@ -235,6 +349,11 @@ public sealed class AddressEditViewModel : FormFeedbackViewModel, IQueryParamete
     {
         isDraftCleared = true;
         appState.ClearDraftPrefix(DraftPrefix);
+        if (appState.DraftFormState is not null)
+        {
+            appState.DraftFormState.AddressLatitude = null;
+            appState.DraftFormState.AddressLongitude = null;
+        }
         appState.SaveState();
     }
 

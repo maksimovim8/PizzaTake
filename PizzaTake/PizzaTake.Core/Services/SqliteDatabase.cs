@@ -12,7 +12,7 @@ public sealed class SqliteDatabase
     private readonly SQLiteAsyncConnection connection;
     private readonly ILogger<SqliteDatabase> logger;
     private readonly SemaphoreSlim initializationLock = new(1, 1);
-    private bool isInitialized;
+    private volatile bool isInitialized;
 
     public SqliteDatabase(IAppPathsService appPaths, ILogger<SqliteDatabase>? logger = null)
         : this(appPaths?.DatabasePath ?? throw new ArgumentNullException(nameof(appPaths)), logger)

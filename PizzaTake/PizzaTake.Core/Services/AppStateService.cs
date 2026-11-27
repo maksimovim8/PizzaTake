@@ -1,9 +1,19 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PizzaTake.Core.Models;
 
 namespace PizzaTake.Core.Services;
+
+public sealed class DraftFormState : Dictionary<string, string>
+{
+    public DraftFormState() : base(StringComparer.Ordinal) { }
+    public DraftFormState(IEqualityComparer<string>? comparer) : base(comparer) { }
+
+    public double? AddressLatitude { get; set; }
+    public double? AddressLongitude { get; set; }
+}
 
 public interface IAppStateService
 {
@@ -13,7 +23,7 @@ public interface IAppStateService
     DeliveryType SelectedDeliveryType { get; set; }
     bool IsDarkTheme { get; }
     bool IsSystemTheme { get; }
-    Dictionary<string, string> DraftFormState { get; set; }
+    DraftFormState DraftFormState { get; set; }
     string? PendingDeepLinkRoute { get; set; }
     void SetDraftValue(string key, string value);
     string? GetDraftValue(string key);
@@ -32,6 +42,8 @@ public sealed class AppStateService : IAppStateService
     private const string ThemeKey = "app.dark-theme";
     private const string ThemeModeKey = "app.theme-mode";
     private const string DraftFormKey = "app.draft-form";
+    private const string DraftAddressLatKey = "app.draft-address-lat";
+    private const string DraftAddressLngKey = "app.draft-address-lng";
 
     private readonly ISettingsService settings;
     private readonly IThemeService themeService;
@@ -54,7 +66,7 @@ public sealed class AppStateService : IAppStateService
     public DeliveryType SelectedDeliveryType { get; set; } = DeliveryType.Delivery;
     public bool IsDarkTheme { get; private set; }
     public bool IsSystemTheme { get; private set; }
-    public Dictionary<string, string> DraftFormState { get; set; } = new(StringComparer.Ordinal);
+    public DraftFormState DraftFormState { get; set; } = new(StringComparer.Ordinal);
     public string? PendingDeepLinkRoute { get; set; }
 
     public void SetDraftValue(string key, string value)
@@ -76,6 +88,12 @@ public sealed class AppStateService : IAppStateService
 
         foreach (var key in keysToRemove)
             DraftFormState.Remove(key);
+
+        if (prefix.StartsWith("addressEdit", StringComparison.Ordinal))
+        {
+            DraftFormState.AddressLatitude = null;
+            DraftFormState.AddressLongitude = null;
+        }
     }
 
     public void SaveState()
@@ -85,7 +103,17 @@ public sealed class AppStateService : IAppStateService
         settings.SetInt(DeliveryTypeKey, (int)SelectedDeliveryType);
         settings.SetBool(ThemeKey, IsDarkTheme);
         settings.SetString(ThemeModeKey, IsSystemTheme ? "System" : IsDarkTheme ? "Dark" : "Light");
-        SaveJson(DraftFormKey, DraftFormState);
+        SaveJson(DraftFormKey, new Dictionary<string, string>(DraftFormState, StringComparer.Ordinal));
+        if (DraftFormState.AddressLatitude.HasValue)
+            settings.SetString(DraftAddressLatKey, DraftFormState.AddressLatitude.Value.ToString("R", CultureInfo.InvariantCulture));
+        else
+            settings.Remove(DraftAddressLatKey);
+
+        if (DraftFormState.AddressLongitude.HasValue)
+            settings.SetString(DraftAddressLngKey, DraftFormState.AddressLongitude.Value.ToString("R", CultureInfo.InvariantCulture));
+        else
+            settings.Remove(DraftAddressLngKey);
+
         logger.LogDebug("Application state saved (City={City}, Pizzeria={Pizzeria})", SelectedCity?.Name, SelectedPizzeria?.StoreNumber);
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -98,7 +126,21 @@ public sealed class AppStateService : IAppStateService
         var savedTheme = settings.GetString(ThemeModeKey, string.Empty);
         if (string.IsNullOrWhiteSpace(savedTheme))
             savedTheme = settings.GetBool(ThemeKey, false) ? "Dark" : "Light";
-        DraftFormState = ReadJson<Dictionary<string, string>>(DraftFormKey) ?? new(StringComparer.Ordinal);
+
+        var restoredEntries = ReadJson<Dictionary<string, string>>(DraftFormKey);
+        var restoredDraft = new DraftFormState(StringComparer.Ordinal);
+        if (restoredEntries is not null)
+        {
+            foreach (var entry in restoredEntries)
+                restoredDraft[entry.Key] = entry.Value;
+        }
+
+        if (double.TryParse(settings.GetString(DraftAddressLatKey, string.Empty), NumberStyles.Float, CultureInfo.InvariantCulture, out var lat))
+            restoredDraft.AddressLatitude = lat;
+        if (double.TryParse(settings.GetString(DraftAddressLngKey, string.Empty), NumberStyles.Float, CultureInfo.InvariantCulture, out var lng))
+            restoredDraft.AddressLongitude = lng;
+
+        DraftFormState = restoredDraft;
         ApplyThemeMode(savedTheme);
         logger.LogDebug("Application state restored (City={City}, Theme={Theme})", SelectedCity?.Name, savedTheme);
         StateChanged?.Invoke(this, EventArgs.Empty);

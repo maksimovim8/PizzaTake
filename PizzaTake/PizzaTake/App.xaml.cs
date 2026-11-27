@@ -38,6 +38,14 @@ public partial class App : Application
             services.GetService<ISyncService>()?.StartConnectivityListener();
             logger.LogInformation("Application window created and started");
         };
+        window.Activated += (_, _) =>
+        {
+            logger.LogInformation("App lifecycle event: Window.Activated");
+        };
+        window.Deactivated += (_, _) =>
+        {
+            logger.LogInformation("App lifecycle event: Window.Deactivated");
+        };
         window.Stopped += (_, _) =>
         {
             appState.SaveState();

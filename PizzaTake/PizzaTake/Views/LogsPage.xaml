@@ -13,7 +13,7 @@
         <converters:LogFilterChipConverter x:Key="LogFilterChipConverter" />
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,12" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="12">
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
             <Button Grid.Column="0"
@@ -34,6 +34,7 @@
                        FontAttributes="Bold"
                        TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}" />
                 <Label Text="{Binding LogFileInfo}"
+                       IsVisible="{Binding IsAdmin}"
                        AutomationId="LogsFileInfoLabel"
                        FontSize="12"
                        TextColor="{AppThemeBinding Light=#78716C, Dark=#A8A29E}" />
@@ -41,6 +42,7 @@
 
             <Button Grid.Column="2"
                     Text="Оновити"
+                    IsVisible="{Binding IsAdmin}"
                     AutomationId="LogsRefreshButton"
                     Command="{Binding LoadLogsCommand}"
                     BackgroundColor="#FDF1D6"
@@ -51,8 +53,10 @@
                     VerticalOptions="Center" />
         </Grid>
 
-        <!-- Level Filter Chips -->
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+        <!-- Admin Content -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" RowSpacing="12" IsVisible="{Binding IsAdmin}">
+            <!-- Level Filter Chips -->
+            <ScrollView Grid.Row="0" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
             <HorizontalStackLayout Spacing="8">
                 <Button Text="Усі"
                         AutomationId="LogsFilterAllButton"
@@ -122,13 +126,13 @@
         </ScrollView>
 
         <!-- Diagnostic Actions & Bug Report -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="1"
                 StrokeShape="RoundRectangle 16"
                 Stroke="{AppThemeBinding Light=#EAE5DC, Dark=#3D342C}"
                 BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#26201B}"
                 Padding="12">
             <VerticalStackLayout Spacing="10">
-                <Entry Text="{Binding BugReportComment}"
+                <Entry Text="{Binding BugReportComment, Mode=TwoWay}"
                        AutomationId="LogsBugReportCommentEntry"
                        Placeholder="Опис проблеми (опційно для звіту)..."
                        TextColor="{AppThemeBinding Light=#1C1917, Dark=#F5F5F4}"
@@ -175,7 +179,7 @@
         </Border>
 
         <!-- Log Entries List -->
-        <CollectionView Grid.Row="3"
+        <CollectionView Grid.Row="2"
                         ItemsSource="{Binding LogEntries}"
                         AutomationId="LogsCollectionView"
                         SelectionMode="None">
@@ -272,5 +276,6 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
+        </Grid>
     </Grid>
 </ContentPage>

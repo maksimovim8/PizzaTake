@@ -57,4 +57,88 @@ public sealed class LogsViewModelTests
         dialogService.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
         navigation.Verify(n => n.GoBackAsync(null), Times.Once);
     }
+
+    [Fact]
+    public async Task SendBugReportCommand_WhenNotAdministrator_ShouldDenyWithoutReadingLogsOrReporting()
+    {
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(false);
+        sessionService.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+        var bugReportService = new Mock<IBugReportService>();
+
+        var sut = new LogsViewModel(
+            logReader.Object,
+            crashReporting.Object,
+            sessionService.Object,
+            navigation.Object,
+            dialogService.Object,
+            bugReportService: bugReportService.Object);
+        sut.BugReportComment = "Test issue";
+
+        await sut.SendBugReportCommand.ExecuteAsync(null);
+
+        dialogService.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
+        logReader.Verify(r => r.ReadRecentRawLinesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        logReader.Verify(r => r.ReadRecentEntriesAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        crashReporting.Verify(c => c.SendUserBugReportAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        bugReportService.Verify(b => b.SendReportAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendBugReportCommand_WithoutBugReportService_WhenNotAdministrator_ShouldDenyWithoutReadingLogsOrReporting()
+    {
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(false);
+        sessionService.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+
+        var sut = CreateSut();
+        await sut.SendBugReportCommand.ExecuteAsync(null);
+
+        dialogService.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
+        logReader.Verify(r => r.ReadRecentRawLinesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        crashReporting.Verify(c => c.SendUserBugReportAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SelectLevelCommand_WhenNotAdministrator_ShouldDenyWithoutMutatingSelectedLevelOrReadingLogs()
+    {
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(false);
+        sessionService.Setup(s => s.CurrentRole).Returns(UserRole.Customer);
+
+        var sut = CreateSut();
+        await sut.SelectLevelCommand.ExecuteAsync("Error");
+
+        sut.SelectedLevel.Should().Be("Усі");
+        sut.IsAllSelected.Should().BeTrue();
+        sut.IsErrorSelected.Should().BeFalse();
+        dialogService.Verify(d => d.AlertAsync("Доступ заборонено", It.IsAny<string>(), "OK"), Times.Once);
+        logReader.Verify(r => r.ReadRecentEntriesAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public void IsAdmin_WhenSessionChanges_ShouldReflectRoleAndRaisePropertyChanged()
+    {
+        var isAdmin = false;
+        sessionService.Setup(s => s.IsInRole(UserRole.Administrator)).Returns(() => isAdmin);
+        var dispatcher = new Mock<IMainThreadDispatcher>();
+        dispatcher.Setup(d => d.BeginInvokeOnMainThread(It.IsAny<Action>())).Callback<Action>(a => a());
+
+        var sut = new LogsViewModel(
+            logReader.Object,
+            crashReporting.Object,
+            sessionService.Object,
+            navigation.Object,
+            dialogService.Object,
+            dispatcher: dispatcher.Object);
+
+        var changedProperties = new List<string?>();
+        sut.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        sut.IsAdmin.Should().BeFalse();
+
+        isAdmin = true;
+        sessionService.Raise(s => s.SessionChanged += null, EventArgs.Empty);
+
+        sut.IsAdmin.Should().BeTrue();
+        changedProperties.Should().Contain(nameof(LogsViewModel.IsAdmin));
+        dispatcher.Verify(d => d.BeginInvokeOnMainThread(It.IsAny<Action>()), Times.Once);
+    }
 }
