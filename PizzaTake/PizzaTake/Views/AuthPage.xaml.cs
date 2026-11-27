@@ -29,6 +29,6 @@ public partial class AuthPage : ContentPage, IQueryAttributable
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        logger.LogDebug("Leaving page {PageName}", nameof(AuthPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(AuthPage));
     }
 }

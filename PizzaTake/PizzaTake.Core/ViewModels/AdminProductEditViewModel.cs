@@ -129,10 +129,21 @@ public sealed class AdminProductEditViewModel : FormFeedbackViewModel, IQueryPar
         sessionService.SessionChanged += OnSessionChanged;
         OnPropertyChanged(nameof(IsAdmin));
         OnPropertyChanged(nameof(CanDeleteProduct));
-        _ = LoadCategoriesAsync();
+        _ = EnsureAdminAccessAndLoadAsync();
     }
 
     public void StopSessionMonitoring() => sessionService.SessionChanged -= OnSessionChanged;
+
+    private async Task EnsureAdminAccessAndLoadAsync()
+    {
+        if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminProductEditViewModel)))
+        {
+            await navigation.GoBackAsync();
+            return;
+        }
+
+        await LoadCategoriesAsync();
+    }
 
     private void OnSessionChanged(object? sender, EventArgs e) =>
         dispatcher.BeginInvokeOnMainThread(() =>

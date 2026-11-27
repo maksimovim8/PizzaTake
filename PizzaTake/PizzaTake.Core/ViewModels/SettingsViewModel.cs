@@ -254,23 +254,25 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
                 IsPhoneVerified = false;
                 Addresses.Clear();
             }
-            else if (profile is not null)
+            else
             {
-                CurrentCityName = string.IsNullOrWhiteSpace(profile.CityName) ? "Не обрано" : profile.CityName;
-                MaskedPhone = MaskPhone(profile.Phone);
-                IsPhoneVerified = profile.IsPhoneVerified && authService.IsAuthenticated;
+                if (profile is not null)
+                {
+                    CurrentCityName = string.IsNullOrWhiteSpace(profile.CityName) ? "Не обрано" : profile.CityName;
+                    MaskedPhone = MaskPhone(profile.Phone);
+                    IsPhoneVerified = profile.IsPhoneVerified && authService.IsAuthenticated;
+                }
+                else
+                {
+                    CurrentCityName = appState.SelectedCity?.Name ?? "Не обрано";
+                    MaskedPhone = "Не вказано";
+                    IsPhoneVerified = false;
+                }
 
                 var savedAddresses = await addressRepository.GetAllAsync();
                 Addresses.Clear();
                 foreach (var address in savedAddresses)
                     Addresses.Add(address);
-            }
-            else
-            {
-                CurrentCityName = "Не обрано";
-                MaskedPhone = "Не вказано";
-                IsPhoneVerified = false;
-                Addresses.Clear();
             }
 
             OnPropertyChanged(nameof(HasNoAddresses));
@@ -396,6 +398,9 @@ public sealed class SettingsViewModel : BaseViewModel, IQueryParameterReceiver
 
     private Task EditAddressAsync(UserAddress? address)
     {
+        if (IsSessionLocked)
+            return Task.CompletedTask;
+
         var parameters = new Dictionary<string, object>();
         if (address is not null)
             parameters["Address"] = address;

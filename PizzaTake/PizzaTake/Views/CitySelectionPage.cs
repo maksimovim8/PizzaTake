@@ -28,7 +28,7 @@ public partial class CitySelectionPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
-        logger.LogDebug("Leaving page {PageName}", nameof(CitySelectionPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(CitySelectionPage));
         base.OnDisappearing();
     }
 }

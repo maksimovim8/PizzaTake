@@ -11,6 +11,7 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
     private readonly IShakeSensorService? shakeSensorService;
     private readonly IMainThreadDispatcher? mainThreadDispatcher;
     private readonly ILogger<OrderDetailPage> logger;
+    private bool isShakeListening;
 
     public OrderDetailPage(
         OrderDetailViewModel viewModel,
@@ -33,11 +34,12 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
     {
         base.OnAppearing();
         viewModel.StartSessionMonitoring();
-        if (shakeSensorService is not null)
+        if (shakeSensorService is not null && !isShakeListening)
         {
             shakeSensorService.ShakeDetected -= OnShakeDetected;
             shakeSensorService.ShakeDetected += OnShakeDetected;
             shakeSensorService.Start();
+            isShakeListening = true;
         }
     }
 
@@ -51,13 +53,14 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
     {
         base.OnDisappearing();
         viewModel.StopSessionMonitoring();
-        if (shakeSensorService is not null)
+        if (shakeSensorService is not null && isShakeListening)
         {
             shakeSensorService.ShakeDetected -= OnShakeDetected;
             shakeSensorService.Stop();
+            isShakeListening = false;
         }
 
-        logger.LogDebug("Leaving page {PageName}", nameof(OrderDetailPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(OrderDetailPage));
     }
 
     private void OnShakeDetected(object? sender, EventArgs e)
@@ -66,7 +69,7 @@ public partial class OrderDetailPage : ContentPage, IQueryAttributable
         {
             try
             {
-                await viewModel.OpenQualityReportAsync();
+                await viewModel.OpenQualityReportCommand.ExecuteAsync(null);
             }
             catch (Exception ex)
             {

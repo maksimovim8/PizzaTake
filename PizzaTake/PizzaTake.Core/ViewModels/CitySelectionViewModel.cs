@@ -124,7 +124,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
         appState.SelectedCity = city;
         appState.SaveState();
         logger.LogInformation("Selected delivery city {CityName} (Id={CityId})", city.Name, city.Id);
-        await SaveProfileCityAsync(city.Name);
+        await SaveProfileCityAsync(city);
 
         if (appState.SelectedPizzeria is null || appState.SelectedDeliveryType == DeliveryType.Pickup)
             await navigation.GoToAsync($"pizzerias?returnTo={returnTo ?? "menu"}");
@@ -132,15 +132,15 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
             await navigation.GoToAsync($"///{returnTo ?? "menu"}");
     }
 
-    private async Task SaveProfileCityAsync(string cityName)
+    private async Task SaveProfileCityAsync(City city)
     {
         if (userProfile is null) return;
         var profile = await userProfile.GetCurrentAsync() ?? new UserProfile();
-        profile.CityName = cityName;
+        profile.CityName = city.Name;
         profile.UpdatedAt = DateTime.UtcNow;
         await userProfile.SaveAsync(profile);
         if (syncService is not null)
-            await syncService.EnqueueAsync("UserProfile", "Update", new { profile.Id, profile.CityName, UpdatedAt = profile.UpdatedAt });
+            await syncService.EnqueueAsync("UserProfile", "Update", new { profile.Id, CityId = city.Id, UpdatedAt = profile.UpdatedAt });
     }
 
     private async Task FindNearbyAsync()
@@ -190,7 +190,7 @@ public sealed class CitySelectionViewModel : BaseViewModel, IQueryParameterRecei
                     appState.SelectedPizzeria = nearestPizzeria;
                     appState.SaveState();
                     logger.LogInformation("Auto-selected nearest city {CityName} and pizzeria {StoreNumber} via GPS", nearest.Name, nearestPizzeria.StoreNumber);
-                    await SaveProfileCityAsync(nearest.Name);
+                    await SaveProfileCityAsync(nearest);
                     await navigation.GoToAsync($"///{returnTo ?? "menu"}");
                     return;
                 }

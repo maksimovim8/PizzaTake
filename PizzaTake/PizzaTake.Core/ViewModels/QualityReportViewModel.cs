@@ -179,14 +179,24 @@ public sealed class QualityReportViewModel : FormFeedbackViewModel, IQueryParame
         RefreshCommandStates();
         try
         {
-            if (requireCameraPermission && !await permissionService.EnsureGrantedAsync(
-                    AppPermission.Camera,
-                    "Дозвіл на камеру",
-                    "Камера потрібна, щоб сфотографувати піцу або стан доставки для акту якості."))
+            if (requireCameraPermission)
             {
-                logger.LogWarning("Camera permission denied while creating quality report");
-                ErrorMessage = "Дозвіл на камеру не надано. Ви можете обрати фото з галереї.";
-                return;
+                if (!mediaService.IsCaptureSupported)
+                {
+                    logger.LogWarning("Camera capture is not supported on this device");
+                    ErrorMessage = "Камера не підтримується на цьому пристрої. Скористайтеся вибором із галереї.";
+                    return;
+                }
+
+                if (!await permissionService.EnsureGrantedAsync(
+                        AppPermission.Camera,
+                        "Дозвіл на камеру",
+                        "Камера потрібна, щоб сфотографувати піцу або стан доставки для акту якості."))
+                {
+                    logger.LogWarning("Camera permission denied while creating quality report");
+                    ErrorMessage = "Дозвіл на камеру не надано. Ви можете обрати фото з галереї.";
+                    return;
+                }
             }
 
             var result = await action();

@@ -22,6 +22,7 @@ public sealed class LogsViewModel : BaseViewModel
     private readonly IDialogService dialogService;
     private readonly IBugReportService? bugReportService;
     private readonly IMainThreadDispatcher? dispatcher;
+    private readonly HttpApiClient? httpApiClient;
     private readonly ILogger<LogsViewModel> logger;
 
     private string selectedLevel = "Усі";
@@ -37,7 +38,8 @@ public sealed class LogsViewModel : BaseViewModel
         IDialogService dialogService,
         ILogger<LogsViewModel>? logger = null,
         IBugReportService? bugReportService = null,
-        IMainThreadDispatcher? dispatcher = null)
+        IMainThreadDispatcher? dispatcher = null,
+        HttpApiClient? httpApiClient = null)
     {
         this.logReaderService = logReaderService;
         this.crashReportingService = crashReportingService;
@@ -46,6 +48,7 @@ public sealed class LogsViewModel : BaseViewModel
         this.dialogService = dialogService;
         this.bugReportService = bugReportService;
         this.dispatcher = dispatcher;
+        this.httpApiClient = httpApiClient;
         this.logger = logger ?? NullLogger<LogsViewModel>.Instance;
         Title = "Журнал логів";
 
@@ -53,6 +56,7 @@ public sealed class LogsViewModel : BaseViewModel
         SelectLevelCommand = new AsyncRelayCommand<string?>(SelectLevelAsync);
         SendBugReportCommand = new AsyncRelayCommand(SendBugReportAsync, () => !IsBusy);
         TestTaskExceptionCommand = new AsyncRelayCommand(TriggerUnobservedTaskExceptionAsync, () => !IsBusy);
+        TestSslPinningCommand = new AsyncRelayCommand(TestSslPinningAsync, () => !IsBusy);
         TestSentryCrashCommand = new AsyncRelayCommand(TriggerTestCrashAsync);
         GoBackCommand = new AsyncRelayCommand(() => navigation.GoBackAsync());
     }
@@ -62,6 +66,7 @@ public sealed class LogsViewModel : BaseViewModel
     public string[] LevelFilters { get; } =
     [
         "Усі",
+        "Debug",
         "Information",
         "Warning",
         "Error",
@@ -76,6 +81,7 @@ public sealed class LogsViewModel : BaseViewModel
             if (SetProperty(ref selectedLevel, value))
             {
                 OnPropertyChanged(nameof(IsAllSelected));
+                OnPropertyChanged(nameof(IsDebugSelected));
                 OnPropertyChanged(nameof(IsInfoSelected));
                 OnPropertyChanged(nameof(IsWarningSelected));
                 OnPropertyChanged(nameof(IsErrorSelected));
@@ -85,6 +91,7 @@ public sealed class LogsViewModel : BaseViewModel
     }
 
     public bool IsAllSelected => string.Equals(SelectedLevel, "Усі", StringComparison.OrdinalIgnoreCase);
+    public bool IsDebugSelected => string.Equals(SelectedLevel, "Debug", StringComparison.OrdinalIgnoreCase);
     public bool IsInfoSelected => string.Equals(SelectedLevel, "Information", StringComparison.OrdinalIgnoreCase);
     public bool IsWarningSelected => string.Equals(SelectedLevel, "Warning", StringComparison.OrdinalIgnoreCase);
     public bool IsErrorSelected => string.Equals(SelectedLevel, "Error", StringComparison.OrdinalIgnoreCase);
@@ -122,6 +129,7 @@ public sealed class LogsViewModel : BaseViewModel
     public IAsyncRelayCommand<string?> SelectLevelCommand { get; }
     public IAsyncRelayCommand SendBugReportCommand { get; }
     public IAsyncRelayCommand TestTaskExceptionCommand { get; }
+    public IAsyncRelayCommand TestSslPinningCommand { get; }
     public IAsyncRelayCommand TestSentryCrashCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
@@ -266,6 +274,45 @@ public sealed class LogsViewModel : BaseViewModel
         _ = Task.Run(() => throw new InvalidOperationException("Simulated unobserved background task exception (Lab 5 test)."));
     }
 
+    private async Task TestSslPinningAsync()
+    {
+        if (!await EnsureAdminAccessAsync(nameof(TestSslPinningCommand), navigateBackOnDeny: false))
+            return;
+
+        if (IsBusy)
+            return;
+
+        IsBusy = true;
+        UpdateCommandStates();
+        try
+        {
+            var client = httpApiClient ?? new HttpApiClient();
+            var rejected = client.VerifySpoofedCertificateRejected();
+            if (rejected)
+            {
+                logger.LogError("SSL certificate pinning diagnostic check: spoofed self-signed certificate was rejected as expected.");
+                StatusMessage = "SSL Pinning активний: підроблений сертифікат відхилено та зафіксовано в журналі [ERR].";
+            }
+            else
+            {
+                logger.LogWarning("SSL certificate pinning diagnostic check did not reject spoofed certificate.");
+                StatusMessage = "Увага: перевірка SSL Pinning повернула неочікуваний результат.";
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error while executing SSL pinning diagnostic test");
+            StatusMessage = "Помилка під час перевірки SSL Pinning.";
+        }
+        finally
+        {
+            IsBusy = false;
+            UpdateCommandStates();
+        }
+
+        await LoadLogsAsync();
+    }
+
     private async Task TriggerTestCrashAsync()
     {
         if (!await EnsureAdminAccessAsync(nameof(TestSentryCrashCommand), navigateBackOnDeny: false))
@@ -325,5 +372,6 @@ public sealed class LogsViewModel : BaseViewModel
     {
         SendBugReportCommand.NotifyCanExecuteChanged();
         TestTaskExceptionCommand.NotifyCanExecuteChanged();
+        TestSslPinningCommand.NotifyCanExecuteChanged();
     }
 }

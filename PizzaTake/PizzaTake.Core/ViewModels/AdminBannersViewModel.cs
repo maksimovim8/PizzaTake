@@ -90,6 +90,18 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
     public IAsyncRelayCommand<MenuBanner?> DeleteBannerCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
+    public void StartSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+        sessionService.SessionChanged += OnSessionChanged;
+        OnPropertyChanged(nameof(IsAdmin));
+    }
+
+    public void StopSessionMonitoring() => sessionService.SessionChanged -= OnSessionChanged;
+
+    private void OnSessionChanged(object? sender, EventArgs e) =>
+        dispatcher.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(IsAdmin)));
+
     public async Task LoadAsync()
     {
         if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminBannersViewModel)))
@@ -103,6 +115,7 @@ public sealed class AdminBannersViewModel : FormFeedbackViewModel
         {
             var list = await bannerRepository.GetAllAsync();
             await dispatcher.InvokeOnMainThreadAsync(() => ReplaceCollection(Banners, list));
+            logger.LogInformation("Loaded {BannerCount} menu banner(s) for admin management", list.Count);
         }
         catch (Exception ex)
         {

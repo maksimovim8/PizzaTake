@@ -28,7 +28,7 @@ public partial class PizzaDetailPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
-        logger.LogDebug("Leaving page {PageName}", nameof(PizzaDetailPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(PizzaDetailPage));
         base.OnDisappearing();
     }
 }

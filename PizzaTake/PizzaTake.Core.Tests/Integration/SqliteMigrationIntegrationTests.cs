@@ -27,13 +27,13 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task InitializeAsync_ShouldApplyMigrationsToV3CreateQualityReportsAndSeedCatalog()
+    public async Task InitializeAsync_ShouldApplyMigrationsToV4CreateCatalogExtensionTablesAndSeedCatalog()
     {
         await database.InitializeAsync();
 
-        SqliteDatabase.LatestSchemaVersion.Should().Be(3);
+        SqliteDatabase.LatestSchemaVersion.Should().Be(4);
         var schemaVersion = await database.GetSchemaVersionAsync();
-        schemaVersion.Should().Be(3);
+        schemaVersion.Should().Be(4);
 
         var addressColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(UserAddresses);");
         addressColumns.Select(c => c.Name).Should().Contain(["Notes", "Latitude", "Longitude"]);
@@ -45,6 +45,12 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
         qualityReportColumns.Select(c => c.Name).Should().Contain(
             ["Id", "OrderId", "OrderNumber", "Description", "PhotoPath", "Latitude", "Longitude", "CreatedAtUtc"]);
 
+        var categoryColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(ProductCategories);");
+        categoryColumns.Select(c => c.Name).Should().Contain(["Id", "Name", "SortOrder"]);
+
+        var bannerColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(MenuBanners);");
+        bannerColumns.Select(c => c.Name).Should().Contain(["Id", "Title", "IsActive"]);
+
         var cities = await database.Connection.Table<City>().ToListAsync();
         var products = await database.Connection.Table<Product>().ToListAsync();
         cities.Should().HaveCountGreaterOrEqualTo(3);
@@ -52,7 +58,7 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task InitializeAsync_FromPreExistingV2Database_ShouldMigrateCleanlyToV3()
+    public async Task InitializeAsync_FromPreExistingV2Database_ShouldMigrateCleanlyToV4()
     {
         await database.Connection.CreateTableAsync<UserProfile>();
         await database.Connection.CreateTableAsync<UserAddress>();
@@ -69,9 +75,11 @@ public sealed class SqliteMigrationIntegrationTests : IAsyncLifetime
 
         await database.InitializeAsync();
 
-        (await database.GetSchemaVersionAsync()).Should().Be(3);
+        (await database.GetSchemaVersionAsync()).Should().Be(4);
         var qualityReportColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(QualityReports);");
         qualityReportColumns.Should().NotBeEmpty();
+        var categoryColumns = await database.Connection.QueryAsync<ColumnRow>("PRAGMA table_info(ProductCategories);");
+        categoryColumns.Should().NotBeEmpty();
     }
 
     [Fact]

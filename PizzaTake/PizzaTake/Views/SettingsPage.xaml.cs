@@ -29,6 +29,6 @@ public partial class SettingsPage : ContentPage, IQueryAttributable
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        logger.LogDebug("Leaving page {PageName}", nameof(SettingsPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(SettingsPage));
     }
 }

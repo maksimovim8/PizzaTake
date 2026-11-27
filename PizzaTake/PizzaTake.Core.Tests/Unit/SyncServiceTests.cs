@@ -125,4 +125,35 @@ public sealed class SyncServiceTests
         remoteAfterNewer!.Value.Kind.Should().Be(DateTimeKind.Utc);
         syncRepo.Verify(r => r.DeleteAsync(newerUnspecifiedItem), Times.Once);
     }
+
+    [Fact]
+    public async Task StartConnectivityListener_WhenAlreadyOnline_ShouldTriggerPendingSync()
+    {
+        var syncRepo = new Mock<ISyncQueueRepository>();
+        var connectivity = new Mock<IConnectivityService>();
+        connectivity.Setup(c => c.IsConnected).Returns(true);
+        connectivity.Setup(c => c.ConnectionDescription).Returns("Wi-Fi");
+
+        var item = new SyncQueueItem
+        {
+            Id = 5,
+            EntityType = "UserAddress",
+            Operation = "Insert",
+            PayloadJson = "{\"Id\":5,\"UpdatedAt\":\"2026-11-27T14:00:00Z\"}",
+            CreatedAt = DateTime.UtcNow
+        };
+        var syncedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        syncRepo.Setup(r => r.GetAllPendingAsync()).ReturnsAsync([item]);
+        syncRepo.Setup(r => r.DeleteAsync(item)).ReturnsAsync(1);
+
+        var sut = new SyncService(syncRepo.Object, new HttpApiClient(), connectivity.Object);
+        sut.SyncCompleted += (_, _) => syncedTcs.TrySetResult();
+
+        sut.StartConnectivityListener();
+
+        var completed = await Task.WhenAny(syncedTcs.Task, Task.Delay(TimeSpan.FromSeconds(2)));
+        completed.Should().Be(syncedTcs.Task);
+        syncRepo.Verify(r => r.DeleteAsync(item), Times.Once);
+        sut.StopConnectivityListener();
+    }
 }

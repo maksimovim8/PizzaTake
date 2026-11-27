@@ -70,6 +70,18 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
     public IAsyncRelayCommand<ProductCategory?> DeleteCategoryCommand { get; }
     public IAsyncRelayCommand GoBackCommand { get; }
 
+    public void StartSessionMonitoring()
+    {
+        sessionService.SessionChanged -= OnSessionChanged;
+        sessionService.SessionChanged += OnSessionChanged;
+        OnPropertyChanged(nameof(IsAdmin));
+    }
+
+    public void StopSessionMonitoring() => sessionService.SessionChanged -= OnSessionChanged;
+
+    private void OnSessionChanged(object? sender, EventArgs e) =>
+        dispatcher.BeginInvokeOnMainThread(() => OnPropertyChanged(nameof(IsAdmin)));
+
     public async Task LoadAsync()
     {
         if (!await RequireAdminAsync(sessionService, dialogService, logger, nameof(AdminCategoriesViewModel)))
@@ -83,6 +95,7 @@ public sealed class AdminCategoriesViewModel : FormFeedbackViewModel
         {
             var items = await categoryRepository.GetAllAsync();
             await dispatcher.InvokeOnMainThreadAsync(() => ReplaceCollection(Categories, items));
+            logger.LogInformation("Loaded {CategoryCount} menu category(ies) for admin management", items.Count);
         }
         catch (Exception ex)
         {

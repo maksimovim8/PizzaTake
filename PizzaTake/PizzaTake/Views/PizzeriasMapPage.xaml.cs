@@ -32,11 +32,6 @@ public partial class PizzeriasMapPage : ContentPage
         viewModel.PinsUpdated += OnPinsUpdated;
         viewModel.FocusRequested -= OnFocusRequested;
         viewModel.FocusRequested += OnFocusRequested;
-        if (Shell.Current is not null)
-        {
-            Shell.Current.Navigated -= OnShellNavigated;
-            Shell.Current.Navigated += OnShellNavigated;
-        }
         viewModel.LoadPinsCommand.Execute(null);
     }
 
@@ -50,8 +45,7 @@ public partial class PizzeriasMapPage : ContentPage
     {
         viewModel.PinsUpdated -= OnPinsUpdated;
         viewModel.FocusRequested -= OnFocusRequested;
-        if (Shell.Current is not null) Shell.Current.Navigated -= OnShellNavigated;
-        logger.LogDebug("Leaving page {PageName}", nameof(PizzeriasMapPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(PizzeriasMapPage));
         base.OnDisappearing();
     }
 
@@ -68,12 +62,6 @@ public partial class PizzeriasMapPage : ContentPage
             AdaptiveContentGrid, MapContainer, DetailsPanel, landscape,
             GridLength.Star, GridLength.Auto, new GridLength(310));
         DetailsPanel.MaximumHeightRequest = landscape ? double.PositiveInfinity : Math.Max(180, height * 0.42);
-    }
-
-    private void OnShellNavigated(object? sender, ShellNavigatedEventArgs e)
-    {
-        if (ReferenceEquals(Shell.Current?.CurrentPage, this))
-            viewModel.LoadPinsCommand.Execute(null);
     }
 
     private void OnPinsUpdated(object? sender, EventArgs e) =>

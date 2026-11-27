@@ -41,7 +41,7 @@ public partial class PizzeriaSelectionPage : ContentPage, IQueryAttributable
     {
         viewModel.MapDataUpdated -= OnMapDataUpdated;
         viewModel.FocusRequested -= OnFocusRequested;
-        logger.LogDebug("Leaving page {PageName}", nameof(PizzeriaSelectionPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(PizzeriaSelectionPage));
         base.OnDisappearing();
     }
 

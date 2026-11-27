@@ -28,6 +28,6 @@ public partial class CartPage : ContentPage
     {
         base.OnDisappearing();
         viewModel.StopConnectivityMonitoring();
-        logger.LogDebug("Leaving page {PageName}", nameof(CartPage));
+        logger.LogInformation("Leaving page {PageName}", nameof(CartPage));
     }
 }
